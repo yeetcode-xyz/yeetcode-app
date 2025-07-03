@@ -1,8 +1,8 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
+const { defineConfig } = require('vite');
+const react = require('@vitejs/plugin-react');
+const { resolve } = require('path');
 
-export default defineConfig({
+module.exports = defineConfig({
   plugins: [react()],
   base: './', // Use relative paths
   build: {

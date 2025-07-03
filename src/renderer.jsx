@@ -12,10 +12,8 @@ const mockFetchLeaderboard = async () => {
 };
 
 function App() {
-  const [step, setStep] = useState('login');
-  const [user, setUser] = useState(null);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [step, setStep] = useState('onboarding');
+  const [user, setUser] = useState({ name: 'User' });
   const [leetUsername, setLeetUsername] = useState('');
   const [groupCode, setGroupCode] = useState('');
   const [myGroupCode, setMyGroupCode] = useState('');
@@ -23,6 +21,8 @@ function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [refreshIn, setRefreshIn] = useState(60);
   const [error, setError] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
 
   // Handle leaderboard refresh
   useEffect(() => {
@@ -44,20 +44,41 @@ function App() {
     setLeaderboard(withTotal);
   };
 
-  // Steps: login -> onboarding -> group -> leaderboard
-  const handleLogin = async () => {
-    setError('');
-    if (username === 'Hi' && password === 'bye') {
-      setUser({ name: username });
-      setStep('onboarding');
-    } else {
-      setError('Invalid username or password');
-    }
-  };
-
   const handleValidateLeet = async () => {
-    // Assume always valid
-    setStep('group');
+    setError('');
+    
+    if (!leetUsername.trim()) {
+      setError('Please enter your LeetCode username');
+      return;
+    }
+    
+    setValidating(true);
+    
+    try {
+      // Call the API through the preload bridge
+      console.log('Calling validateLeetCodeUsername with:', leetUsername);
+      const result = await window.electronAPI.validateLeetCodeUsername(leetUsername);
+      console.log('Validation result in renderer:', result);
+      
+      // Handle various response formats
+      if (result && result.exists === true) {
+        // Success case - username exists
+        setStep('group');
+      } else if (result && result.message === 'Internal server error') {
+        // Special case for internal server error - accept username for development
+        console.log('Accepting username despite server error (development mode)');
+        setStep('group');
+      } else {
+        // Error case
+        const errorMessage = result?.error || result?.message || 'Username not found';
+        setError(`Username validation failed: ${errorMessage}`);
+      }
+    } catch (err) {
+      console.error('Error in validation:', err);
+      setError(`Error: ${err.message || 'Failed to validate username'}`);
+    } finally {
+      setValidating(false);
+    }
   };
 
   const handleJoinGroup = async () => {
@@ -76,25 +97,42 @@ function App() {
     fetchLeaderboard();
   };
 
+  const handleChangeUsername = () => {
+    setEditingUsername(true);
+  };
+
+  const handleSaveUsername = () => {
+    setEditingUsername(false);
+    // Reset the validation process
+    setError('');
+    setValidating(false);
+  };
+
   // UI
   return (
     <div className="w-full max-w-md mx-auto p-6 rounded-2xl shadow-2xl bg-white border-4 border-black min-h-[400px] flex flex-col gap-6" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
       <h1 className="text-2xl font-bold mb-2 text-center border-b-4 border-black pb-2">LeetCode Group Leaderboard</h1>
-      {step === 'login' && (
-        <form onSubmit={e => { e.preventDefault(); handleLogin(); }} className="flex flex-col gap-4">
-          <input className="border-2 border-black rounded-lg px-3 py-2" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
-          <input className="border-2 border-black rounded-lg px-3 py-2" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-          <button type="submit" className="w-full py-3 bg-yellow-300 border-2 border-black rounded-lg font-bold text-lg hover:bg-yellow-400 transition">Login</button>
-          {error && <div className="text-red-600 font-bold">{error}</div>}
-        </form>
-      )}
       {step === 'onboarding' && (
         <div className="flex flex-col gap-4">
-          <input className="border-2 border-black rounded-lg px-3 py-2" placeholder="Your Name" value={user?.name || ''} disabled />
+          <div className="flex gap-2 items-center">
+            <input 
+              className="border-2 border-black rounded-lg px-3 py-2 flex-1" 
+              placeholder="Your Name" 
+              value={user?.name || ''} 
+              onChange={e => setUser({...user, name: e.target.value})}
+            />
+          </div>
           <div className="flex gap-2 items-center">
             <input className="border-2 border-black rounded-lg px-3 py-2 flex-1" placeholder="LeetCode Username" value={leetUsername} onChange={e => setLeetUsername(e.target.value)} />
-            <button onClick={handleValidateLeet} className="px-4 py-2 bg-green-300 border-2 border-black rounded-lg font-bold hover:bg-green-400">Continue</button>
+            <button 
+              onClick={handleValidateLeet} 
+              disabled={validating}
+              className={`px-4 py-2 ${validating ? 'bg-gray-300' : 'bg-green-300 hover:bg-green-400'} border-2 border-black rounded-lg font-bold`}
+            >
+              {validating ? 'Checking...' : 'Continue'}
+            </button>
           </div>
+          {error && <div className="text-red-600 font-bold">{error}</div>}
         </div>
       )}
       {step === 'group' && (
@@ -114,6 +152,15 @@ function App() {
           <div className="flex justify-between items-center">
             <span className="font-bold">Group Code: <span className="font-mono">{myGroupCode || groupCode}</span></span>
             <span className="text-sm">Refreshes in: {refreshIn}s</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="font-bold">User: {user?.name}</span>
+            <button 
+              onClick={() => setStep('onboarding')} 
+              className="px-3 py-1 bg-yellow-300 border-2 border-black rounded-lg text-sm hover:bg-yellow-400"
+            >
+              Change Username
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full border-2 border-black rounded-lg">

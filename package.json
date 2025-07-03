@@ -14,12 +14,14 @@
     "package": "npm run build && electron-forge package",
     "make": "npm run build && electron-forge make",
     "publish": "npm run build && electron-forge publish",
-    "lint": "echo \"No linting configured\""
+    "lint": "echo \"No linting configured\"",
+    "setup-env": "node scripts/setup-env.js"
   },
   "keywords": [],
   "author": "akeen",
   "license": "MIT",
   "dependencies": {
+    "dotenv": "^16.3.1",
     "electron-squirrel-startup": "^1.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -38,5 +40,5 @@
     "electron": "37.1.0",
     "vite": "^5.0.0"
   },
-  "type": "module"
+  "type": "commonjs"
 }
