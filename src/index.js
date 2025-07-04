@@ -3,9 +3,27 @@ const path = require('path');
 const electronSquirrelStartup = require('electron-squirrel-startup');
 const https = require('https');
 const dotenv = require('dotenv');
+const axios = require('axios');
+const fs = require('fs');
 
 // Load environment variables
-dotenv.config();
+console.log('Loading environment variables...');
+const envPath = path.join(__dirname, '..', '.env');
+console.log('Checking for .env file at:', envPath);
+if (fs.existsSync(envPath)) {
+  console.log('.env file exists');
+  dotenv.config({ path: envPath });
+} else {
+  console.log('.env file does not exist');
+  dotenv.config();
+}
+
+// Debug: Print environment variables (without sensitive values)
+console.log('Environment variables loaded:');
+console.log('API_URL exists:', !!process.env.API_URL);
+console.log('API_KEY exists:', !!process.env.API_KEY);
+console.log('LEETCODE_API_URL exists:', !!process.env.LEETCODE_API_URL);
+console.log('LEETCODE_API_KEY exists:', !!process.env.LEETCODE_API_KEY);
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (electronSquirrelStartup) {
@@ -13,14 +31,17 @@ if (electronSquirrelStartup) {
 }
 
 const createWindow = () => {
+  console.log('Creating window with preload script at:', path.join(__dirname, 'preload.js'));
+  
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1500,
+    height: 900,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      sandbox: false
     },
   });
 
@@ -29,6 +50,16 @@ const createWindow = () => {
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
+  
+  // Log when the window is ready
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Window loaded successfully');
+  });
+  
+  // Log any errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
 };
 
 // This method will be called when Electron has finished
@@ -63,6 +94,10 @@ const validateLeetCodeUsername = async (username) => {
   const API_KEY = process.env.LEETCODE_API_KEY;
   const API_URL = process.env.LEETCODE_API_URL;
   
+  console.log('Validating LeetCode username with:', { username });
+  console.log('Using API URL:', API_URL);
+  console.log('API key exists:', !!API_KEY);
+  
   // For development purposes, allow validation without API keys
   if (!API_KEY || !API_URL) {
     console.log('API key or URL not configured. Using mock validation for development.');
@@ -73,43 +108,35 @@ const validateLeetCodeUsername = async (username) => {
     };
   }
   
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify({
-      username: username
-    });
-    
-    const options = {
-      method: 'POST',
+  try {
+    // Use axios instead of https for consistency
+    const config = {
+      method: 'get',
+      url: API_URL,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': API_KEY
+      },
+      data: {
+        username: username
       }
     };
     
-    const req = https.request(API_URL, options, (res) => {
-      let responseData = '';
-      
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      
-      res.on('end', () => {
-        try {
-          const parsedData = JSON.parse(responseData);
-          resolve(parsedData);
-        } catch (e) {
-          reject(new Error(`Error parsing response: ${e.message}`));
-        }
-      });
+    console.log('Making API request with config:', {
+      method: config.method,
+      url: config.url,
+      data: config.data,
+      headers: '(headers with auth)'
     });
     
-    req.on('error', (error) => {
-      reject(new Error(`Request error: ${error.message}`));
-    });
-    
-    req.write(data);
-    req.end();
-  });
+    const response = await axios(config);
+    console.log('API response status:', response.status);
+    return response.data;
+  } catch (error) {
+    console.error('Error validating username:', error.message);
+    console.error('Error details:', error.response?.data || 'No response data');
+    throw new Error(`API request error: ${error.message}`);
+  }
 };
 
 // Register IPC handler for LeetCode username validation
@@ -119,17 +146,25 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
     const result = await validateLeetCodeUsername(username);
     console.log('Validation result:', result);
     
-    // Handle unexpected response format
-    if (result.message === 'Internal server error') {
-      console.log('Received internal server error, using fallback validation');
-      // Fallback to simple validation for development
-      return { 
-        exists: username && username.trim().length > 0,
-        error: null
-      };
+    // Handle API Gateway response format (contains statusCode and body as string)
+    if (result.statusCode && result.body) {
+      try {
+        // Parse the body string into JSON
+        const parsedBody = JSON.parse(result.body);
+        console.log('Parsed API Gateway response:', parsedBody);
+        
+        // Return the parsed body
+        return parsedBody;
+      } catch (parseError) {
+        console.error('Error parsing API response body:', parseError);
+        return { 
+          exists: false, 
+          error: 'Error parsing API response' 
+        };
+      }
     }
     
-    // Ensure the result has the expected format
+    // Handle unexpected response format
     if (result && typeof result.exists === 'undefined') {
       console.log('Unexpected response format, using fallback validation');
       return {

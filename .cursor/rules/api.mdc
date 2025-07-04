@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Always use axios for API, do not expose API key but make sure you handle and debug the API. 

@@ -11,6 +11,7 @@ module.exports = defineConfig({
     rollupOptions: {
       input: {
         renderer: resolve(__dirname, 'src/renderer.jsx'),
+        preload: resolve(__dirname, 'src/preload.js')
       },
       output: {
         entryFileNames: '[name].js',

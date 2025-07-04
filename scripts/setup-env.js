@@ -29,17 +29,28 @@ if (fs.existsSync(envPath)) {
 }
 
 function createEnvFile() {
-  console.log('\nPlease enter your AWS API key:');
-  rl.question('> ', (apiKey) => {
-    console.log('\nPlease enter your LeetCode API URL (press Enter for default):');
-    rl.question('> ', (apiUrl) => {
-      const url = apiUrl;
-      
-      const envContent = `LEETCODE_API_KEY=${apiKey}\nLEETCODE_API_URL=${url}`;
-      
-      fs.writeFileSync(envPath, envContent);
-      console.log('\n.env file created successfully!');
-      rl.close();
+  console.log('\nPlease enter your API URL:');
+  rl.question('> ', (apiUrl) => {
+    console.log('\nPlease enter your API key:');
+    rl.question('> ', (apiKey) => {
+      console.log('\nPlease enter your LeetCode API key (press Enter to skip):');
+      rl.question('> ', (leetcodeApiKey) => {
+        console.log('\nPlease enter your LeetCode API URL (press Enter to skip):');
+        rl.question('> ', (leetcodeApiUrl) => {
+          
+          const envContent = `# API Configuration
+API_URL=${apiUrl}
+API_KEY=${apiKey}
+
+# LeetCode API Configuration
+LEETCODE_API_KEY=${leetcodeApiKey}
+LEETCODE_API_URL=${leetcodeApiUrl}`;
+          
+          fs.writeFileSync(envPath, envContent);
+          console.log('\n.env file created successfully!');
+          rl.close();
+        });
+      });
     });
   });
 } 
