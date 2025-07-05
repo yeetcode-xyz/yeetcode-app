@@ -5,6 +5,13 @@ const https = require('https');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const fs = require('fs');
+const AWS = require('aws-sdk');
+
+dotenv.config();
+
+// Configure DynamoDB DocumentClient
+AWS.config.update({ region: process.env.AWS_REGION });
+const ddb = new AWS.DynamoDB.DocumentClient();
 
 // Load environment variables
 console.log('Loading environment variables...');
@@ -180,15 +187,71 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
   }
 });
 
+ipcMain.handle('join-group', async (event, username, inviteCode) => {
+  // Ensure user exists, then set group_id on their item
+  await ddb.update({
+    TableName: process.env.USERS_TABLE,
+    Key: { username },
+    UpdateExpression: 'SET group_id = :g',
+    ExpressionAttributeValues: { ':g': inviteCode },
+    ConditionExpression: 'attribute_exists(username)'
+  }).promise();
+  return { joined: true, groupId: inviteCode };
+});
+
+ipcMain.handle('create-group', async (event, username) => {
+  // Generate unique 5-digit code
+  function gen5Digit() {
+    return Math.floor(10000 + Math.random() * 90000).toString();
+  }
+  let groupId;
+  for (let i = 0; i < 5; i++) {
+    const candidate = gen5Digit();
+    try {
+      await ddb.put({
+        TableName: process.env.GROUPS_TABLE,
+        Item: { group_id: candidate, created_at: new Date().toISOString() },
+        ConditionExpression: 'attribute_not_exists(group_id)'
+      }).promise();
+      groupId = candidate;
+      break;
+    } catch (err) {
+      if (err.code !== 'ConditionalCheckFailedException') throw err;
+    }
+  }
+  if (!groupId) throw new Error('Unable to generate unique group code');
+
+  // Assign the new group to the user
+  await ddb.update({
+    TableName: process.env.USERS_TABLE,
+    Key: { username },
+    UpdateExpression: 'SET group_id = :g',
+    ExpressionAttributeValues: { ':g': groupId }
+  }).promise();
+
+  return { groupId };
+});
+
+// (Optional) Fetch stats for all users in a group
+ipcMain.handle('get-stats-for-group', async (event, groupId) => {
+  const res = await ddb.query({
+    TableName: process.env.USERS_TABLE,
+    IndexName: 'UsersByGroup',          // ensure you created this GSI
+    KeyConditionExpression: 'group_id = :g',
+    ExpressionAttributeValues: { ':g': groupId }
+  }).promise();
+  return res.Items; // pass back list of usernames for renderer
+});
+
 // Mock group join/create
-const mockJoinGroup = async (inviteCode) => {
-  await new Promise((r) => setTimeout(r, 500));
-  return inviteCode === '12345';
-};
-const mockCreateGroup = async () => {
-  await new Promise((r) => setTimeout(r, 500));
-  return '12345';
-};
+// const mockJoinGroup = async (inviteCode) => {
+//   await new Promise((r) => setTimeout(r, 500));
+//   return inviteCode === '12345';
+// };
+// const mockCreateGroup = async () => {
+//   await new Promise((r) => setTimeout(r, 500));
+//   return '12345';
+// };
 
 // Mock leaderboard fetch
 const mockFetchLeaderboard = async () => {

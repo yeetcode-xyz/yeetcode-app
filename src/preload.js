@@ -7,5 +7,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
   // Add any methods you need here
-  validateLeetCodeUsername: (username) => ipcRenderer.invoke('validate-leetcode-username', username)
+  validateLeetCodeUsername: (username) => ipcRenderer.invoke('validate-leetcode-username', username),
+  joinGroup: (username, code) =>
+  ipcRenderer.invoke('join-group', username, code),
+  createGroup: username =>
+  ipcRenderer.invoke('create-group', username),
+  getStatsForGroup: groupId =>
+  ipcRenderer.invoke('get-stats-for-group', groupId),
 });

@@ -21,6 +21,7 @@
   "author": "akeen",
   "license": "MIT",
   "dependencies": {
+    "aws-sdk": "^2.1692.0",
     "axios": "^1.10.0",
     "dotenv": "^16.3.1",
     "electron-squirrel-startup": "^1.0.1",

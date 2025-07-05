@@ -37,18 +37,32 @@ function createEnvFile() {
       rl.question('> ', (leetcodeApiKey) => {
         console.log('\nPlease enter your LeetCode API URL (press Enter to skip):');
         rl.question('> ', (leetcodeApiUrl) => {
-          
-          const envContent = `# API Configuration
+          console.log('\nPlease enter your AWS region:');
+           rl.question('> ', (awsRegion) => {
+             console.log('\nPlease enter your Users table name:');
+             rl.question('> ', (usersTable) => {
+               console.log('\nPlease enter your Groups table name:');
+               rl.question('> ', (groupsTable) => {
+                 // now build the full .env
+                 const envContent = `# API Configuration
 API_URL=${apiUrl}
 API_KEY=${apiKey}
 
 # LeetCode API Configuration
 LEETCODE_API_KEY=${leetcodeApiKey}
-LEETCODE_API_URL=${leetcodeApiUrl}`;
-          
-          fs.writeFileSync(envPath, envContent);
-          console.log('\n.env file created successfully!');
-          rl.close();
+LEETCODE_API_URL=${leetcodeApiUrl}
+
+# AWS Configuration
+AWS_REGION=${awsRegion}
+USERS_TABLE=${usersTable}
+GROUPS_TABLE=${groupsTable}`;
+                
+                 fs.writeFileSync(envPath, envContent);
+                 console.log('\n.env file created successfully!');
+                 rl.close();
+               });
+             });
+           });
         });
       });
     });

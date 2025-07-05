@@ -125,26 +125,26 @@ function App() {
 
   const handleJoinGroup = async () => {
     setError('');
-    // Accept any code for now
-    setJoined(true);
-    setAnimationClass('fade-out');
-    setTimeout(() => {
-      setStep('leaderboard');
-      setAnimationClass('fade-in');
-      fetchLeaderboard();
-    }, 300);
+    try {
+      await window.electronAPI.joinGroup(leetUsername, groupCode);
+      setMyGroupCode(groupCode);
+      setJoined(true);
+      /* animate & load leaderboard */
+    } catch (err) {
+      setError(err.message || 'Failed to join group');
+    }
   };
 
   const handleCreateGroup = async () => {
-    // Generate dummy code
-    setMyGroupCode('12345');
-    setJoined(true);
-    setAnimationClass('fade-out');
-    setTimeout(() => {
-      setStep('leaderboard');
-      setAnimationClass('fade-in');
-      fetchLeaderboard();
-    }, 300);
+    setError('');
+    try {
+      const { groupId } = await window.electronAPI.createGroup(leetUsername);
+      setMyGroupCode(groupId);
+      setJoined(true);
+      /* animate & load leaderboard */
+    } catch (err) {
+      setError(err.message || 'Failed to create group');
+    }
   };
 
   const handleChangeUsername = () => {
