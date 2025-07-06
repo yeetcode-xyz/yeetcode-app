@@ -75,11 +75,30 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y xvfb
+        sudo apt-get install -y \
+          xvfb \
+          libasound2-dev \
+          libgtk-3-dev \
+          libxss1 \
+          libgconf-2-4 \
+          libxtst6 \
+          libxrandr2 \
+          libasound2 \
+          libpangocairo-1.0-0 \
+          libatk1.0-0 \
+          libcairo-gobject2 \
+          libgtk-3-0 \
+          libgdk-pixbuf2.0-0
         
     - name: Run E2E Electron tests (Linux)
       if: runner.os == 'Linux'
-      run: xvfb-run -a npm run test:e2e
+      env:
+        CI: true
+        DISPLAY: :99.0
+      run: |
+        Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+        sleep 3
+        npm run test:e2e
       
     - name: Run E2E Electron tests (Windows/macOS)
       if: runner.os != 'Linux'
