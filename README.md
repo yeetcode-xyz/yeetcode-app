@@ -17,7 +17,7 @@ Create a `.env` file in the root directory with the following variables:
 
 ```
 LEETCODE_API_KEY=YOUR_API_KEY_HERE
-LEETCODE_API_URL=https://x4a925l0na.execute-api.us-east-1.amazonaws.com/default/CheckLC_Username
+LEETCODE_API_URL=YOUR_AWS_URL_HERE
 ```
 
 Replace `YOUR_API_KEY_HERE` with your actual API key.
