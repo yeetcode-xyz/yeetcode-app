@@ -413,6 +413,19 @@ Example: devHelpers.testLeaderboard()
     }
   };
 
+  const handleLeaveGroup = async () => {
+    setError('');
+    try {
+      await window.electronAPI.leaveGroup(userData.leetUsername);
+      // locally clear it too:
+      setGroupData({ code: '', joined: false });
+      navigateToStep('group');
+    } catch (err) {
+      console.error('Error leaving group:', err);
+      setError('Could not leave group. Please try again.');
+    }
+  };
+
   // UI
   return (
     <div
@@ -612,12 +625,13 @@ Example: devHelpers.testLeaderboard()
 
       {step === 'leaderboard' && (
         <div className={`flex flex-col gap-4 ${animationClass}`}>
-          {/* ← NEW: list of just names */}
+          {/* Members list */}
           <div className="text-sm text-gray-700 italic mb-2">
             <strong>Members:</strong>{' '}
             {leaderboard.map(u => u.name).join(', ') || '— none yet —'}
           </div>
 
+          {/* Group info & refresh */}
           <div className="flex justify-between items-center text-sm">
             <span className="font-bold">
               Group:{' '}
@@ -628,18 +642,28 @@ Example: devHelpers.testLeaderboard()
             <span>Refreshes in: {refreshIn}s</span>
           </div>
 
+          {/* User info, edit & leave */}
           <div className="flex justify-between items-center text-sm">
             <span className="font-bold">
               User: {userData.name} ({userData.leetUsername})
             </span>
-            <button
-              onClick={() => navigateToStep('onboarding')}
-              className="px-3 py-1 bg-yellow-300 border-2 border-black rounded-lg text-xs hover:bg-yellow-400 transition-all duration-200 hover:scale-105"
-            >
-              Edit Profile
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigateToStep('onboarding')}
+                className="px-3 py-1 bg-yellow-300 border-2 border-black rounded-lg text-xs hover:bg-yellow-400 transition-all duration-200 hover:scale-105"
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={handleLeaveGroup}
+                className="px-3 py-1 bg-red-300 border-2 border-black rounded-lg text-xs hover:bg-red-400 transition-all duration-200 hover:scale-105"
+              >
+                Leave Group
+              </button>
+            </div>
           </div>
 
+          {/* Leaderboard table */}
           <div className="overflow-x-auto">
             <table className="min-w-full border-2 border-black rounded-lg">
               <thead>
@@ -656,14 +680,18 @@ Example: devHelpers.testLeaderboard()
               <tbody>
                 {leaderboard.map((u, i) => (
                   <tr
-                    key={u.name}
-                    className={`${u.name === userData.name ? 'bg-pink-200 font-bold' : 'bg-white'} hover:bg-gray-50 transition-colors`}
+                    key={u.username}
+                    className={`${
+                      u.username === userData.leetUsername
+                        ? 'bg-pink-200 font-bold'
+                        : 'bg-white'
+                    } hover:bg-gray-50 transition-colors`}
                   >
                     <td className="px-2 py-1 border-r-2 border-black text-center">
                       {i + 1}
                     </td>
                     <td className="px-2 py-1 border-r-2 border-black">
-                      {u.name}
+                      {u.username}
                     </td>
                     <td className="px-2 py-1 border-r-2 border-black text-center">
                       {u.easy}
@@ -675,7 +703,7 @@ Example: devHelpers.testLeaderboard()
                       {u.hard}
                     </td>
                     <td className="px-2 py-1 border-r-2 border-black text-center">
-                      {u.total}
+                      {u.easy + u.medium + u.hard}
                     </td>
                     <td className="px-2 py-1 text-center">{u.today}</td>
                   </tr>

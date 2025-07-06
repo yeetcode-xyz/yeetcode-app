@@ -419,3 +419,23 @@ ipcMain.handle('get-user-data', async (event, username) => {
     return {};
   }
 });
+
+ipcMain.handle('leave-group', async (event, username) => {
+  console.log('[DEBUG][leave-group] called for username:', username);
+
+  const params = {
+    TableName: process.env.USERS_TABLE,
+    Key: { username },
+    // remove the group_id attribute
+    UpdateExpression: 'REMOVE group_id',
+  };
+
+  try {
+    await ddb.update(params).promise();
+    console.log('[DEBUG][leave-group] success');
+    return { left: true };
+  } catch (err) {
+    console.error('[ERROR][leave-group]', err);
+    throw err;
+  }
+});
