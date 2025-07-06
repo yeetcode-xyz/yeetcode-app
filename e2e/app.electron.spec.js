@@ -10,32 +10,10 @@ test.describe('YeetCode Electron App', () => {
     try {
       // Launch Electron app in headless mode for CI/background testing
       const launchOptions = {
-        args: [
-          path.join(__dirname, '..', 'src', 'index.js'),
-          // Linux-specific flags for headless operation
-          ...(process.platform === 'linux' ? [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-extensions',
-            '--disable-gpu',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-renderer-backgrounding',
-            '--disable-features=TranslateUI',
-            '--disable-web-security',
-            '--headless'
-          ] : [])
-        ],
+        args: [path.join(__dirname, '..', 'src', 'index.js')],
         env: {
           ...process.env,
           NODE_ENV: 'test',
-          DISPLAY: process.env.DISPLAY || ':99', // For Linux CI
-          // Additional Linux environment variables
-          ...(process.platform === 'linux' ? {
-            ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-            ELECTRON_ENABLE_LOGGING: 'true'
-          } : {})
         },
         // Use system Electron, but with better path resolution
         executablePath: undefined,
