@@ -18,4 +18,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getStatsForGroup: groupId =>
     ipcRenderer.invoke('get-stats-for-group', groupId),
+
+  getUserData: username => ipcRenderer.invoke('get-user-data', username),
 });

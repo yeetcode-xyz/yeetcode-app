@@ -223,15 +223,27 @@ Example: devHelpers.testLeaderboard()
 
   // Handle leaderboard refresh
   useEffect(() => {
-    let timer;
-    if (step === 'leaderboard') {
-      timer = setInterval(() => {
-        setRefreshIn(r => (r > 1 ? r - 1 : 60));
-        if (refreshIn === 1) fetchLeaderboard();
-      }, 1000);
+    if (step !== 'leaderboard' || !groupData.joined || !groupData.code) {
+      return;
     }
-    return () => clearInterval(timer);
-  }, [step, refreshIn]);
+
+    // First load right away, and reset the counter
+    fetchLeaderboard();
+    setRefreshIn(60);
+
+    // Then tick every second: when it hits 1, fetch again & reset
+    const countdown = setInterval(() => {
+      setRefreshIn(r => {
+        if (r <= 1) {
+          fetchLeaderboard();
+          return 60;
+        }
+        return r - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdown);
+  }, [step, groupData.joined, groupData.code]);
 
   // Helper functions
   const saveAppState = (currentStep, currentGroupData) => {
@@ -246,11 +258,9 @@ Example: devHelpers.testLeaderboard()
     setTimeout(() => {
       setStep(newStep);
       setAnimationClass('fade-in');
-      if (newStep === 'leaderboard') {
-        fetchLeaderboard();
-      }
     }, 300);
   };
+
   const fetchLeaderboard = async () => {
     const data = await fetchLeaderboardAPI(groupData.code);
     // Replace "You" with actual user name
@@ -277,18 +287,15 @@ Example: devHelpers.testLeaderboard()
       setError('Please enter your LeetCode username');
       return;
     }
-
     if (!userData.name.trim()) {
       setError('Please enter your name');
       return;
     }
 
     setValidating(true);
-
     try {
+      // 1) Validate username via API or mock
       let result = { exists: true, error: null };
-
-      // Try to validate with API if available
       if (window.electronAPI) {
         console.log(
           'Calling validateLeetCodeUsername with:',
@@ -298,11 +305,9 @@ Example: devHelpers.testLeaderboard()
           userData.leetUsername
         );
         console.log('Validation result:', result);
-      } else {
-        console.log('electronAPI not available, using mock validation');
       }
 
-      // Handle API Gateway response format
+      // 2) Handle API Gateway format
       if (result.statusCode && result.body) {
         try {
           result = JSON.parse(result.body);
@@ -312,18 +317,35 @@ Example: devHelpers.testLeaderboard()
         }
       }
 
-      if (result && result.exists === true) {
-        // Success - save user data and proceed
-        setShowSuccess(true);
-        setTimeout(() => {
-          setShowSuccess(false);
-          navigateToStep('group');
-        }, 2000);
-      } else if (result && result.exists === false && result.error) {
-        setError(`Username validation failed: ${result.error}`);
-      } else {
-        setError('Username validation failed. Please try again.');
+      if (!result.exists) {
+        // Validation failed
+        setError(
+          result.error
+            ? `Username validation failed: ${result.error}`
+            : 'Username validation failed. Please try again.'
+        );
+        return;
       }
+
+      // 3) On success, show indicator then fetch & navigate once
+      setShowSuccess(true);
+
+      // Fetch saved user data now
+      const userRecord = await window.electronAPI.getUserData(
+        userData.leetUsername
+      );
+      console.log('🛠 getUserData returned:', userRecord);
+
+      // After 2s, hide success and navigate appropriately
+      setTimeout(() => {
+        setShowSuccess(false);
+        if (userRecord.group_id) {
+          setGroupData({ code: userRecord.group_id, joined: true });
+          navigateToStep('leaderboard');
+        } else {
+          navigateToStep('group');
+        }
+      }, 2000);
     } catch (err) {
       console.error('Error in validation:', err);
       setError(`Error: ${err.message || 'Failed to validate username'}`);

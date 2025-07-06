@@ -401,22 +401,21 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
   );
   return leaderboard;
 });
-// Mock group join/create
-// const mockJoinGroup = async (inviteCode) => {
-//   await new Promise((r) => setTimeout(r, 500));
-//   return inviteCode === '12345';
-// };
-// const mockCreateGroup = async () => {
-//   await new Promise((r) => setTimeout(r, 500));
-//   return '12345';
-// };
 
-// Mock leaderboard fetch
-const mockFetchLeaderboard = async () => {
-  await new Promise(r => setTimeout(r, 500));
-  return [
-    { name: 'Alice', easy: 50, medium: 30, hard: 10, today: 2 },
-    { name: 'Bob', easy: 45, medium: 25, hard: 8, today: 1 },
-    { name: 'You', easy: 40, medium: 20, hard: 5, today: 3 },
-  ];
-};
+ipcMain.handle('get-user-data', async (event, username) => {
+  console.log('[DEBUG][get-user-data] fetching for', username);
+
+  const params = {
+    TableName: process.env.USERS_TABLE,
+    Key: { username },
+  };
+
+  try {
+    const result = await ddb.get(params).promise();
+    console.log('[DEBUG][get-user-data] result:', result.Item);
+    return result.Item || {};
+  } catch (err) {
+    console.error('[ERROR][get-user-data]', err);
+    return {};
+  }
+});
