@@ -1,11 +1,26 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const electronSquirrelStartup = require('electron-squirrel-startup');
-const https = require('https');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const fs = require('fs');
 const AWS = require('aws-sdk');
+
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+// Hot reload for development
+if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+  require('electron-reload')(__dirname, {
+    electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
+    hardResetMethod: 'exit',
+  });
+
+  // Also watch the dist directory for renderer changes
+  require('electron-reload')(path.join(__dirname, '..', 'dist'), {
+    electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
+    hardResetMethod: 'exit',
+  });
+}
 
 dotenv.config();
 
@@ -27,8 +42,6 @@ if (fs.existsSync(envPath)) {
 
 // Debug: Print environment variables (without sensitive values)
 console.log('Environment variables loaded:');
-console.log('API_URL exists:', !!process.env.API_URL);
-console.log('API_KEY exists:', !!process.env.API_KEY);
 console.log('LEETCODE_API_URL exists:', !!process.env.LEETCODE_API_URL);
 console.log('LEETCODE_API_KEY exists:', !!process.env.LEETCODE_API_KEY);
 
@@ -37,35 +50,53 @@ if (electronSquirrelStartup) {
   app.quit();
 }
 
+let mainWindow;
+
 const createWindow = () => {
-  console.log('Creating window with preload script at:', path.join(__dirname, 'preload.js'));
-  
+  console.log(
+    'Creating window with preload script at:',
+    path.join(__dirname, 'preload.js')
+  );
+
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1500,
     height: 900,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      sandbox: false
+      sandbox: false,
     },
   });
 
   // and load the index.html of the app.
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173/index-vite.html');
+    // Only open DevTools if not in test mode
+    if (process.env.NODE_ENV !== 'test') {
+      mainWindow.webContents.openDevTools();
+    }
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
-  
   // Log when the window is ready
   mainWindow.webContents.on('did-finish-load', () => {
     console.log('Window loaded successfully');
   });
-  
+
   // Log any errors
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('Failed to load:', errorCode, errorDescription);
+  mainWindow.webContents.on(
+    'did-fail-load',
+    (event, errorCode, errorDescription) => {
+      console.error('Failed to load:', errorCode, errorDescription);
+    }
+  );
+
+  // Handle window closed
+  mainWindow.on('closed', () => {
+    mainWindow = null;
   });
 };
 
@@ -97,24 +128,29 @@ app.on('window-all-closed', () => {
 // code. You can also put them in separate files and import them here.
 
 // LeetCode username validation using the API
-const validateLeetCodeUsername = async (username) => {
+const validateLeetCodeUsername = async username => {
   const API_KEY = process.env.LEETCODE_API_KEY;
   const API_URL = process.env.LEETCODE_API_URL;
-  
+
   console.log('Validating LeetCode username with:', { username });
   console.log('Using API URL:', API_URL);
   console.log('API key exists:', !!API_KEY);
-  
+
   // For development purposes, allow validation without API keys
   if (!API_KEY || !API_URL) {
-    console.log('API key or URL not configured. Using mock validation for development.');
+    console.log(
+      'API key or URL not configured. Using mock validation for development.'
+    );
     // Simple mock validation - accept any non-empty username
-    return { 
+    return {
       exists: username && username.trim().length > 0,
-      error: username && username.trim().length > 0 ? null : 'Username cannot be empty'
+      error:
+        username && username.trim().length > 0
+          ? null
+          : 'Username cannot be empty',
     };
   }
-  
+
   try {
     // Use axios instead of https for consistency
     const config = {
@@ -122,20 +158,20 @@ const validateLeetCodeUsername = async (username) => {
       url: API_URL,
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': API_KEY
+        'x-api-key': API_KEY,
       },
       data: {
-        username: username
-      }
+        username: username,
+      },
     };
-    
+
     console.log('Making API request with config:', {
       method: config.method,
       url: config.url,
       data: config.data,
-      headers: '(headers with auth)'
+      headers: '(headers with auth)',
     });
-    
+
     const response = await axios(config);
     console.log('API response status:', response.status);
     return response.data;
@@ -152,34 +188,34 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
     console.log('Validating username:', username);
     const result = await validateLeetCodeUsername(username);
     console.log('Validation result:', result);
-    
+
     // Handle API Gateway response format (contains statusCode and body as string)
     if (result.statusCode && result.body) {
       try {
         // Parse the body string into JSON
         const parsedBody = JSON.parse(result.body);
         console.log('Parsed API Gateway response:', parsedBody);
-        
+
         // Return the parsed body
         return parsedBody;
       } catch (parseError) {
         console.error('Error parsing API response body:', parseError);
-        return { 
-          exists: false, 
-          error: 'Error parsing API response' 
+        return {
+          exists: false,
+          error: 'Error parsing API response',
         };
       }
     }
-    
+
     // Handle unexpected response format
     if (result && typeof result.exists === 'undefined') {
       console.log('Unexpected response format, using fallback validation');
       return {
         exists: true, // For development, assume username exists
-        error: null
+        error: null,
       };
     }
-    
+
     return result;
   } catch (error) {
     console.error('Error validating LeetCode username:', error);
@@ -189,13 +225,15 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
 
 ipcMain.handle('join-group', async (event, username, inviteCode) => {
   // Ensure user exists, then set group_id on their item
-  await ddb.update({
-    TableName: process.env.USERS_TABLE,
-    Key: { username },
-    UpdateExpression: 'SET group_id = :g',
-    ExpressionAttributeValues: { ':g': inviteCode },
-    ConditionExpression: 'attribute_exists(username)'
-  }).promise();
+  await ddb
+    .update({
+      TableName: process.env.USERS_TABLE,
+      Key: { username },
+      UpdateExpression: 'SET group_id = :g',
+      ExpressionAttributeValues: { ':g': inviteCode },
+      ConditionExpression: 'attribute_exists(username)',
+    })
+    .promise();
   return { joined: true, groupId: inviteCode };
 });
 
@@ -208,11 +246,13 @@ ipcMain.handle('create-group', async (event, username) => {
   for (let i = 0; i < 5; i++) {
     const candidate = gen5Digit();
     try {
-      await ddb.put({
-        TableName: process.env.GROUPS_TABLE,
-        Item: { group_id: candidate, created_at: new Date().toISOString() },
-        ConditionExpression: 'attribute_not_exists(group_id)'
-      }).promise();
+      await ddb
+        .put({
+          TableName: process.env.GROUPS_TABLE,
+          Item: { group_id: candidate, created_at: new Date().toISOString() },
+          ConditionExpression: 'attribute_not_exists(group_id)',
+        })
+        .promise();
       groupId = candidate;
       break;
     } catch (err) {
@@ -222,24 +262,28 @@ ipcMain.handle('create-group', async (event, username) => {
   if (!groupId) throw new Error('Unable to generate unique group code');
 
   // Assign the new group to the user
-  await ddb.update({
-    TableName: process.env.USERS_TABLE,
-    Key: { username },
-    UpdateExpression: 'SET group_id = :g',
-    ExpressionAttributeValues: { ':g': groupId }
-  }).promise();
+  await ddb
+    .update({
+      TableName: process.env.USERS_TABLE,
+      Key: { username },
+      UpdateExpression: 'SET group_id = :g',
+      ExpressionAttributeValues: { ':g': groupId },
+    })
+    .promise();
 
   return { groupId };
 });
 
 // (Optional) Fetch stats for all users in a group
 ipcMain.handle('get-stats-for-group', async (event, groupId) => {
-  const res = await ddb.query({
-    TableName: process.env.USERS_TABLE,
-    IndexName: 'UsersByGroup',          // ensure you created this GSI
-    KeyConditionExpression: 'group_id = :g',
-    ExpressionAttributeValues: { ':g': groupId }
-  }).promise();
+  const res = await ddb
+    .query({
+      TableName: process.env.USERS_TABLE,
+      IndexName: 'UsersByGroup', // ensure you created this GSI
+      KeyConditionExpression: 'group_id = :g',
+      ExpressionAttributeValues: { ':g': groupId },
+    })
+    .promise();
   return res.Items; // pass back list of usernames for renderer
 });
 
@@ -255,7 +299,7 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
 
 // Mock leaderboard fetch
 const mockFetchLeaderboard = async () => {
-  await new Promise((r) => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 500));
   return [
     { name: 'Alice', easy: 50, medium: 30, hard: 10, today: 2 },
     { name: 'Bob', easy: 45, medium: 25, hard: 8, today: 1 },

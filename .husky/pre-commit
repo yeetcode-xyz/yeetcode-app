@@ -1,0 +1,17 @@
+echo "🔍 Running pre-commit checks..."
+
+# Check if code is formatted with Prettier
+echo "📝 Checking code formatting with Prettier..."
+npm run format:check
+
+# If format check fails, suggest running format command
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Code formatting check failed!"
+  echo "💡 Please run 'npm run format' to fix formatting issues"
+  echo "   Or run 'npm run format:check' to see what needs to be fixed"
+  echo ""
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"

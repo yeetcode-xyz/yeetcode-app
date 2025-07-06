@@ -8,14 +8,31 @@
     "forge": "./forge.config.cjs"
   },
   "scripts": {
-    "start": "npm run build && electron-forge start",
-    "dev": "vite build --watch",
+    "start": "electron .",
+    "dev": "vite",
     "build": "vite build",
     "package": "npm run build && electron-forge package",
     "make": "npm run build && electron-forge make",
     "publish": "npm run build && electron-forge publish",
-    "lint": "echo \"No linting configured\"",
-    "setup-env": "node scripts/setup-env.js"
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
+    "enforce-precommit-hooks": "lint-staged",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test --project=electron",
+    "test:e2e:headed": "playwright test --project=electron --headed",
+    "test:e2e:debug": "playwright test --project=electron --debug",
+    "test:e2e:ui": "playwright test --project=electron --ui",
+    "test:all": "npm run test:run && npm run test:e2e",
+    "setup-env": "node scripts/setup-env.js",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "src/**/*.{js,jsx,ts,tsx,json,css,md}": [
+      "prettier --write"
+    ]
   },
   "keywords": [],
   "author": "akeen",
@@ -39,8 +56,15 @@
     "@electron-forge/plugin-fuses": "^7.8.1",
     "@electron/fuses": "^1.8.0",
     "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^9.2.0",
+    "cross-env": "^7.0.3",
     "electron": "37.1.0",
-    "vite": "^5.0.0"
+    "electron-reload": "^2.0.0-alpha.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.6.2",
+    "vite": "^5.0.0",
+    "wait-on": "^8.0.3"
   },
   "type": "commonjs"
 }

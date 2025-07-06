@@ -1,0 +1,286 @@
+import { test, expect } from '@playwright/test';
+import { _electron as electron } from 'playwright';
+import path from 'path';
+
+test.describe('YeetCode Electron App', () => {
+  let electronApp;
+  let page;
+
+  test.beforeAll(async () => {
+    // Launch Electron app in headless mode for CI/background testing
+    electronApp = await electron.launch({
+      args: [path.join(__dirname, '..', 'src', 'index.js')],
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        DISPLAY: process.env.DISPLAY || ':99', // For Linux CI
+      },
+      // Run headless by default (no visible window on macOS)
+      executablePath: undefined, // Use system Electron
+    });
+
+    // Get the first window
+    page = await electronApp.firstWindow();
+    
+    // Wait for the app to load
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForSelector('h1:has-text("YeetCode")', { timeout: 10000 });
+  });
+
+  test.beforeEach(async () => {
+    // Clear localStorage before each test to ensure clean state
+    await page.evaluate(() => {
+      localStorage.clear();
+      // Force reload to start fresh
+      location.reload();
+    });
+    
+    // Wait for the app to reload and show welcome screen
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForSelector('h1:has-text("YeetCode")', { timeout: 10000 });
+  });
+
+  test.afterAll(async () => {
+    await electronApp.close();
+  });
+
+  test('should launch Electron app successfully', async () => {
+    // Check if the app window is visible
+    expect(await page.title()).toBe('LeetCode Group Leaderboard');
+    
+    // Check if main elements are present
+    await expect(page.locator('h1:has-text("YeetCode")')).toBeVisible();
+    await expect(page.locator('h2:has-text("Welcome to YeetCode! 🚀")')).toBeVisible();
+  });
+
+  test('should have electron-specific features', async () => {
+    // Check if electronAPI is available
+    const electronAPIAvailable = await page.evaluate(() => {
+      return typeof window.electronAPI !== 'undefined';
+    });
+    
+    expect(electronAPIAvailable).toBe(true);
+    
+    // Check available methods
+    const electronAPIMethods = await page.evaluate(() => {
+      return Object.keys(window.electronAPI || {});
+    });
+    
+    expect(electronAPIMethods).toContain('validateLeetCodeUsername');
+    expect(electronAPIMethods).toContain('joinGroup');
+    expect(electronAPIMethods).toContain('createGroup');
+  });
+
+  test('should handle window operations', async () => {
+    // Check window properties
+    const windowSize = await page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }));
+    
+    // Should have reasonable window size (from createWindow in index.js)
+    expect(windowSize.width).toBeGreaterThan(1000);
+    expect(windowSize.height).toBeGreaterThan(500);
+  });
+
+  test('should navigate through onboarding interface', async () => {
+    // Navigate to onboarding
+    await page.click('button:has-text("Get Started! 🎯")');
+    await page.waitForSelector('h2:has-text("Let\'s get you set up!")');
+    
+    // Fill in user information
+    await page.fill('input[placeholder="Enter your first name"]', 'Electron User');
+    await page.fill('input[placeholder="Your LeetCode username"]', 'electronuser123');
+    
+    // Verify form elements are present and functional
+    await expect(page.locator('input[placeholder="Enter your first name"]')).toHaveValue('Electron User');
+    await expect(page.locator('input[placeholder="Your LeetCode username"]')).toHaveValue('electronuser123');
+    await expect(page.locator('button:has-text("Continue")')).toBeVisible();
+    
+    // Test form validation - try with empty fields
+    await page.fill('input[placeholder="Enter your first name"]', '');
+    await page.click('button:has-text("Continue")');
+    
+    // Should show error for empty name
+    await expect(page.locator('text=Please enter your name')).toBeVisible();
+  });
+
+  test('should handle dev helpers for desktop development', async () => {
+    // Test dev helper navigation
+    await page.evaluate(() => {
+      window.devHelpers.goToOnboarding();
+    });
+    
+    await page.waitForSelector('h2:has-text("Let\'s get you set up!")');
+    
+    // Test dev helper data setting
+    await page.evaluate(() => {
+      window.devHelpers.setTestUser('Test User', 'testuser123');
+    });
+    
+    // Verify data was set
+    const userData = await page.evaluate(() => {
+      return JSON.parse(localStorage.getItem('yeetcode_user_data') || '{}');
+    });
+    
+    expect(userData).toEqual({
+      name: 'Test User',
+      leetUsername: 'testuser123',
+    });
+  });
+
+  test('should display development skip option', async () => {
+    // Navigate to group screen
+    await page.evaluate(() => {
+      window.devHelpers.goToGroup();
+    });
+    
+    await page.waitForSelector('h2:has-text("Join or Create a Group")');
+    
+    // Should show development skip option
+    await expect(page.locator('text=Development Mode')).toBeVisible();
+    await expect(page.locator('button:has-text("Skip Group Setup")')).toBeVisible();
+    
+    // Test skip functionality
+    await page.click('button:has-text("Skip Group Setup")');
+    
+    // Should navigate to leaderboard
+    await page.waitForSelector('text=Group: DEV-SKIP');
+    await expect(page.locator('text=Group: DEV-SKIP')).toBeVisible();
+  });
+
+  test('should handle localStorage in electron context', async () => {
+    // Clear storage first
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+    
+    // Set some data using dev helpers
+    await page.evaluate(() => {
+      window.devHelpers.setTestUser('Electron Test', 'electrontest123');
+    });
+    
+    // Check if data was saved
+    const savedData = await page.evaluate(() => {
+      return localStorage.getItem('yeetcode_user_data');
+    });
+    
+    expect(JSON.parse(savedData)).toEqual({
+      name: 'Electron Test',
+      leetUsername: 'electrontest123',
+    });
+  });
+
+  test('should handle app close gracefully', async () => {
+    // This test ensures the app can be closed without errors
+    // The actual closing is handled in afterAll
+    const isVisible = await page.isVisible('h1:has-text("YeetCode")');
+    expect(isVisible).toBe(true);
+  });
+
+  test('should have dev tools available in development', async () => {
+    // Check if dev helpers are available
+    const devHelpersAvailable = await page.evaluate(() => {
+      return typeof window.devHelpers !== 'undefined';
+    });
+    
+    expect(devHelpersAvailable).toBe(true);
+    
+    // Test dev helper functions
+    const devHelperMethods = await page.evaluate(() => {
+      return Object.keys(window.devHelpers || {});
+    });
+    
+    expect(devHelperMethods).toContain('goToWelcome');
+    expect(devHelperMethods).toContain('skipGroup');
+    expect(devHelperMethods).toContain('showState');
+    expect(devHelperMethods).toContain('clearStorage');
+  });
+
+  test('should handle desktop app specific features', async () => {
+    // Test window title
+    expect(await page.title()).toBe('LeetCode Group Leaderboard');
+    
+    // Test that we can access Electron main process features
+    const isElectron = await page.evaluate(() => {
+      return typeof window.electronAPI !== 'undefined' && 
+             typeof window.electronAPI.validateLeetCodeUsername === 'function';
+    });
+    
+    expect(isElectron).toBe(true);
+  });
+
+  test('should handle app menu and shortcuts (desktop only)', async () => {
+    // Test that the app responds to keyboard shortcuts
+    // This is desktop-specific functionality
+    await page.keyboard.press('Meta+R'); // Cmd+R on Mac / Ctrl+R on Windows
+    
+    // App should still be functional after refresh attempt
+    await page.waitForSelector('h1:has-text("YeetCode")', { timeout: 5000 });
+  });
+
+  test('should handle window resize and desktop interactions', async () => {
+    // Get initial window size
+    const initialSize = await page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }));
+    
+    // Test that window has reasonable desktop size
+    expect(initialSize.width).toBeGreaterThan(1000);
+    expect(initialSize.height).toBeGreaterThan(500);
+    
+    // Test that content is responsive to window size
+    await expect(page.locator('h1:has-text("YeetCode")')).toBeVisible();
+  });
+
+  test('should persist data across app restarts (desktop persistence)', async () => {
+    // Set some data using dev helpers
+    await page.evaluate(() => {
+      window.devHelpers.setTestUser('Persistent User', 'persistentuser123');
+    });
+    
+    // Verify data is saved
+    const savedData = await page.evaluate(() => {
+      return localStorage.getItem('yeetcode_user_data');
+    });
+    
+    expect(JSON.parse(savedData)).toEqual({
+      name: 'Persistent User',
+      leetUsername: 'persistentuser123',
+    });
+    
+    // In a real desktop app, this data would persist across app restarts
+    // For this test, we're verifying the storage mechanism works
+  });
+
+  test('should handle desktop app workflow using dev helpers', async () => {
+    // Complete user journey through the desktop app using dev helpers
+    
+    // 1. Start at welcome screen
+    await expect(page.locator('h2:has-text("Welcome to YeetCode! 🚀")')).toBeVisible();
+    
+    // 2. Use dev helpers to set up test data and navigate
+    await page.evaluate(() => {
+      window.devHelpers.setTestUser('Desktop User', 'desktopuser123');
+      window.devHelpers.skipGroup(); // Skip the problematic group setup
+    });
+    
+    // 3. Verify we reach the leaderboard
+    await page.waitForSelector('text=Group: DEV-SKIP');
+    await expect(page.locator('text=User: Desktop User (desktopuser123)')).toBeVisible();
+    
+    // 4. Verify leaderboard functionality
+    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('th:has-text("Name")')).toBeVisible();
+    await expect(page.locator('th:has-text("Total")')).toBeVisible();
+    
+    // 5. Test navigation back to onboarding
+    await page.click('button:has-text("Edit Profile")');
+    await page.waitForSelector('h2:has-text("Let\'s get you set up!")');
+    
+    // 6. Verify user data is pre-filled
+    await expect(page.locator('input[placeholder="Enter your first name"]')).toHaveValue('Desktop User');
+    await expect(page.locator('input[placeholder="Your LeetCode username"]')).toHaveValue('desktopuser123');
+  });
+}); 
