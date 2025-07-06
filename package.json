@@ -67,11 +67,17 @@
     "electron-reload": "^2.0.0-alpha.1",
     "husky": "^9.1.7",
     "jsdom": "^26.1.0",
-    "lint-staged": "^16.1.2",
+    "lint-staged": "^15.2.10",
     "prettier": "^3.6.2",
     "vite": "^5.0.0",
     "vitest": "^3.2.4",
     "wait-on": "^8.0.3"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.0.0",
+    "@rollup/rollup-darwin-x64": "^4.0.0",
+    "@rollup/rollup-darwin-arm64": "^4.0.0",
+    "@rollup/rollup-win32-x64-msvc": "^4.0.0"
   },
   "type": "commonjs"
 }
