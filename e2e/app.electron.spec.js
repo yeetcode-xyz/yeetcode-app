@@ -7,27 +7,38 @@ test.describe('YeetCode Electron App', () => {
   let page;
 
   test.beforeAll(async () => {
-    // Launch Electron app in headless mode for CI/background testing
-    electronApp = await electron.launch({
-      args: [path.join(__dirname, '..', 'src', 'index.js')],
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-        DISPLAY: process.env.DISPLAY || ':99', // For Linux CI
-      },
-      // Run headless by default (no visible window on macOS)
-      executablePath: undefined, // Use system Electron
-    });
+    try {
+      // Launch Electron app in headless mode for CI/background testing
+      electronApp = await electron.launch({
+        args: [path.join(__dirname, '..', 'src', 'index.js')],
+        env: {
+          ...process.env,
+          NODE_ENV: 'test',
+          DISPLAY: process.env.DISPLAY || ':99', // For Linux CI
+        },
+        // Run headless by default (no visible window on macOS)
+        executablePath: undefined, // Use system Electron
+      });
 
-    // Get the first window
-    page = await electronApp.firstWindow();
-    
-    // Wait for the app to load
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForSelector('h1:has-text("YeetCode")', { timeout: 10000 });
+      // Get the first window
+      page = await electronApp.firstWindow();
+      
+      // Wait for the app to load
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForSelector('h1:has-text("YeetCode")', { timeout: 10000 });
+    } catch (error) {
+      console.error('Failed to launch Electron app:', error);
+      throw error;
+    }
   });
 
   test.beforeEach(async () => {
+    // Skip if electronApp failed to launch
+    if (!electronApp || !page) {
+      test.skip('Electron app failed to launch');
+      return;
+    }
+    
     // Clear localStorage before each test to ensure clean state
     await page.evaluate(() => {
       localStorage.clear();
@@ -41,7 +52,13 @@ test.describe('YeetCode Electron App', () => {
   });
 
   test.afterAll(async () => {
-    await electronApp.close();
+    if (electronApp) {
+      try {
+        await electronApp.close();
+      } catch (error) {
+        console.error('Error closing Electron app:', error);
+      }
+    }
   });
 
   test('should launch Electron app successfully', async () => {

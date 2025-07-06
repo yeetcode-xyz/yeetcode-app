@@ -28,6 +28,11 @@
     "test:all": "npm run test:run && npm run test:e2e",
     "setup-env": "node scripts/setup-env.js",
     "help:hooks": "bash scripts/bypass-hooks.sh",
+    "dev:check": "./scripts/dev-check.sh",
+    "release": "./scripts/release.sh",
+    "release:patch": "npm version patch && git push --follow-tags",
+    "release:minor": "npm version minor && git push --follow-tags",
+    "release:major": "npm version major && git push --follow-tags",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -70,14 +75,15 @@
     "jsdom": "^26.1.0",
     "lint-staged": "^15.2.10",
     "prettier": "^3.6.2",
+    "semver": "^7.7.2",
     "vite": "^5.0.0",
     "vitest": "^3.2.4",
     "wait-on": "^8.0.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.0.0",
-    "@rollup/rollup-darwin-x64": "^4.0.0",
     "@rollup/rollup-darwin-arm64": "^4.0.0",
+    "@rollup/rollup-darwin-x64": "^4.0.0",
+    "@rollup/rollup-linux-x64-gnu": "^4.0.0",
     "@rollup/rollup-win32-x64-msvc": "^4.0.0"
   },
   "type": "commonjs"
