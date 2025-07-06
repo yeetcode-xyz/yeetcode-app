@@ -27,6 +27,7 @@
     "test:e2e:ui": "playwright test --project=electron --ui",
     "test:all": "npm run test:run && npm run test:e2e",
     "setup-env": "node scripts/setup-env.js",
+    "help:hooks": "bash scripts/bypass-hooks.sh",
     "prepare": "husky"
   },
   "lint-staged": {

@@ -75,7 +75,7 @@ jobs:
       run: npm run test:e2e
       
     - name: Upload Playwright report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: playwright-report-electron-${{ matrix.os }}
@@ -99,4 +99,5 @@ jobs:
         if [[ "${{ needs.unit-tests.result }}" == "success" && "${{ needs.e2e-electron-tests.result }}" == "success" ]]; then
           echo "🎉 All tests passed!" >> $GITHUB_STEP_SUMMARY
         else
-          echo "⚠️ Some tests failed. Please check the individual job results." >> $GITHUB_STEP_SUMMARY 
+          echo "⚠️ Some tests failed. Please check the individual job results." >> $GITHUB_STEP_SUMMARY
+        fi 
