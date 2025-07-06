@@ -12,15 +12,27 @@ export default defineConfig({
     exclude: ['e2e/**', 'node_modules/**'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
+      include: ['src/**/*.{js,jsx,ts,tsx}'],
       exclude: [
         'node_modules/',
         'dist/',
         'e2e/',
         'src/test/',
+        'src/index.js', // Main Electron process
+        'src/preload.js', // Preload script
         '**/*.config.js',
         '**/*.config.ts',
       ],
+      reportsDirectory: './coverage',
+      thresholds: {
+        global: {
+          branches: 30,
+          functions: 30,
+          lines: 30,
+          statements: 30,
+        },
+      },
     },
   },
 }); 

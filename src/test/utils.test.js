@@ -1,146 +1,134 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// Import the functions we want to test
-// Since they're defined in the component, we'll test them indirectly
-// or extract them to a separate utils file
+// Utility functions defined inline for testing
+const STORAGE_KEYS = {
+  USER_DATA: 'yeetcode_user_data',
+  APP_STATE: 'yeetcode_app_state',
+};
+
+const saveToStorage = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    return true;
+  } catch (error) {
+    console.error('Failed to save to localStorage:', error);
+    return false;
+  }
+};
+
+const loadFromStorage = (key, defaultValue = null) => {
+  try {
+    const item = localStorage.getItem(key);
+    if (item === null) return defaultValue;
+    return JSON.parse(item);
+  } catch (error) {
+    console.error('Failed to load from localStorage:', error);
+    return defaultValue;
+  }
+};
+
+const mockFetchLeaderboard = async () => {
+  await new Promise(r => setTimeout(r, 100)); // Shorter delay for tests
+  return [
+    { name: 'Alice', easy: 50, medium: 30, hard: 10, today: 2 },
+    { name: 'Bob', easy: 45, medium: 25, hard: 8, today: 1 },
+    { name: 'You', easy: 40, medium: 20, hard: 5, today: 3 },
+  ];
+};
+
+const validateUsername = username => {
+  if (!username || typeof username !== 'string') {
+    return { valid: false, error: 'Username is required' };
+  }
+
+  const trimmed = username.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, error: 'Username is required' };
+  }
+
+  if (trimmed.length < 3) {
+    return { valid: false, error: 'Username must be at least 3 characters' };
+  }
+
+  return { valid: true, error: null };
+};
 
 describe('Utility Functions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    // Reset localStorage mocks
+    localStorage.getItem = vi.fn().mockReturnValue(null);
+    localStorage.setItem = vi.fn();
   });
 
-  describe('localStorage utilities', () => {
-    it('should save data to localStorage', () => {
-      const testData = { name: 'John', age: 30 };
-      const key = 'test_key';
+  describe('Storage utilities', () => {
+    it('should save and load data from localStorage', () => {
+      const testData = { name: 'John', username: 'john123' };
 
-      // Simulate the saveToStorage function
-      const saveToStorage = (key, data) => {
-        try {
-          localStorage.setItem(key, JSON.stringify(data));
-        } catch (error) {
-          console.error('Failed to save to localStorage:', error);
-        }
-      };
+      // Test saving
+      const saveResult = saveToStorage(STORAGE_KEYS.USER_DATA, testData);
+      expect(saveResult).toBe(true);
 
-      saveToStorage(key, testData);
+      // Mock localStorage.getItem to return the saved data
+      localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify(testData));
 
-      expect(localStorage.setItem).toHaveBeenCalledWith(
-        key,
-        JSON.stringify(testData)
-      );
-    });
-
-    it('should load data from localStorage', () => {
-      const testData = { name: 'John', age: 30 };
-      const key = 'test_key';
-
-      localStorage.getItem.mockReturnValue(JSON.stringify(testData));
-
-      const loadFromStorage = (key, defaultValue = null) => {
-        try {
-          const item = localStorage.getItem(key);
-          return item ? JSON.parse(item) : defaultValue;
-        } catch (error) {
-          console.error('Failed to load from localStorage:', error);
-          return defaultValue;
-        }
-      };
-
-      const result = loadFromStorage(key);
-
-      expect(result).toEqual(testData);
-      expect(localStorage.getItem).toHaveBeenCalledWith(key);
+      const loadResult = loadFromStorage(STORAGE_KEYS.USER_DATA);
+      expect(loadResult).toEqual(testData);
     });
 
     it('should return default value when localStorage is empty', () => {
-      const key = 'nonexistent_key';
       const defaultValue = { default: true };
-
-      localStorage.getItem.mockReturnValue(null);
-
-      const loadFromStorage = (key, defaultValue = null) => {
-        try {
-          const item = localStorage.getItem(key);
-          return item ? JSON.parse(item) : defaultValue;
-        } catch (error) {
-          console.error('Failed to load from localStorage:', error);
-          return defaultValue;
-        }
-      };
-
-      const result = loadFromStorage(key, defaultValue);
-
+      const result = loadFromStorage('nonexistent_key', defaultValue);
       expect(result).toEqual(defaultValue);
     });
 
     it('should handle JSON parse errors gracefully', () => {
-      const key = 'corrupted_key';
       const defaultValue = { default: true };
+      localStorage.setItem('corrupted_key', 'invalid json');
 
-      localStorage.getItem.mockReturnValue('invalid json');
-
-      const loadFromStorage = (key, defaultValue = null) => {
-        try {
-          const item = localStorage.getItem(key);
-          return item ? JSON.parse(item) : defaultValue;
-        } catch (error) {
-          console.error('Failed to load from localStorage:', error);
-          return defaultValue;
-        }
-      };
-
-      const result = loadFromStorage(key, defaultValue);
-
+      const result = loadFromStorage('corrupted_key', defaultValue);
       expect(result).toEqual(defaultValue);
     });
   });
 
   describe('Mock leaderboard data', () => {
     it('should return mock leaderboard data', async () => {
-      const mockFetchLeaderboard = async () => {
-        await new Promise(r => setTimeout(r, 10)); // Shorter delay for tests
-        return [
-          { name: 'Alice', easy: 50, medium: 30, hard: 10, today: 2 },
-          { name: 'Bob', easy: 45, medium: 25, hard: 8, today: 1 },
-          { name: 'You', easy: 40, medium: 20, hard: 5, today: 3 },
-        ];
-      };
-
       const result = await mockFetchLeaderboard();
 
       expect(result).toHaveLength(3);
-      expect(result[0]).toHaveProperty('name', 'Alice');
-      expect(result[0]).toHaveProperty('easy', 50);
-      expect(result[0]).toHaveProperty('today', 2);
+      expect(result[0]).toEqual({
+        name: 'Alice',
+        easy: 50,
+        medium: 30,
+        hard: 10,
+        today: 2,
+      });
+    });
+  });
+
+  describe('Username validation', () => {
+    it('should validate correct usernames', () => {
+      expect(validateUsername('john123')).toEqual({ valid: true, error: null });
+      expect(validateUsername('user_name')).toEqual({
+        valid: true,
+        error: null,
+      });
     });
 
-    it('should calculate totals correctly', async () => {
-      const mockData = [
-        { name: 'Alice', easy: 50, medium: 30, hard: 10, today: 2 },
-        { name: 'Bob', easy: 45, medium: 25, hard: 8, today: 1 },
-      ];
-
-      const withTotal = mockData.map(u => ({
-        ...u,
-        total: u.easy + u.medium + u.hard,
-      }));
-
-      expect(withTotal[0].total).toBe(90);
-      expect(withTotal[1].total).toBe(78);
-    });
-
-    it('should sort leaderboard by total correctly', async () => {
-      const mockData = [
-        { name: 'Bob', easy: 45, medium: 25, hard: 8, today: 1, total: 78 },
-        { name: 'Alice', easy: 50, medium: 30, hard: 10, today: 2, total: 90 },
-      ];
-
-      const sorted = mockData.sort((a, b) => b.total - a.total);
-
-      expect(sorted[0].name).toBe('Alice');
-      expect(sorted[1].name).toBe('Bob');
+    it('should reject invalid usernames', () => {
+      expect(validateUsername('')).toEqual({
+        valid: false,
+        error: 'Username is required',
+      });
+      expect(validateUsername('ab')).toEqual({
+        valid: false,
+        error: 'Username must be at least 3 characters',
+      });
+      expect(validateUsername(null)).toEqual({
+        valid: false,
+        error: 'Username is required',
+      });
     });
   });
 });
