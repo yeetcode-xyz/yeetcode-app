@@ -2,7 +2,7 @@ echo "🚀 Running pre-push checks..."
 
 # Run all tests before pushing
 echo "🧪 Running all tests..."
-npm run test:all
+npm run test:run
 
 if [ $? -ne 0 ]; then
   echo ""
