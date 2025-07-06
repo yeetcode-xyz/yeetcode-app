@@ -33,8 +33,6 @@ jobs:
         flags: unittests
         name: codecov-umbrella
 
-
-
   e2e-electron-tests:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -71,7 +69,7 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install --with-deps
       
-        - name: Run E2E Electron tests
+    - name: Run E2E Electron tests
       run: npm run test:e2e
       
     - name: Upload Playwright report
