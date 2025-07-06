@@ -35,6 +35,14 @@ console.log('Checking for .env file at:', envPath);
 if (fs.existsSync(envPath)) {
   console.log('.env file exists');
   dotenv.config({ path: envPath });
+  console.log('[ENV] AWS_REGION =', process.env.AWS_REGION);
+  console.log('[ENV] AWS_ACCESS_KEY_ID =', !!process.env.AWS_ACCESS_KEY_ID);
+  console.log(
+    '[ENV] AWS_SECRET_ACCESS_KEY =',
+    !!process.env.AWS_SECRET_ACCESS_KEY
+  );
+  console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
+  console.log('[ENV] GROUPS_TABLE =', process.env.GROUPS_TABLE);
 } else {
   console.log('.env file does not exist');
   dotenv.config();
@@ -223,70 +231,176 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
   }
 });
 
-ipcMain.handle('join-group', async (event, username, inviteCode) => {
-  // Ensure user exists, then set group_id on their item
-  await ddb
-    .update({
-      TableName: process.env.USERS_TABLE,
-      Key: { username },
-      UpdateExpression: 'SET group_id = :g',
-      ExpressionAttributeValues: { ':g': inviteCode },
-      ConditionExpression: 'attribute_exists(username)',
-    })
-    .promise();
-  return { joined: true, groupId: inviteCode };
-});
+// Optional: have AWS SDK emit its own debug
+AWS.config.logger = console;
 
+// CREATE GROUP
 ipcMain.handle('create-group', async (event, username) => {
-  // Generate unique 5-digit code
+  console.log('[DEBUG][create-group] called for username:', username);
+  console.log('[DEBUG][create-group] ENV tables:', {
+    USERS_TABLE: process.env.USERS_TABLE,
+    GROUPS_TABLE: process.env.GROUPS_TABLE,
+  });
+
   function gen5Digit() {
     return Math.floor(10000 + Math.random() * 90000).toString();
   }
+
   let groupId;
   for (let i = 0; i < 5; i++) {
     const candidate = gen5Digit();
+    const putParams = {
+      TableName: process.env.GROUPS_TABLE,
+      Item: {
+        group_id: candidate,
+        created_at: new Date().toISOString(),
+      },
+      ConditionExpression: 'attribute_not_exists(group_id)',
+    };
+
+    console.log(
+      '[DEBUG][create-group] about to call ddb.put with:',
+      JSON.stringify(putParams, null, 2)
+    );
     try {
-      await ddb
-        .put({
-          TableName: process.env.GROUPS_TABLE,
-          Item: { group_id: candidate, created_at: new Date().toISOString() },
-          ConditionExpression: 'attribute_not_exists(group_id)',
-        })
-        .promise();
+      const putRes = await ddb.put(putParams).promise();
+      console.log(
+        '[DEBUG][create-group] ddb.put response:',
+        JSON.stringify(putRes, null, 2)
+      );
       groupId = candidate;
       break;
     } catch (err) {
-      if (err.code !== 'ConditionalCheckFailedException') throw err;
+      console.error('[ERROR][create-group] ddb.put error:', err);
+      if (err.code !== 'ConditionalCheckFailedException') {
+        throw err;
+      }
+      // collision, will retry
     }
   }
-  if (!groupId) throw new Error('Unable to generate unique group code');
 
-  // Assign the new group to the user
-  await ddb
-    .update({
-      TableName: process.env.USERS_TABLE,
-      Key: { username },
-      UpdateExpression: 'SET group_id = :g',
-      ExpressionAttributeValues: { ':g': groupId },
-    })
-    .promise();
+  if (!groupId) {
+    throw new Error('Unable to generate unique group code');
+  }
+
+  const updateParams = {
+    TableName: process.env.USERS_TABLE,
+    Key: { username },
+    UpdateExpression: 'SET group_id = :g',
+    ExpressionAttributeValues: { ':g': groupId },
+  };
+
+  console.log(
+    '[DEBUG][create-group] about to call ddb.update with:',
+    JSON.stringify(updateParams, null, 2)
+  );
+  try {
+    const updateRes = await ddb.update(updateParams).promise();
+    console.log(
+      '[DEBUG][create-group] ddb.update response:',
+      JSON.stringify(updateRes, null, 2)
+    );
+  } catch (err) {
+    console.error('[ERROR][create-group] ddb.update error:', err);
+    throw err;
+  }
 
   return { groupId };
 });
 
-// (Optional) Fetch stats for all users in a group
-ipcMain.handle('get-stats-for-group', async (event, groupId) => {
-  const res = await ddb
-    .query({
-      TableName: process.env.USERS_TABLE,
-      IndexName: 'UsersByGroup', // ensure you created this GSI
-      KeyConditionExpression: 'group_id = :g',
-      ExpressionAttributeValues: { ':g': groupId },
-    })
-    .promise();
-  return res.Items; // pass back list of usernames for renderer
+// JOIN GROUP
+ipcMain.handle('join-group', async (event, username, inviteCode) => {
+  console.log(
+    '[DEBUG][join-group] called for username:',
+    username,
+    'inviteCode:',
+    inviteCode
+  );
+  console.log('[DEBUG][join-group] ENV USERS_TABLE:', process.env.USERS_TABLE);
+
+  const updateParams = {
+    TableName: process.env.USERS_TABLE,
+    Key: { username },
+    UpdateExpression: 'SET group_id = :g',
+    ExpressionAttributeValues: { ':g': inviteCode },
+    // removed ConditionExpression so this will upsert
+  };
+
+  console.log(
+    '[DEBUG][join-group] about to call ddb.update with:',
+    JSON.stringify(updateParams, null, 2)
+  );
+  try {
+    const updateRes = await ddb.update(updateParams).promise();
+    console.log(
+      '[DEBUG][join-group] ddb.update response:',
+      JSON.stringify(updateRes, null, 2)
+    );
+  } catch (err) {
+    console.error('[ERROR][join-group] ddb.update error:', err);
+    throw err;
+  }
+
+  return { joined: true, groupId: inviteCode };
 });
 
+// index.js
+ipcMain.handle('get-stats-for-group', async (event, groupId) => {
+  console.log('[DEBUG][get-stats-for-group] groupId =', groupId);
+
+  let items = [];
+
+  // 1️⃣ Try querying via GSI
+  const queryParams = {
+    TableName: process.env.USERS_TABLE,
+    IndexName: 'group_id-index', // your GSI name
+    KeyConditionExpression: 'group_id = :g',
+    ExpressionAttributeValues: { ':g': groupId },
+  };
+
+  try {
+    const result = await ddb.query(queryParams).promise();
+    items = result.Items || [];
+    console.log('[DEBUG][get-stats-for-group] items from query:', items);
+  } catch (err) {
+    console.error('[ERROR][get-stats-for-group] GSI query failed:', err);
+
+    // 2️⃣ Fall back to a full scan + filter
+    console.log(
+      '[DEBUG][get-stats-for-group] falling back to scan on USERS_TABLE'
+    );
+    const scanParams = {
+      TableName: process.env.USERS_TABLE,
+      FilterExpression: 'group_id = :g',
+      ExpressionAttributeValues: { ':g': groupId },
+    };
+
+    try {
+      const scanResult = await ddb.scan(scanParams).promise();
+      items = scanResult.Items || [];
+      console.log('[DEBUG][get-stats-for-group] items from scan:', items);
+    } catch (scanErr) {
+      console.error('[ERROR][get-stats-for-group] scan failed:', scanErr);
+      // give up and return empty list
+      return [];
+    }
+  }
+
+  // 3️⃣ Map to leaderboard shape
+  const leaderboard = items.map(item => ({
+    username: item.username,
+    easy: item.easyCount || 0,
+    medium: item.mediumCount || 0,
+    hard: item.hardCount || 0,
+    today: item.todayCount || 0,
+  }));
+
+  console.log(
+    '[DEBUG][get-stats-for-group] returning leaderboard:',
+    leaderboard
+  );
+  return leaderboard;
+});
 // Mock group join/create
 // const mockJoinGroup = async (inviteCode) => {
 //   await new Promise((r) => setTimeout(r, 500));

@@ -7,14 +7,38 @@ const STORAGE_KEYS = {
   APP_STATE: 'yeetcode_app_state',
 };
 
-// Dummy leaderboard fetch
-const mockFetchLeaderboard = async () => {
-  await new Promise(r => setTimeout(r, 500));
-  return [
-    { name: 'Alice', easy: 50, medium: 30, hard: 10, today: 2 },
-    { name: 'Bob', easy: 45, medium: 25, hard: 8, today: 1 },
-    { name: 'You', easy: 40, medium: 20, hard: 5, today: 3 },
-  ];
+const fetchLeaderboardAPI = async groupCode => {
+  let items = [];
+  try {
+    if (window.electronAPI && window.electronAPI.getStatsForGroup) {
+      // 1) grab all users in our group
+      items = await window.electronAPI.getStatsForGroup(groupCode);
+    } else {
+      // fallback to mock data
+      // Return mock leaderboard data
+      items = [
+        { username: 'You', easy: 5, medium: 3, hard: 1, today: 1 },
+        { username: 'Alice', easy: 7, medium: 2, hard: 0, today: 0 },
+        { username: 'Bob', easy: 4, medium: 4, hard: 2, today: 2 },
+      ];
+    }
+  } catch (err) {
+    console.error('Error fetching group members:', err);
+    return [];
+  }
+
+  // 2) normalize DynamoDB items into your leaderboard shape
+  //    right now your user items only have { username, group_id, ... }
+  //    so we’ll show zeroes for counts until you wire up real stats
+  const data = items.map(item => ({
+    name: item.username,
+    easy: item.easy ?? 0,
+    medium: item.medium ?? 0,
+    hard: item.hard ?? 0,
+    today: item.today ?? 0,
+  }));
+
+  return data;
 };
 
 // Local storage utilities
@@ -227,9 +251,8 @@ Example: devHelpers.testLeaderboard()
       }
     }, 300);
   };
-
   const fetchLeaderboard = async () => {
-    const data = await mockFetchLeaderboard();
+    const data = await fetchLeaderboardAPI(groupData.code);
     // Replace "You" with actual user name
     const withUserName = data.map(u =>
       u.name === 'You' ? { ...u, name: userData.name || 'You' } : u
@@ -567,6 +590,12 @@ Example: devHelpers.testLeaderboard()
 
       {step === 'leaderboard' && (
         <div className={`flex flex-col gap-4 ${animationClass}`}>
+          {/* ← NEW: list of just names */}
+          <div className="text-sm text-gray-700 italic mb-2">
+            <strong>Members:</strong>{' '}
+            {leaderboard.map(u => u.name).join(', ') || '— none yet —'}
+          </div>
+
           <div className="flex justify-between items-center text-sm">
             <span className="font-bold">
               Group:{' '}
