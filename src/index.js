@@ -197,22 +197,29 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
     const result = await validateLeetCodeUsername(username);
     console.log('Validation result:', result);
 
-    // Handle API Gateway response format (contains statusCode and body as string)
+    // Handle API Gateway response format (contains statusCode and body)
     if (result.statusCode && result.body) {
-      try {
-        // Parse the body string into JSON
-        const parsedBody = JSON.parse(result.body);
-        console.log('Parsed API Gateway response:', parsedBody);
+      console.log('API Gateway response:', result);
 
-        // Return the parsed body
-        return parsedBody;
-      } catch (parseError) {
-        console.error('Error parsing API response body:', parseError);
-        return {
-          exists: false,
-          error: 'Error parsing API response',
-        };
+      // Check if body is already an object or needs parsing
+      let parsedBody;
+      if (typeof result.body === 'string') {
+        try {
+          parsedBody = JSON.parse(result.body);
+        } catch (parseError) {
+          console.error('Error parsing API response body:', parseError);
+          return {
+            exists: false,
+            error: 'Error parsing API response',
+          };
+        }
+      } else {
+        // Body is already an object
+        parsedBody = result.body;
       }
+
+      console.log('Parsed API Gateway response:', parsedBody);
+      return parsedBody;
     }
 
     // Handle unexpected response format

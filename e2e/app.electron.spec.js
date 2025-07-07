@@ -334,4 +334,105 @@ test.describe('YeetCode Electron App', () => {
     await expect(page.locator('input[placeholder="Enter your first name"]')).toHaveValue('Desktop User');
     await expect(page.locator('input[placeholder="Your LeetCode username"]')).toHaveValue('desktopuser123');
   });
+
+  test('should join group 43837 and display leaderboard', async () => {
+    // Set up test user data first
+    await page.evaluate(() => {
+      window.devHelpers.setTestUser('E2E Test User', 'testuser');
+    });
+
+    // Navigate to group screen
+    await page.evaluate(() => {
+      window.devHelpers.goToGroup();
+    });
+
+    await page.waitForSelector('h2:has-text("Join or Create a Group")');
+
+    // Enter group code 43837
+    const groupInput = page.locator('input[placeholder="Enter invite code"]');
+    await groupInput.fill('43837');
+
+    // Verify the input was filled correctly
+    await expect(groupInput).toHaveValue('43837');
+
+    // Mock the electronAPI functions to simulate successful group join
+    await page.evaluate(() => {
+      // Store original functions
+      const originalJoinGroup = window.electronAPI.joinGroup;
+      const originalGetStatsForGroup = window.electronAPI.getStatsForGroup;
+
+      // Mock successful group join
+      window.electronAPI.joinGroup = async (username, groupCode) => {
+        console.log('Mocking joinGroup for', username, 'to group', groupCode);
+        return { joined: true, groupId: groupCode };
+      };
+
+      // Mock leaderboard data for group 43837
+      window.electronAPI.getStatsForGroup = async (groupId) => {
+        console.log('Mocking getStatsForGroup for group', groupId);
+        if (groupId === '43837') {
+          // Return mock data that matches the expected format
+          return [
+            {
+              username: 'sidmo2006',
+              easyCount: 0,
+              mediumCount: 0,
+              hardCount: 0,
+              todayCount: 0,
+            },
+            {
+              username: 'KshitijNdev',  
+              easyCount: 0,
+              mediumCount: 0,
+              hardCount: 0,
+              todayCount: 0,
+            },
+          ];
+        }
+        return [];
+      };
+    });
+
+    // Click join group button
+    await page.click('button:has-text("Join Group")');
+
+    // Wait for navigation to leaderboard
+    await page.waitForSelector('text=Group: 43837', { timeout: 10000 });
+
+    // Verify we're on the leaderboard screen with correct group
+    await expect(page.locator('text=Group: 43837')).toBeVisible();
+
+    // Verify user info is displayed
+    await expect(page.locator('text=User: E2E Test User (testuser)')).toBeVisible();
+
+    // Verify leaderboard table is present
+    await expect(page.locator('table')).toBeVisible();
+
+    // Verify table headers
+    await expect(page.locator('th:has-text("Name")')).toBeVisible();
+    await expect(page.locator('th:has-text("Easy")')).toBeVisible();
+    await expect(page.locator('th:has-text("Med")')).toBeVisible();
+    await expect(page.locator('th:has-text("Hard")')).toBeVisible();
+    await expect(page.locator('th:has-text("Total")')).toBeVisible();
+    await expect(page.locator('th:has-text("Today")')).toBeVisible();
+
+    // Wait a moment for the leaderboard to load
+    await page.waitForTimeout(1000);
+
+    // Verify members list section exists
+    await expect(page.locator('text=/Members:/')).toBeVisible();
+
+    // Verify leaderboard table is present
+    await expect(page.locator('table')).toBeVisible();
+
+    // Verify refresh countdown is working
+    await expect(page.locator('text=/Refreshes in: \\d+s/')).toBeVisible();
+
+    // Test leave group functionality
+    await page.click('button:has-text("Leave Group")');
+
+    // Should navigate back to group screen
+    await page.waitForSelector('h2:has-text("Join or Create a Group")');
+    await expect(page.locator('h2:has-text("Join or Create a Group")')).toBeVisible();
+  });
 }); 

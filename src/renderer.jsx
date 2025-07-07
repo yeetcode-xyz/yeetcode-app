@@ -11,27 +11,21 @@ const fetchLeaderboardAPI = async groupCode => {
   let items = [];
   try {
     if (window.electronAPI && window.electronAPI.getStatsForGroup) {
-      // 1) grab all users in our group
+      // Grab all users in our group from DynamoDB
       items = await window.electronAPI.getStatsForGroup(groupCode);
     } else {
-      // fallback to mock data
-      // Return mock leaderboard data
-      items = [
-        { username: 'You', easy: 5, medium: 3, hard: 1, today: 1 },
-        { username: 'Alice', easy: 7, medium: 2, hard: 0, today: 0 },
-        { username: 'Bob', easy: 4, medium: 4, hard: 2, today: 2 },
-      ];
+      console.warn('electronAPI not available - leaderboard will be empty');
+      return [];
     }
   } catch (err) {
     console.error('Error fetching group members:', err);
     return [];
   }
 
-  // 2) normalize DynamoDB items into your leaderboard shape
-  //    right now your user items only have { username, group_id, ... }
-  //    so we’ll show zeroes for counts until you wire up real stats
+  // Normalize DynamoDB items into leaderboard shape
   const data = items.map(item => ({
     name: item.username,
+    username: item.username, // Keep username for unique key
     easy: item.easy ?? 0,
     medium: item.medium ?? 0,
     hard: item.hard ?? 0,
@@ -263,12 +257,8 @@ Example: devHelpers.testLeaderboard()
 
   const fetchLeaderboard = async () => {
     const data = await fetchLeaderboardAPI(groupData.code);
-    // Replace "You" with actual user name
-    const withUserName = data.map(u =>
-      u.name === 'You' ? { ...u, name: userData.name || 'You' } : u
-    );
     // Add total and sort
-    const withTotal = withUserName.map(u => ({
+    const withTotal = data.map(u => ({
       ...u,
       total: u.easy + u.medium + u.hard,
     }));
@@ -691,7 +681,7 @@ Example: devHelpers.testLeaderboard()
                       {i + 1}
                     </td>
                     <td className="px-2 py-1 border-r-2 border-black">
-                      {u.username}
+                      {u.name}
                     </td>
                     <td className="px-2 py-1 border-r-2 border-black text-center">
                       {u.easy}
