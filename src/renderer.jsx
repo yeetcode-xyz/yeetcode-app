@@ -7,34 +7,6 @@ const STORAGE_KEYS = {
   APP_STATE: 'yeetcode_app_state',
 };
 
-const fetchLeaderboardAPI = async groupCode => {
-  let items = [];
-  try {
-    if (window.electronAPI && window.electronAPI.getStatsForGroup) {
-      // Grab all users in our group from DynamoDB
-      items = await window.electronAPI.getStatsForGroup(groupCode);
-    } else {
-      console.warn('electronAPI not available - leaderboard will be empty');
-      return [];
-    }
-  } catch (err) {
-    console.error('Error fetching group members:', err);
-    return [];
-  }
-
-  // Normalize DynamoDB items into leaderboard shape
-  const data = items.map(item => ({
-    name: item.username,
-    username: item.username, // Keep username for unique key
-    easy: item.easy ?? 0,
-    medium: item.medium ?? 0,
-    hard: item.hard ?? 0,
-    today: item.today ?? 0,
-  }));
-
-  return data;
-};
-
 // Local storage utilities
 const saveToStorage = (key, data) => {
   try {
@@ -256,14 +228,26 @@ Example: devHelpers.testLeaderboard()
   };
 
   const fetchLeaderboard = async () => {
-    const data = await fetchLeaderboardAPI(groupData.code);
-    // Add total and sort
-    const withTotal = data.map(u => ({
-      ...u,
-      total: u.easy + u.medium + u.hard,
-    }));
-    withTotal.sort((a, b) => b.total - a.total);
-    setLeaderboard(withTotal);
+    if (!groupData.code) return;
+
+    try {
+      // 1) IPC into main, DynamoDB GSI or scan
+      const items = await window.electronAPI.getStatsForGroup(groupData.code);
+
+      // 2) Normalize + compute totals
+      const normalized = items.map(item => ({
+        username: item.username,
+        name: item.username,
+        easy: item.easy ?? 0,
+        medium: item.medium ?? 0,
+        hard: item.hard ?? 0,
+        today: item.today ?? 0,
+      }));
+
+      setLeaderboard(normalized);
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err);
+    }
   };
 
   const handleStartOnboarding = () => {
@@ -638,12 +622,6 @@ Example: devHelpers.testLeaderboard()
               User: {userData.name} ({userData.leetUsername})
             </span>
             <div className="flex gap-2">
-              <button
-                onClick={() => navigateToStep('onboarding')}
-                className="px-3 py-1 bg-yellow-300 border-2 border-black rounded-lg text-xs hover:bg-yellow-400 transition-all duration-200 hover:scale-105"
-              >
-                Edit Profile
-              </button>
               <button
                 onClick={handleLeaveGroup}
                 className="px-3 py-1 bg-red-300 border-2 border-black rounded-lg text-xs hover:bg-red-400 transition-all duration-200 hover:scale-105"

@@ -396,12 +396,12 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
   // 3️⃣ Map to leaderboard shape
   const leaderboard = items.map(item => ({
     username: item.username,
-    easy: item.easyCount || 0,
-    medium: item.mediumCount || 0,
-    hard: item.hardCount || 0,
-    today: item.todayCount || 0,
+    name: item.username,
+    easy: item.easy ?? 0,
+    medium: item.medium ?? 0,
+    hard: item.hard ?? 0,
+    today: item.today ?? 0,
   }));
-
   console.log(
     '[DEBUG][get-stats-for-group] returning leaderboard:',
     leaderboard
