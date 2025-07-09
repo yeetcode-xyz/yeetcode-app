@@ -447,7 +447,7 @@ Example: devHelpers.testLeaderboard()
 
           <button
             onClick={handleStartOnboarding}
-            className="px-6 py-3 bg-orange-500 hover:bg-orange-600 border-2 border-black rounded-lg font-bold text-black shadow-lg transform hover:scale-105 transition-all duration-200"
+            className="px-6 py-3 bg-yellow-300 hover:bg-yellow-5  00 border-2 border-black rounded-lg font-bold text-black shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Get Started! 🎯
           </button>
@@ -475,9 +475,6 @@ Example: devHelpers.testLeaderboard()
         <div className={`flex flex-col gap-4 ${animationClass}`}>
           <div className="text-center mb-2">
             <h2 className="text-lg font-bold">Let's get you set up!</h2>
-            <p className="text-sm text-gray-600">
-              Enter your details to join the competition
-            </p>
           </div>
 
           <div className="space-y-4">
@@ -509,7 +506,7 @@ Example: devHelpers.testLeaderboard()
                 <button
                   onClick={handleValidateLeet}
                   disabled={validating}
-                  className={`px-4 py-2 ${validating ? 'bg-gray-400 text-gray-200' : 'bg-orange-500 hover:bg-orange-600 text-black'} border-2 border-black rounded-lg font-bold transition-all duration-200 ${!validating ? 'hover:scale-105 shadow-lg' : 'cursor-not-allowed'}`}
+                  className={`px-4 py-2 ${validating ? 'bg-gray-400 text-gray-200' : 'bg-yellow-300 hover:bg-yellow-500 text-black'} border-2 border-black rounded-lg font-bold transition-all duration-200 ${!validating ? 'hover:scale-105 shadow-lg' : 'cursor-not-allowed'}`}
                 >
                   {validating ? 'Checking...' : 'Continue'}
                 </button>
@@ -531,13 +528,13 @@ Example: devHelpers.testLeaderboard()
                   <div className="text-white font-bold text-xl">
                     CODER VERIFIED!
                   </div>
-                  <div className="text-orange-100 text-sm">
+                  <div className="text-black text-sm">
                     Welcome to the competition arena
                   </div>
-                  <div className="flex justify-center items-center gap-2 text-yellow-100">
-                    <span className="text-lg animate-spin">⚡</span>
+                  <div className="flex justify-center items-center gap-2 text-black">
+                    <span>⚡</span>
                     <span className="font-bold">Initializing dashboard...</span>
-                    <span className="text-lg animate-spin">⚡</span>
+                    <span>⚡</span>
                   </div>
                 </div>
                 {/* Animated background effects */}
@@ -646,7 +643,7 @@ Example: devHelpers.testLeaderboard()
                 >
                   {groupData.code}
                   {showCopySuccess ? (
-                    <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-2 py-1 rounded text-xs animate-bounce whitespace-nowrap">
+                    <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
                       ✅ Copied!
                     </span>
                   ) : (
@@ -674,7 +671,7 @@ Example: devHelpers.testLeaderboard()
           </div>
 
           {/* 3-Column Dashboard Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             {/* Main Content - Left 2 Columns */}
             <div className="lg:col-span-2 space-y-6">
               {/* Today's Challenge */}
@@ -825,12 +822,6 @@ Example: devHelpers.testLeaderboard()
                           </span>
                         </div>
                       </div>
-                      <div className="mt-3 text-center">
-                        <span className="text-sm text-gray-600">
-                          Win Rate:{' '}
-                        </span>
-                        <span className="font-bold text-green-600">67%</span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -840,7 +831,7 @@ Example: devHelpers.testLeaderboard()
             {/* Sidebar - Right Column */}
             <div className="space-y-6">
               {/* User Stats */}
-              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-80">
                 <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
                   <div className="flex items-center gap-2">
                     <span className="text-white text-lg">📊</span>
@@ -885,7 +876,7 @@ Example: devHelpers.testLeaderboard()
               </div>
 
               {/* Friends Leaderboard */}
-              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-70">
                 <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
                   <div className="flex items-center gap-2">
                     <span className="text-white text-lg">🏆</span>
@@ -972,7 +963,7 @@ Example: devHelpers.testLeaderboard()
               </div>
 
               {/* Quick Actions */}
-              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-72">
                 <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">⚡</span>
@@ -981,7 +972,7 @@ Example: devHelpers.testLeaderboard()
                     </h3>
                   </div>
                 </div>
-                <div className="p-6 space-y-3">
+                <div className="p-8 space-y-3">
                   <button className="w-full bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
                     <span>👥</span>
                     CHALLENGE FRIEND
