@@ -244,6 +244,13 @@ Example: devHelpers.testLeaderboard()
         today: item.today ?? 0,
       }));
 
+      // 3) Sort by total problems solved (descending)
+      normalized.sort((a, b) => {
+        const totalA = a.easy + a.medium + a.hard;
+        const totalB = b.easy + b.medium + b.hard;
+        return totalB - totalA;
+      });
+
       setLeaderboard(normalized);
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
@@ -641,8 +648,8 @@ Example: devHelpers.testLeaderboard()
                   <th className="px-2 py-1 border-r-2 border-black">Easy</th>
                   <th className="px-2 py-1 border-r-2 border-black">Med</th>
                   <th className="px-2 py-1 border-r-2 border-black">Hard</th>
-                  <th className="px-2 py-1 border-r-2 border-black">Total</th>
-                  <th className="px-2 py-1">Today</th>
+                  <th className="px-2 py-1 border-r-2 border-black">Today</th>
+                  <th className="px-2 py-1">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -671,9 +678,11 @@ Example: devHelpers.testLeaderboard()
                       {u.hard}
                     </td>
                     <td className="px-2 py-1 border-r-2 border-black text-center">
+                      {u.today}
+                    </td>
+                    <td className="px-2 py-1 text-center">
                       {u.easy + u.medium + u.hard}
                     </td>
-                    <td className="px-2 py-1 text-center">{u.today}</td>
                   </tr>
                 ))}
               </tbody>
