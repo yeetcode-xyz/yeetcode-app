@@ -66,6 +66,13 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install --with-deps
       
+    - name: Start Xvfb
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb
+        Xvfb :99 & export DISPLAY=:99
+        echo "DISPLAY=:99" >> $GITHUB_ENV
+
     - name: Run E2E Electron tests
       run: npm run test:e2e
       
