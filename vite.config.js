@@ -4,6 +4,7 @@ const { resolve } = require('path');
 
 module.exports = defineConfig({
   plugins: [react()],
+  css: { postcss: postcssConfig },
   base: './', // Use relative paths
   root: 'src', // Set src as root for dev server
   publicDir: false, // Don't copy public files in dev mode

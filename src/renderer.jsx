@@ -39,6 +39,7 @@ function App() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [animationClass, setAnimationClass] = useState('');
   const [refreshIn, setRefreshIn] = useState(60);
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
 
   // Load saved data on mount
   useEffect(() => {
@@ -403,7 +404,7 @@ Example: devHelpers.testLeaderboard()
   // UI
   return (
     <div
-      className="w-full max-w-md mx-auto p-6 rounded-2xl shadow-2xl bg-white border-4 border-black min-h-[400px] flex flex-col gap-6"
+      className={`w-full ${step === 'leaderboard' ? 'max-w-7xl' : 'max-w-md'} mx-auto p-6 rounded-2xl shadow-2xl bg-white border-4 border-black ${step === 'leaderboard' ? 'min-h-[700px]' : 'min-h-[400px]'} flex flex-col gap-6`}
       style={{ fontFamily: 'Space Grotesk, sans-serif' }}
     >
       <h1 className="text-2xl font-bold mb-2 text-center border-b-4 border-black pb-2">
@@ -446,7 +447,7 @@ Example: devHelpers.testLeaderboard()
 
           <button
             onClick={handleStartOnboarding}
-            className="px-6 py-3 bg-gradient-to-r from-purple-400 to-pink-400 hover:from-purple-500 hover:to-pink-500 border-2 border-black rounded-lg font-bold text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+            className="px-6 py-3 bg-orange-500 hover:bg-orange-600 border-2 border-black rounded-lg font-bold text-black shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Get Started! 🎯
           </button>
@@ -461,7 +462,7 @@ Example: devHelpers.testLeaderboard()
                 onClick={() =>
                   navigateToStep(groupData.joined ? 'leaderboard' : 'group')
                 }
-                className="px-4 py-2 bg-yellow-300 hover:bg-yellow-400 border-2 border-black rounded-lg font-bold transition-all duration-200 hover:scale-105"
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 border-2 border-black rounded-lg font-bold text-black transition-all duration-200 hover:scale-105 shadow-lg"
               >
                 Continue Where You Left Off
               </button>
@@ -508,7 +509,7 @@ Example: devHelpers.testLeaderboard()
                 <button
                   onClick={handleValidateLeet}
                   disabled={validating}
-                  className={`px-4 py-2 ${validating ? 'bg-gray-300' : 'bg-green-300 hover:bg-green-400'} border-2 border-black rounded-lg font-bold transition-all duration-200 ${!validating ? 'hover:scale-105' : ''}`}
+                  className={`px-4 py-2 ${validating ? 'bg-gray-400 text-gray-200' : 'bg-orange-500 hover:bg-orange-600 text-black'} border-2 border-black rounded-lg font-bold transition-all duration-200 ${!validating ? 'hover:scale-105 shadow-lg' : 'cursor-not-allowed'}`}
                 >
                   {validating ? 'Checking...' : 'Continue'}
                 </button>
@@ -523,8 +524,38 @@ Example: devHelpers.testLeaderboard()
           )}
 
           {showSuccess && (
-            <div className="text-green-600 font-bold p-3 bg-green-50 border-2 border-green-200 rounded-lg animate-bounce text-center">
-              ✅ Username validated successfully! Redirecting...
+            <div className="relative overflow-hidden">
+              <div className="bg-orange-500 p-6 border-4 border-black rounded-xl text-center animate-pulse shadow-2xl">
+                <div className="space-y-3">
+                  <div className="text-4xl animate-bounce">🎉</div>
+                  <div className="text-white font-bold text-xl">
+                    CODER VERIFIED!
+                  </div>
+                  <div className="text-orange-100 text-sm">
+                    Welcome to the competition arena
+                  </div>
+                  <div className="flex justify-center items-center gap-2 text-yellow-100">
+                    <span className="text-lg animate-spin">⚡</span>
+                    <span className="font-bold">Initializing dashboard...</span>
+                    <span className="text-lg animate-spin">⚡</span>
+                  </div>
+                </div>
+                {/* Animated background effects */}
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-2 left-4 text-yellow-200 animate-ping">
+                    ✨
+                  </div>
+                  <div className="absolute top-6 right-6 text-yellow-200 animate-ping delay-200">
+                    ✨
+                  </div>
+                  <div className="absolute bottom-4 left-8 text-yellow-200 animate-ping delay-500">
+                    ✨
+                  </div>
+                  <div className="absolute bottom-2 right-4 text-yellow-200 animate-ping delay-700">
+                    ✨
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -555,7 +586,7 @@ Example: devHelpers.testLeaderboard()
                 />
                 <button
                   onClick={handleJoinGroup}
-                  className="px-4 py-2 bg-blue-300 border-2 border-black rounded-lg font-bold hover:bg-blue-400 transition-all duration-200 hover:scale-105"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-black border-2 border-black rounded-lg font-bold transition-all duration-200 hover:scale-105 shadow-lg"
                 >
                   Join Group
                 </button>
@@ -569,7 +600,7 @@ Example: devHelpers.testLeaderboard()
             <div className="text-center">
               <button
                 onClick={handleCreateGroup}
-                className="px-4 py-2 bg-pink-300 border-2 border-black rounded-lg font-bold hover:bg-pink-400 transition-all duration-200 hover:scale-105"
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-black border-2 border-black rounded-lg font-bold transition-all duration-200 hover:scale-105 shadow-lg"
               >
                 Create New Group
               </button>
@@ -581,7 +612,7 @@ Example: devHelpers.testLeaderboard()
                 <p className="text-xs text-gray-500 mb-2">Development Mode</p>
                 <button
                   onClick={() => window.devHelpers.skipGroup()}
-                  className="px-3 py-1 bg-gray-300 border-2 border-black rounded-lg text-sm font-bold hover:bg-gray-400 transition-all duration-200"
+                  className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-black border-2 border-black rounded-lg text-sm font-bold transition-all duration-200 shadow-md"
                 >
                   Skip Group Setup
                 </button>
@@ -598,86 +629,374 @@ Example: devHelpers.testLeaderboard()
       )}
 
       {step === 'leaderboard' && (
-        <div className={`flex flex-col gap-4 ${animationClass}`}>
-          {/* Members list */}
-          <div className="text-sm text-gray-700 italic mb-2">
-            <strong>Members:</strong>{' '}
-            {leaderboard.map(u => u.name).join(', ') || '— none yet —'}
-          </div>
-
-          {/* Group info & refresh */}
-          <div className="flex justify-between items-center text-sm">
-            <span className="font-bold">
-              Group:{' '}
-              <span className="font-mono bg-yellow-100 px-2 py-1 rounded">
-                {groupData.code}
+        <div className={`flex flex-col gap-6 ${animationClass}`}>
+          {/* Header with group info and controls */}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <span className="font-bold text-lg">
+                Group:{' '}
+                <span
+                  className="font-mono bg-yellow-200 px-3 py-1 rounded-lg border-2 border-black cursor-pointer hover:bg-yellow-300 transition-colors relative group"
+                  onClick={() => {
+                    navigator.clipboard.writeText(groupData.code);
+                    setShowCopySuccess(true);
+                    setTimeout(() => setShowCopySuccess(false), 2000);
+                  }}
+                  title="Copy Me!"
+                >
+                  {groupData.code}
+                  {showCopySuccess ? (
+                    <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-2 py-1 rounded text-xs animate-bounce whitespace-nowrap">
+                      ✅ Copied!
+                    </span>
+                  ) : (
+                    <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      Copy Me!
+                    </span>
+                  )}
+                </span>
               </span>
-            </span>
-            <span>Refreshes in: {refreshIn}s</span>
-          </div>
-
-          {/* User info, edit & leave */}
-          <div className="flex justify-between items-center text-sm">
-            <span className="font-bold">
-              User: {userData.name} ({userData.leetUsername})
-            </span>
-            <div className="flex gap-2">
+              <span className="text-sm text-gray-600">
+                User: {userData.name} ({userData.leetUsername})
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                Refreshes in: {refreshIn}s
+              </span>
               <button
                 onClick={handleLeaveGroup}
-                className="px-3 py-1 bg-red-300 border-2 border-black rounded-lg text-xs hover:bg-red-400 transition-all duration-200 hover:scale-105"
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 border-2 border-black rounded-lg font-bold text-white transition-all duration-200 hover:scale-105 shadow-lg"
               >
                 Leave Group
               </button>
             </div>
           </div>
 
-          {/* Leaderboard table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-2 border-black rounded-lg">
-              <thead>
-                <tr className="bg-yellow-200 border-b-2 border-black">
-                  <th className="px-2 py-1 border-r-2 border-black">#</th>
-                  <th className="px-2 py-1 border-r-2 border-black">Name</th>
-                  <th className="px-2 py-1 border-r-2 border-black">Easy</th>
-                  <th className="px-2 py-1 border-r-2 border-black">Med</th>
-                  <th className="px-2 py-1 border-r-2 border-black">Hard</th>
-                  <th className="px-2 py-1 border-r-2 border-black">Total</th>
-                  <th className="px-2 py-1">Today</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaderboard.map((u, i) => (
-                  <tr
-                    key={u.username}
-                    className={`${
-                      u.username === userData.leetUsername
-                        ? 'bg-pink-200 font-bold'
-                        : 'bg-white'
-                    } hover:bg-gray-50 transition-colors`}
-                  >
-                    <td className="px-2 py-1 border-r-2 border-black text-center">
-                      {i + 1}
-                    </td>
-                    <td className="px-2 py-1 border-r-2 border-black">
-                      {u.name}
-                    </td>
-                    <td className="px-2 py-1 border-r-2 border-black text-center">
-                      {u.easy}
-                    </td>
-                    <td className="px-2 py-1 border-r-2 border-black text-center">
-                      {u.medium}
-                    </td>
-                    <td className="px-2 py-1 border-r-2 border-black text-center">
-                      {u.hard}
-                    </td>
-                    <td className="px-2 py-1 border-r-2 border-black text-center">
-                      {u.easy + u.medium + u.hard}
-                    </td>
-                    <td className="px-2 py-1 text-center">{u.today}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* 3-Column Dashboard Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Content - Left 2 Columns */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Today's Challenge */}
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+                <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-lg">🎯</span>
+                    <h3 className="font-bold text-white text-lg">
+                      TODAY'S CHALLENGE
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold">Two Sum</h3>
+                    <span className="bg-black text-white px-3 py-1 rounded text-sm font-bold border-2 border-black">
+                      EASY
+                    </span>
+                  </div>
+                  <p className="text-gray-700 mb-4 text-sm leading-relaxed">
+                    Given an array of integers nums and an integer target,
+                    return indices of the two numbers such that they add up to
+                    target.
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <button className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center gap-2">
+                      <span>💻</span>
+                      START CODING
+                    </button>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="text-orange-500">🔥</span>
+                      Current Streak:{' '}
+                      <span className="font-bold text-orange-500">7 days</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Bounties */}
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+                <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-lg">⭐</span>
+                    <h3 className="font-bold text-white text-lg">
+                      ACTIVE BOUNTIES
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 border-2 border-black rounded-lg shadow-lg">
+                      <div>
+                        <h4 className="font-bold">
+                          Complete 3 Medium Problems
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          Expires in 2 days
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-orange-500">
+                          500 XP
+                        </div>
+                        <div className="w-20 h-2 bg-gray-200 rounded-full mt-1">
+                          <div className="w-2/3 h-2 bg-orange-500 rounded-full"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-gray-50 border-2 border-black rounded-lg shadow-lg">
+                      <div>
+                        <h4 className="font-bold">Beat Friend's Time</h4>
+                        <p className="text-sm text-gray-600">
+                          Beat Sarah's 45ms solution
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-orange-500">
+                          300 XP
+                        </div>
+                        <span className="inline-block bg-blue-500 text-white px-2 py-1 text-xs rounded mt-1 border border-blue-500">
+                          NEW
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Duels Section */}
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+                <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-lg">⚔️</span>
+                    <h3 className="font-bold text-white text-lg">DUELS</h3>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Challenge Friends */}
+                    <div className="bg-white p-4 border-2 border-black rounded-lg shadow-md">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-lg">Challenge Friend</h4>
+                        <span className="text-lg">🎯</span>
+                      </div>
+                      <div className="space-y-3">
+                        <select className="w-full p-2 border-2 border-black rounded-lg font-medium">
+                          <option>Select a friend...</option>
+                          <option>Sarah</option>
+                          <option>Alex</option>
+                          <option>John</option>
+                        </select>
+                        <select className="w-full p-2 border-2 border-black rounded-lg font-medium">
+                          <option>Problem difficulty...</option>
+                          <option>Easy</option>
+                          <option>Medium</option>
+                          <option>Hard</option>
+                          <option>Random</option>
+                        </select>
+                      </div>
+                      <button className="w-full mt-3 bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200">
+                        Send Challenge
+                      </button>
+                    </div>
+
+                    {/* Duel History */}
+                    <div className="bg-white p-4 border-2 border-black rounded-lg shadow-md">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-lg">Recent Duels</h4>
+                        <span className="text-lg">📊</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center p-2 bg-green-50 border border-green-300 rounded">
+                          <span className="font-medium text-sm">vs Sarah</span>
+                          <span className="text-green-600 font-bold text-xs">
+                            WON
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-red-50 border border-red-300 rounded">
+                          <span className="font-medium text-sm">vs Alex</span>
+                          <span className="text-red-600 font-bold text-xs">
+                            LOST
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-green-50 border border-green-300 rounded">
+                          <span className="font-medium text-sm">vs John</span>
+                          <span className="text-green-600 font-bold text-xs">
+                            WON
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-center">
+                        <span className="text-sm text-gray-600">
+                          Win Rate:{' '}
+                        </span>
+                        <span className="font-bold text-green-600">67%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sidebar - Right Column */}
+            <div className="space-y-6">
+              {/* User Stats */}
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+                <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-lg">📊</span>
+                    <h3 className="font-bold text-white text-lg">YOUR STATS</h3>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-500">
+                        1,247
+                      </div>
+                      <div className="text-sm text-gray-600">Total XP</div>
+                    </div>
+                    <div className="border-t-2 border-gray-400 my-4"></div>
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <div className="text-xl font-bold">23</div>
+                        <div className="text-xs text-gray-600">
+                          Problems Solved
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xl font-bold">7</div>
+                        <div className="text-xs text-gray-600">Day Streak</div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Rank Progress</span>
+                        <span className="font-bold">Silver III</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 rounded-full">
+                        <div className="w-3/4 h-2 bg-blue-500 rounded-full"></div>
+                      </div>
+                      <div className="text-xs text-gray-600 text-center">
+                        247 XP to Gold I
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Friends Leaderboard */}
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+                <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-lg">🏆</span>
+                    <h3 className="font-bold text-white text-lg">
+                      FRIENDS LEADERBOARD
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-0">
+                  {leaderboard.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">
+                      No competitors yet! Invite friends to join.
+                    </div>
+                  ) : (
+                    <table className="min-w-full">
+                      <thead>
+                        <tr className="border-b-2 border-black">
+                          <th className="font-bold text-left px-4 py-2">
+                            RANK
+                          </th>
+                          <th className="font-bold text-left px-4 py-2">
+                            PLAYER
+                          </th>
+                          <th className="font-bold text-left px-4 py-2">XP</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leaderboard
+                          .sort(
+                            (a, b) =>
+                              b.easy +
+                              b.medium +
+                              b.hard -
+                              (a.easy + a.medium + a.hard)
+                          )
+                          .map((user, index) => {
+                            const isCurrentUser =
+                              user.username === userData.leetUsername;
+                            const totalXP =
+                              user.easy * 50 +
+                              user.medium * 100 +
+                              user.hard * 200;
+                            const bgColor =
+                              index === 0
+                                ? 'bg-red-100'
+                                : index === 1
+                                  ? 'bg-blue-100'
+                                  : index === 2
+                                    ? 'bg-green-100'
+                                    : '';
+
+                            return (
+                              <tr
+                                key={user.username}
+                                className={`border-b border-gray-200 ${bgColor}`}
+                              >
+                                <td className="font-bold px-4 py-3">
+                                  {index + 1}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs font-bold border border-black">
+                                      {user.name.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <span
+                                      className={
+                                        isCurrentUser ? 'font-bold' : ''
+                                      }
+                                    >
+                                      {isCurrentUser ? 'You' : user.name}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="font-bold px-4 py-3">
+                                  {totalXP.toLocaleString()}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+                <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">⚡</span>
+                    <h3 className="font-bold text-white text-lg">
+                      QUICK ACTIONS
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-6 space-y-3">
+                  <button className="w-full bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
+                    <span>👥</span>
+                    CHALLENGE FRIEND
+                  </button>
+                  <button className="w-full bg-yellow-200 hover:bg-yellow-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
+                    <span>🎯</span>
+                    RANDOM PROBLEM
+                  </button>
+                  <button className="w-full bg-green-200 hover:bg-green-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
+                    <span>🏆</span>
+                    VIEW ALL RANKS
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
