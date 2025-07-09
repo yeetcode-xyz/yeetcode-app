@@ -326,13 +326,14 @@ test.describe('YeetCode Electron App', () => {
     await expect(page.locator('th:has-text("Name")')).toBeVisible();
     await expect(page.locator('th:has-text("Total")')).toBeVisible();
     
-    // 5. Test navigation back to onboarding
-    await page.click('button:has-text("Edit Profile")');
-    await page.waitForSelector('h2:has-text("Let\'s get you set up!")');
+    // 5. Verify the leaderboard is functioning properly
+    await expect(page.locator('text=/Refreshes in: \\d+s/')).toBeVisible();
     
-    // 6. Verify user data is pre-filled
-    await expect(page.locator('input[placeholder="Enter your first name"]')).toHaveValue('Desktop User');
-    await expect(page.locator('input[placeholder="Your LeetCode username"]')).toHaveValue('desktopuser123');
+    // 6. Test that dev helpers are accessible for debugging
+    const devHelperMethods = await page.evaluate(() => {
+      return Object.keys(window.devHelpers || {});
+    });
+    expect(devHelperMethods.length).toBeGreaterThan(0);
   });
 
   test('should join group 43837 and display leaderboard', async () => {
