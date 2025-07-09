@@ -1,8 +1,88 @@
-body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
-    sans-serif;
-  margin: auto;
-  max-width: 38rem;
-  padding: 2rem;
+.btn {
+  padding: 0.5rem 1.5rem;
+  border: 2px solid black;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn--primary {
+  background-color: #16a34a; /* tailwind's green-500 */
+  color: white;
+}
+.btn--primary:hover {
+  background-color: #15803d; /* tailwind's green-600 */
+}
+
+/* Enhanced 3D Button Effects */
+.btn-3d {
+  position: relative;
+  box-shadow: 6px 6px 0 #000;
+  transition: all 0.15s ease-in-out;
+  transform: translate(0, 0);
+}
+
+.btn-3d:active {
+  transform: translate(6px, 6px);
+  box-shadow: none;
+}
+
+.btn-3d:hover {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+.btn-3d:active:hover {
+  transform: translate(6px, 6px);
+  box-shadow: none;
+}
+
+/* Additional shadow variations */
+.shadow-3d-sm {
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.shadow-3d-md {
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.shadow-3d-lg {
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Button press animation */
+.btn-press {
+  transition: all 0.1s ease-in-out;
+}
+
+.btn-press:active {
+  transform: scale(0.98);
+}
+
+/* Panel 3D effects */
+.panel-3d {
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease-in-out;
+}
+
+.panel-3d:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Retro game-like button effects */
+.btn-retro {
+  border: 3px solid #000;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.3),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+    4px 4px 0 rgba(0, 0, 0, 0.25);
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-retro:active {
+  box-shadow:
+    inset 2px 2px 0 rgba(0, 0, 0, 0.3),
+    inset -2px -2px 0 rgba(255, 255, 255, 0.3);
+  transform: translate(2px, 2px);
 }

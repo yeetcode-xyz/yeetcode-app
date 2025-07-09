@@ -1,3 +1,4 @@
+import './index.css';
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 
@@ -447,7 +448,7 @@ Example: devHelpers.testLeaderboard()
 
           <button
             onClick={handleStartOnboarding}
-            className="px-6 py-3 bg-yellow-300 hover:bg-yellow-5  00 border-2 border-black rounded-lg font-bold text-black shadow-lg transform hover:scale-105 transition-all duration-200"
+            className="px-6 py-3 bg-yellow-300 hover:bg-yellow-500 border-2 border-black rounded-lg font-bold text-black btn-3d"
           >
             Get Started! 🎯
           </button>
@@ -462,7 +463,7 @@ Example: devHelpers.testLeaderboard()
                 onClick={() =>
                   navigateToStep(groupData.joined ? 'leaderboard' : 'group')
                 }
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 border-2 border-black rounded-lg font-bold text-black transition-all duration-200 hover:scale-105 shadow-lg"
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 border-2 border-black rounded-lg font-bold text-black btn-3d"
               >
                 Continue Where You Left Off
               </button>
@@ -506,7 +507,7 @@ Example: devHelpers.testLeaderboard()
                 <button
                   onClick={handleValidateLeet}
                   disabled={validating}
-                  className={`px-4 py-2 ${validating ? 'bg-gray-400 text-gray-200' : 'bg-yellow-300 hover:bg-yellow-500 text-black'} border-2 border-black rounded-lg font-bold transition-all duration-200 ${!validating ? 'hover:scale-105 shadow-lg' : 'cursor-not-allowed'}`}
+                  className={`px-4 py-2 ${validating ? 'bg-gray-400 text-gray-200' : 'bg-yellow-300 hover:bg-yellow-500 text-black'} border-2 border-black rounded-lg font-bold ${!validating ? 'btn-3d' : 'cursor-not-allowed'}`}
                 >
                   {validating ? 'Checking...' : 'Continue'}
                 </button>
@@ -583,7 +584,7 @@ Example: devHelpers.testLeaderboard()
                 />
                 <button
                   onClick={handleJoinGroup}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-black border-2 border-black rounded-lg font-bold transition-all duration-200 hover:scale-105 shadow-lg"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-black border-2 border-black rounded-lg font-bold btn-3d"
                 >
                   Join Group
                 </button>
@@ -597,7 +598,7 @@ Example: devHelpers.testLeaderboard()
             <div className="text-center">
               <button
                 onClick={handleCreateGroup}
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-black border-2 border-black rounded-lg font-bold transition-all duration-200 hover:scale-105 shadow-lg"
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-black border-2 border-black rounded-lg font-bold btn-3d"
               >
                 Create New Group
               </button>
@@ -609,7 +610,7 @@ Example: devHelpers.testLeaderboard()
                 <p className="text-xs text-gray-500 mb-2">Development Mode</p>
                 <button
                   onClick={() => window.devHelpers.skipGroup()}
-                  className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-black border-2 border-black rounded-lg text-sm font-bold transition-all duration-200 shadow-md"
+                  className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-black border-2 border-black rounded-lg text-sm font-bold btn-3d"
                 >
                   Skip Group Setup
                 </button>
@@ -663,7 +664,7 @@ Example: devHelpers.testLeaderboard()
               </span>
               <button
                 onClick={handleLeaveGroup}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 border-2 border-black rounded-lg font-bold text-white transition-all duration-200 hover:scale-105 shadow-lg"
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 border-2 border-black rounded-lg font-bold text-white btn-3d"
               >
                 Leave Group
               </button>
@@ -697,7 +698,7 @@ Example: devHelpers.testLeaderboard()
                     target.
                   </p>
                   <div className="flex items-center gap-4">
-                    <button className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center gap-2">
+                    <button className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg border-2 border-black font-bold flex items-center gap-2 btn-3d">
                       <span>💻</span>
                       START CODING
                     </button>
@@ -791,7 +792,7 @@ Example: devHelpers.testLeaderboard()
                           <option>Random</option>
                         </select>
                       </div>
-                      <button className="w-full mt-3 bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200">
+                      <button className="w-full mt-3 bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold btn-3d">
                         Send Challenge
                       </button>
                     </div>
@@ -973,15 +974,15 @@ Example: devHelpers.testLeaderboard()
                   </div>
                 </div>
                 <div className="p-8 space-y-3">
-                  <button className="w-full bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
+                  <button className="w-full bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold flex items-center justify-center gap-2 btn-3d">
                     <span>👥</span>
                     CHALLENGE FRIEND
                   </button>
-                  <button className="w-full bg-yellow-200 hover:bg-yellow-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
+                  <button className="w-full bg-yellow-200 hover:bg-yellow-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold flex items-center justify-center gap-2 btn-3d">
                     <span>🎯</span>
                     RANDOM PROBLEM
                   </button>
-                  <button className="w-full bg-green-200 hover:bg-green-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
+                  <button className="w-full bg-green-200 hover:bg-green-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold flex items-center justify-center gap-2 btn-3d">
                     <span>🏆</span>
                     VIEW ALL RANKS
                   </button>
