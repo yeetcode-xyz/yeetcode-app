@@ -591,7 +591,7 @@ Example: devHelpers.testLeaderboard()
                 />
                 <button
                   onClick={handleJoinGroup}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-black border-2 border-black rounded-lg font-bold btn-3d"
+                  className="px-4 py-2 bg-green-500 hover:bg-green-700 text-white border-2 border-black rounded-lg font-bold btn-3d"
                 >
                   Join Group
                 </button>
@@ -605,7 +605,7 @@ Example: devHelpers.testLeaderboard()
             <div className="text-center">
               <button
                 onClick={handleCreateGroup}
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-black border-2 border-black rounded-lg font-bold btn-3d"
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white border-2 border-black rounded-lg font-bold btn-3d"
               >
                 Create New Group
               </button>
@@ -617,7 +617,7 @@ Example: devHelpers.testLeaderboard()
                 <p className="text-xs text-gray-500 mb-2">Development Mode</p>
                 <button
                   onClick={() => window.devHelpers.skipGroup()}
-                  className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-black border-2 border-black rounded-lg text-sm font-bold btn-3d"
+                  className="px-3 py-1 bg-red-400 hover:bg-red-600 text-white border-2 border-black rounded-lg text-sm font-bold btn-3d"
                 >
                   Skip Group Setup
                 </button>
@@ -750,14 +750,14 @@ Example: devHelpers.testLeaderboard()
                     </div>
                     <div className="flex items-center justify-between p-4 bg-gray-50 border-2 border-black rounded-lg shadow-lg">
                       <div>
-                        <h4 className="font-bold">Beat Friend's Time</h4>
+                        <h4 className="font-bold">Complete 1 Hard Problem</h4>
                         <p className="text-sm text-gray-600">
-                          Beat Sarah's 45ms solution
+                          Expires in 1 day
                         </p>
                       </div>
                       <div className="text-right">
                         <div className="text-lg font-bold text-orange-500">
-                          300 XP
+                          400 XP
                         </div>
                         <span className="inline-block bg-blue-500 text-white px-2 py-1 text-xs rounded mt-1 border border-blue-500">
                           NEW
@@ -884,7 +884,10 @@ Example: devHelpers.testLeaderboard()
               </div>
 
               {/* Friends Leaderboard */}
-              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-70">
+              <div
+                className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg"
+                style={{ height: '310px' }}
+              >
                 <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
                   <div className="flex items-center gap-2">
                     <span className="text-white text-lg">🏆</span>
