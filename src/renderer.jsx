@@ -719,7 +719,10 @@ Example: devHelpers.testLeaderboard()
               </div>
 
               {/* Friends Leaderboard */}
-              <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+              <div
+                className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg"
+                style={{ height: '310px' }}
+              >
                 <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
                   <div className="flex items-center gap-2">
                     <span className="text-white text-lg">🏆</span>
@@ -1023,7 +1026,7 @@ Example: devHelpers.testLeaderboard()
                 <div className="p-8 space-y-3">
                   <button className="w-full bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold flex items-center justify-center gap-2 btn-3d">
                     <span>👥</span>
-                    CHALLENGE FRIEND
+                    INVITE FRIEND
                   </button>
                   <button className="w-full bg-yellow-200 hover:bg-yellow-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold flex items-center justify-center gap-2 btn-3d">
                     <span>🎯</span>
