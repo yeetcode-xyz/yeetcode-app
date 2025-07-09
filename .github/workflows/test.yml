@@ -72,7 +72,7 @@ jobs:
             xvfb \
             libnss3 \
             libxss1 \
-            libasound2 \
+            libasound2t64 \
             libatk1.0-0 \
             libatk-bridge2.0-0 \
             libgtk-3-0 \
