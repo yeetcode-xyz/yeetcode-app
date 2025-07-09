@@ -326,6 +326,14 @@ test.describe('YeetCode Electron App', () => {
     await expect(page.locator('th:has-text("Name")')).toBeVisible();
     await expect(page.locator('th:has-text("Total")')).toBeVisible();
     
+    // 5. Verify the leaderboard is functioning properly
+    await expect(page.locator('text=/Refreshes in: \\d+s/')).toBeVisible();
+    
+    // 6. Test that dev helpers are accessible for debugging
+    const devHelperMethods = await page.evaluate(() => {
+      return Object.keys(window.devHelpers || {});
+    });
+    expect(devHelperMethods.length).toBeGreaterThan(0);
   });
 
   test('should join group 43837 and display leaderboard', async () => {
