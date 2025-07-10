@@ -20,7 +20,9 @@ const QuickActions = ({ groupData }) => {
   const handleShareWhatsApp = async () => {
     const message = encodeURIComponent(getInviteMessage());
     if (window.electronAPI?.openExternalUrl) {
-      await window.electronAPI.openExternalUrl(`https://wa.me/?text=${message}`);
+      await window.electronAPI.openExternalUrl(
+        `https://wa.me/?text=${message}`
+      );
     } else {
       window.open(`https://wa.me/?text=${message}`, '_blank');
     }
@@ -30,7 +32,9 @@ const QuickActions = ({ groupData }) => {
   const handleShareTelegram = async () => {
     const message = encodeURIComponent(getInviteMessage());
     if (window.electronAPI?.openExternalUrl) {
-      await window.electronAPI.openExternalUrl(`https://t.me/share/url?text=${message}`);
+      await window.electronAPI.openExternalUrl(
+        `https://t.me/share/url?text=${message}`
+      );
     } else {
       window.open(`https://t.me/share/url?text=${message}`, '_blank');
     }
@@ -47,7 +51,9 @@ const QuickActions = ({ groupData }) => {
     const subject = encodeURIComponent('Join my YeetCode group!');
     const body = encodeURIComponent(getInviteMessage());
     if (window.electronAPI?.openExternalUrl) {
-      await window.electronAPI.openExternalUrl(`mailto:?subject=${subject}&body=${body}`);
+      await window.electronAPI.openExternalUrl(
+        `mailto:?subject=${subject}&body=${body}`
+      );
     } else {
       window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
     }
@@ -62,10 +68,13 @@ const QuickActions = ({ groupData }) => {
     // Use electron API - no fallbacks
     if (window.electronAPI?.fetchRandomProblem) {
       console.log('Fetching random problem from LeetCode API...');
-      const problem = await window.electronAPI.fetchRandomProblem(randomDifficulty);
+      const problem =
+        await window.electronAPI.fetchRandomProblem(randomDifficulty);
       return problem;
     } else {
-      throw new Error('Electron API not available - random problems only work in the desktop app');
+      throw new Error(
+        'Electron API not available - random problems only work in the desktop app'
+      );
     }
   };
 
@@ -78,7 +87,9 @@ const QuickActions = ({ groupData }) => {
       setShowProblemModal(true);
     } catch (error) {
       console.error('Failed to fetch random problem:', error);
-      alert(`❌ Failed to fetch random problem!\n\n${error.message}\n\nPlease check your internet connection and try again.`);
+      alert(
+        `❌ Failed to fetch random problem!\n\n${error.message}\n\nPlease check your internet connection and try again.`
+      );
     } finally {
       setLoadingProblem(false);
     }

@@ -25,5 +25,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   openExternalUrl: url => ipcRenderer.invoke('open-external-url', url),
 
-  fetchRandomProblem: difficulty => ipcRenderer.invoke('fetch-random-problem', difficulty),
+  fetchRandomProblem: difficulty =>
+    ipcRenderer.invoke('fetch-random-problem', difficulty),
 });

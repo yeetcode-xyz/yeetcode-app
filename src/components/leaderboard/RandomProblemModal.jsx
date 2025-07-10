@@ -3,7 +3,7 @@ import React from 'react';
 const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
   if (!isOpen || !problem) return null;
 
-  const getDifficultyColor = (difficulty) => {
+  const getDifficultyColor = difficulty => {
     switch (difficulty?.toLowerCase()) {
       case 'easy':
         return 'text-green-600 bg-green-100';
@@ -16,7 +16,7 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
     }
   };
 
-  const getDifficultyIcon = (difficulty) => {
+  const getDifficultyIcon = difficulty => {
     switch (difficulty?.toLowerCase()) {
       case 'easy':
         return '🟢';
@@ -62,8 +62,12 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
 
             {/* Difficulty Badge */}
             <div className="flex items-center gap-2">
-              <span className="text-lg">{getDifficultyIcon(problem.difficulty)}</span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(problem.difficulty)}`}>
+              <span className="text-lg">
+                {getDifficultyIcon(problem.difficulty)}
+              </span>
+              <span
+                className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(problem.difficulty)}`}
+              >
                 {problem.difficulty}
               </span>
             </div>
@@ -119,4 +123,4 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
   );
 };
 
-export default RandomProblemModal; 
+export default RandomProblemModal;

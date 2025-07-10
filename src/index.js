@@ -456,7 +456,7 @@ ipcMain.handle('open-external-url', async (event, url) => {
 // Add handler to fetch random problems from LeetCode GraphQL
 ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
   console.log('[DEBUG][fetch-random-problem] difficulty:', difficulty);
-  
+
   const query = `
     query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
       problemsetQuestionList: questionList(
@@ -481,30 +481,40 @@ ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
   `;
 
   const variables = {
-    categorySlug: "",
+    categorySlug: '',
     limit: 1000,
     skip: 0,
     filters: {
-      difficulty: difficulty
-    }
+      difficulty: difficulty,
+    },
   };
 
   try {
-    const response = await axios.post('https://leetcode.com/graphql', {
-      query: query,
-      variables: variables
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'YeetCode/1.0'
+    const response = await axios.post(
+      'https://leetcode.com/graphql',
+      {
+        query: query,
+        variables: variables,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'YeetCode/1.0',
+        },
       }
-    });
+    );
 
-    console.log('[DEBUG][fetch-random-problem] Response status:', response.status);
-    
+    console.log(
+      '[DEBUG][fetch-random-problem] Response status:',
+      response.status
+    );
+
     const data = response.data;
     if (data.errors) {
-      console.error('[ERROR][fetch-random-problem] GraphQL errors:', data.errors);
+      console.error(
+        '[ERROR][fetch-random-problem] GraphQL errors:',
+        data.errors
+      );
       throw new Error('GraphQL query failed: ' + JSON.stringify(data.errors));
     }
 
@@ -512,11 +522,19 @@ ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
       problem => !problem.paidOnly
     );
 
-    console.log('[DEBUG][fetch-random-problem] Found', freeProblems.length, 'free problems');
+    console.log(
+      '[DEBUG][fetch-random-problem] Found',
+      freeProblems.length,
+      'free problems'
+    );
 
     if (freeProblems.length > 0) {
-      const randomProblem = freeProblems[Math.floor(Math.random() * freeProblems.length)];
-      console.log('[DEBUG][fetch-random-problem] Selected:', randomProblem.title);
+      const randomProblem =
+        freeProblems[Math.floor(Math.random() * freeProblems.length)];
+      console.log(
+        '[DEBUG][fetch-random-problem] Selected:',
+        randomProblem.title
+      );
       return randomProblem;
     } else {
       throw new Error('No free problems found');
