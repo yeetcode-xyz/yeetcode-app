@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const electronSquirrelStartup = require('electron-squirrel-startup');
 const dotenv = require('dotenv');
@@ -8,19 +8,13 @@ const AWS = require('aws-sdk');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
-// Hot reload for development
-if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-  require('electron-reload')(__dirname, {
-    electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
-    hardResetMethod: 'exit',
-  });
-
-  // Also watch the dist directory for renderer changes
-  require('electron-reload')(path.join(__dirname, '..', 'dist'), {
-    electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
-    hardResetMethod: 'exit',
-  });
-}
+// Hot reload for development (temporarily disabled to prevent multiple windows)
+// if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+//   require('electron-reload')(__dirname, {
+//     electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
+//     hardResetMethod: 'exit',
+//   });
+// }
 
 dotenv.config();
 
@@ -444,5 +438,91 @@ ipcMain.handle('leave-group', async (event, username) => {
   } catch (err) {
     console.error('[ERROR][leave-group]', err);
     throw err;
+  }
+});
+
+// Add handler to open URLs in system browser
+ipcMain.handle('open-external-url', async (event, url) => {
+  console.log('[DEBUG][open-external-url] opening:', url);
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    console.error('[ERROR][open-external-url]', err);
+    throw err;
+  }
+});
+
+// Add handler to fetch random problems from LeetCode GraphQL
+ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
+  console.log('[DEBUG][fetch-random-problem] difficulty:', difficulty);
+  
+  const query = `
+    query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
+      problemsetQuestionList: questionList(
+        categorySlug: $categorySlug
+        limit: $limit
+        skip: $skip
+        filters: $filters
+      ) {
+        total: totalNum
+        questions: data {
+          title
+          titleSlug
+          difficulty
+          frontendQuestionId: questionFrontendId
+          paidOnly: isPaidOnly
+          topicTags {
+            name
+          }
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    categorySlug: "",
+    limit: 1000,
+    skip: 0,
+    filters: {
+      difficulty: difficulty
+    }
+  };
+
+  try {
+    const response = await axios.post('https://leetcode.com/graphql', {
+      query: query,
+      variables: variables
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'YeetCode/1.0'
+      }
+    });
+
+    console.log('[DEBUG][fetch-random-problem] Response status:', response.status);
+    
+    const data = response.data;
+    if (data.errors) {
+      console.error('[ERROR][fetch-random-problem] GraphQL errors:', data.errors);
+      throw new Error('GraphQL query failed: ' + JSON.stringify(data.errors));
+    }
+
+    const freeProblems = data.data.problemsetQuestionList.questions.filter(
+      problem => !problem.paidOnly
+    );
+
+    console.log('[DEBUG][fetch-random-problem] Found', freeProblems.length, 'free problems');
+
+    if (freeProblems.length > 0) {
+      const randomProblem = freeProblems[Math.floor(Math.random() * freeProblems.length)];
+      console.log('[DEBUG][fetch-random-problem] Selected:', randomProblem.title);
+      return randomProblem;
+    } else {
+      throw new Error('No free problems found');
+    }
+  } catch (error) {
+    console.error('[ERROR][fetch-random-problem]', error.message);
+    throw error; // Re-throw the error instead of returning fallback
   }
 });

@@ -22,4 +22,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUserData: username => ipcRenderer.invoke('get-user-data', username),
 
   leaveGroup: username => ipcRenderer.invoke('leave-group', username),
+
+  openExternalUrl: url => ipcRenderer.invoke('open-external-url', url),
+
+  fetchRandomProblem: difficulty => ipcRenderer.invoke('fetch-random-problem', difficulty),
 });
