@@ -1,6 +1,6 @@
 import React from 'react';
 
-const UserStats = ({ userData, leaderboard }) => {
+const UserStats = ({ userData, leaderboard, dailyData }) => {
   // Find current user's stats from leaderboard
   const currentUserStats = leaderboard?.find(
     user => user.username === userData?.leetUsername
@@ -15,8 +15,8 @@ const UserStats = ({ userData, leaderboard }) => {
   const totalProblems =
     currentUserStats.easy + currentUserStats.medium + currentUserStats.hard;
 
-  // Mock streak data - in real app this would come from props/API
-  const currentStreak = 7;
+  // Use real streak data from dailyData
+  const currentStreak = dailyData?.streak || 0;
 
   // Calculate rank based on XP
   const getRank = () => {

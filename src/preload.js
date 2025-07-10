@@ -27,4 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   fetchRandomProblem: difficulty =>
     ipcRenderer.invoke('fetch-random-problem', difficulty),
+
+  getDailyProblem: username => ipcRenderer.invoke('get-daily-problem', username),
+
+  completeDailyProblem: username => ipcRenderer.invoke('complete-daily-problem', username),
 });

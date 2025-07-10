@@ -37,6 +37,7 @@ if (fs.existsSync(envPath)) {
   );
   console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
   console.log('[ENV] GROUPS_TABLE =', process.env.GROUPS_TABLE);
+  console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
 } else {
   console.log('.env file does not exist');
   dotenv.config();
@@ -544,3 +545,304 @@ ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
     throw error; // Re-throw the error instead of returning fallback
   }
 });
+
+// Fetch daily problem data from Daily table
+ipcMain.handle('get-daily-problem', async (event, username) => {
+  console.log('[DEBUG][get-daily-problem] called for username:', username);
+
+  try {
+    // Use the low-level DynamoDB client for raw format instead of DocumentClient
+    const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION });
+    
+    // Scan the Daily table to get all daily problems
+    const dailyTableName = process.env.DAILY_TABLE || 'Daily';
+    const scanParams = {
+      TableName: dailyTableName
+    };
+
+    console.log('[DEBUG][get-daily-problem] scanning Daily table...');
+    const scanResult = await dynamodb.scan(scanParams).promise();
+    const items = scanResult.Items || [];
+
+    console.log('[DEBUG][get-daily-problem] Raw DynamoDB items:', JSON.stringify(items, null, 2));
+
+    if (items.length === 0) {
+      console.log('[DEBUG][get-daily-problem] No daily problems found');
+      return {
+        dailyComplete: false,
+        streak: 0,
+        todaysProblem: null,
+        error: 'No daily problems found'
+      };
+    }
+
+    // Parse DynamoDB format and convert to usable objects
+    const dailyProblems = items.map(item => {
+      const parsed = {
+        date: item.date?.S,
+        slug: item.slug?.S,
+        title: item.title?.S,
+        frontendId: item.frontendId?.S,
+        tags: item.tags?.SS || [],
+        users: item.users?.M || {}
+      };
+      console.log('[DEBUG][get-daily-problem] Parsed item:', parsed);
+      return parsed;
+    }).filter(item => item.date); // Filter out items without date
+
+    // Sort by date (newest first)
+    dailyProblems.sort((a, b) => new Date(b.date) - new Date(a.date));
+    console.log('[DEBUG][get-daily-problem] found', dailyProblems.length, 'valid daily problems');
+
+    const latestProblem = dailyProblems[0];
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
+    
+    console.log('[DEBUG][get-daily-problem] latest problem date:', latestProblem.date);
+    console.log('[DEBUG][get-daily-problem] today\'s date:', today);
+
+    // Check if today's problem exists and if user completed it
+    const todaysProblem = latestProblem.date === today ? latestProblem : null;
+    const dailyComplete = todaysProblem && todaysProblem.users && todaysProblem.users[username];
+
+    // Calculate streak by checking consecutive days from the latest
+    let streak = 0;
+    for (let i = 0; i < dailyProblems.length; i++) {
+      const problem = dailyProblems[i];
+      if (problem.users && problem.users[username]) {
+        streak++;
+      } else {
+        break; // Streak broken
+      }
+    }
+
+    // Fetch problem details from LeetCode API
+    let problemDetails = null;
+    if (todaysProblem) {
+      try {
+        problemDetails = await fetchLeetCodeProblemDetails(todaysProblem.slug);
+      } catch (error) {
+        console.error('[ERROR][get-daily-problem] Failed to fetch problem details:', error);
+        // Use basic info from database if API fails
+        problemDetails = {
+          title: todaysProblem.title,
+          titleSlug: todaysProblem.slug,
+          frontendQuestionId: todaysProblem.frontendId,
+          difficulty: 'Unknown',
+          content: 'Problem details unavailable',
+          topicTags: todaysProblem.tags.map(tag => ({ name: tag }))
+        };
+      }
+    }
+
+    return {
+      dailyComplete,
+      streak,
+      todaysProblem: problemDetails,
+      error: null
+    };
+
+  } catch (error) {
+    console.error('[ERROR][get-daily-problem]', error);
+    return {
+      dailyComplete: false,
+      streak: 0,
+      todaysProblem: null,
+      error: error.message
+    };
+  }
+});
+
+// Mark daily problem as complete and award XP
+ipcMain.handle('complete-daily-problem', async (event, username) => {
+  console.log('[DEBUG][complete-daily-problem] called for username:', username);
+
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION });
+    const dailyTableName = process.env.DAILY_TABLE || 'Daily';
+
+    // First, check if today's daily problem exists using low-level client
+    const scanParams = {
+      TableName: dailyTableName,
+      FilterExpression: '#date = :today',
+      ExpressionAttributeNames: {
+        '#date': 'date'
+      },
+      ExpressionAttributeValues: {
+        ':today': { S: today }
+      }
+    };
+
+    console.log('[DEBUG][complete-daily-problem] Scanning for today\'s problem...');
+    const scanResult = await dynamodb.scan(scanParams).promise();
+    const items = scanResult.Items || [];
+
+    if (items.length === 0) {
+      throw new Error('No daily problem found for today');
+    }
+
+    const todaysProblemRaw = items[0];
+    const todaysProblem = {
+      date: todaysProblemRaw.date?.S,
+      slug: todaysProblemRaw.slug?.S,
+      users: todaysProblemRaw.users?.M || {}
+    };
+
+    // Check if user already completed today's problem
+    if (todaysProblem.users[username]) {
+      console.log('[DEBUG][complete-daily-problem] User already completed today\'s problem');
+      return {
+        success: false,
+        error: 'Daily problem already completed today',
+        alreadyCompleted: true
+      };
+    }
+
+    // Update the Daily table to mark user as completed using low-level client
+    // Assume the primary key is just 'date' (modify if it's different in your table schema)
+    const updateDailyParams = {
+      TableName: dailyTableName,
+      Key: {
+        date: { S: today }
+      },
+      UpdateExpression: 'SET users.#username = :timestamp',
+      ExpressionAttributeNames: {
+        '#username': username
+      },
+      ExpressionAttributeValues: {
+        ':timestamp': { S: new Date().toISOString() }
+      }
+    };
+
+    await dynamodb.updateItem(updateDailyParams).promise();
+    console.log('[DEBUG][complete-daily-problem] Updated Daily table');
+
+    // Award 200 XP to the user and update their daily completion using DocumentClient
+    const updateUserParams = {
+      TableName: process.env.USERS_TABLE,
+      Key: { username },
+      UpdateExpression: 'ADD xp :xp SET daily_completed = :today',
+      ExpressionAttributeValues: {
+        ':xp': 200,
+        ':today': today
+      }
+    };
+
+    await ddb.update(updateUserParams).promise();
+    console.log('[DEBUG][complete-daily-problem] Awarded 200 XP to user');
+
+    // Calculate new streak
+    const { streak } = await exports.getDailyProblemStatus(username);
+
+    return {
+      success: true,
+      xpAwarded: 200,
+      newStreak: streak,
+      error: null
+    };
+
+  } catch (error) {
+    console.error('[ERROR][complete-daily-problem]', error);
+    return {
+      success: false,
+      error: error.message,
+      xpAwarded: 0,
+      newStreak: 0
+    };
+  }
+});
+
+// Helper function to fetch problem details from LeetCode API
+const fetchLeetCodeProblemDetails = async (slug) => {
+  console.log('[DEBUG][fetchLeetCodeProblemDetails] fetching details for:', slug);
+
+  const query = `
+    query getQuestionDetail($titleSlug: String!) {
+      question(titleSlug: $titleSlug) {
+        title
+        titleSlug
+        questionFrontendId
+        difficulty
+        content
+        topicTags {
+          name
+        }
+        hints
+        sampleTestCase
+      }
+    }
+  `;
+
+  const variables = {
+    titleSlug: slug
+  };
+
+  try {
+    const response = await axios.post(
+      'https://leetcode.com/graphql',
+      {
+        query: query,
+        variables: variables,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'YeetCode/1.0',
+        },
+      }
+    );
+
+    console.log('[DEBUG][fetchLeetCodeProblemDetails] Response status:', response.status);
+
+    const data = response.data;
+    if (data.errors) {
+      console.error('[ERROR][fetchLeetCodeProblemDetails] GraphQL errors:', data.errors);
+      throw new Error('GraphQL query failed: ' + JSON.stringify(data.errors));
+    }
+
+    const questionData = data.data.question;
+    if (!questionData) {
+      throw new Error('Question not found');
+    }
+
+    console.log('[DEBUG][fetchLeetCodeProblemDetails] Successfully fetched:', questionData.title);
+    return questionData;
+
+  } catch (error) {
+    console.error('[ERROR][fetchLeetCodeProblemDetails]', error.message);
+    throw error;
+  }
+};
+
+// Export helper function for internal use
+exports.getDailyProblemStatus = async (username) => {
+  // This is a simplified version of get-daily-problem for internal use
+  try {
+    const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION });
+    const dailyTableName = process.env.DAILY_TABLE || 'Daily';
+    const scanResult = await dynamodb.scan({ TableName: dailyTableName }).promise();
+    
+    const items = scanResult.Items || [];
+    const dailyProblems = items.map(item => ({
+      date: item.date?.S,
+      users: item.users?.M || {}
+    })).filter(item => item.date);
+    
+    dailyProblems.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    let streak = 0;
+    for (let i = 0; i < dailyProblems.length; i++) {
+      const problem = dailyProblems[i];
+      if (problem.users[username]) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    return { streak };
+  } catch (error) {
+    console.error('[ERROR][getDailyProblemStatus]', error);
+    return { streak: 0 };
+  }
+};

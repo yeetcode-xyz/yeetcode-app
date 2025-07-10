@@ -12,6 +12,7 @@ const LeaderboardStep = ({
   userData,
   groupData,
   leaderboard,
+  dailyData,
   refreshIn,
   showCopySuccess,
   setShowCopySuccess,
@@ -32,15 +33,15 @@ const LeaderboardStep = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Main Content - Left 2 Columns */}
         <div className="lg:col-span-2 space-y-6">
-          <TodaysChallenge />
+          <TodaysChallenge userData={userData} dailyData={dailyData} />
           <FriendsLeaderboard leaderboard={leaderboard} userData={userData} />
           <DuelsSection leaderboard={leaderboard} userData={userData} />
         </div>
 
         {/* Sidebar - Right Column */}
         <div className="space-y-6">
-          <UserStats userData={userData} leaderboard={leaderboard} />
-          <ActiveBounties userData={userData} leaderboard={leaderboard} />
+          <UserStats userData={userData} leaderboard={leaderboard} dailyData={dailyData} />
+          <ActiveBounties userData={userData} leaderboard={leaderboard} dailyData={dailyData} />
           <QuickActions groupData={groupData} />
         </div>
       </div>

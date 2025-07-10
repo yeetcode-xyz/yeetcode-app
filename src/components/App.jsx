@@ -14,6 +14,15 @@ function App() {
   const [groupData, setGroupData] = useState({ code: '', joined: false });
   const [leaderboard, setLeaderboard] = useState([]);
 
+  // Daily problem global state
+  const [dailyData, setDailyData] = useState({
+    dailyComplete: false,
+    streak: 0,
+    todaysProblem: null,
+    error: null,
+    loading: true
+  });
+
   // UI state
   const [error, setError] = useState('');
   const [validating, setValidating] = useState(false);
@@ -53,7 +62,7 @@ function App() {
     }
   }, [step, groupData]);
 
-  // Handle leaderboard refresh
+  // Handle leaderboard and daily problem refresh
   useEffect(() => {
     if (step !== 'leaderboard' || !groupData.joined || !groupData.code) {
       return;
@@ -61,6 +70,7 @@ function App() {
 
     // First load right away, and reset the counter
     fetchLeaderboard();
+    fetchDailyProblem();
     setRefreshIn(60);
 
     // Then tick every second: when it hits 1, fetch again & reset
@@ -68,6 +78,7 @@ function App() {
       setRefreshIn(r => {
         if (r <= 1) {
           fetchLeaderboard();
+          fetchDailyProblem();
           return 60;
         }
         return r - 1;
@@ -138,6 +149,30 @@ function App() {
       setLeaderboard(normalized);
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
+    }
+  };
+
+  const fetchDailyProblem = async () => {
+    if (!userData?.leetUsername || !window.electronAPI) {
+      console.log('No username or electronAPI available for daily problem');
+      setDailyData(prev => ({ ...prev, loading: false }));
+      return;
+    }
+
+    try {
+      console.log('Fetching daily problem for:', userData.leetUsername);
+      const result = await window.electronAPI.getDailyProblem(userData.leetUsername);
+      console.log('Daily problem result:', result);
+      setDailyData({ ...result, loading: false });
+    } catch (error) {
+      console.error('Error fetching daily problem:', error);
+      setDailyData({
+        dailyComplete: false,
+        streak: 0,
+        todaysProblem: null,
+        error: error.message,
+        loading: false
+      });
     }
   };
 
@@ -299,6 +334,7 @@ function App() {
     groupData,
     setGroupData,
     leaderboard,
+    dailyData,
     validating,
     showSuccess,
     refreshIn,
@@ -312,15 +348,11 @@ function App() {
     navigateToStep,
   };
 
-  // Mock streak data - in real app this would come from props/API
-  const currentStreak = 7;
-  const completedToday = false; // This would determine flame state
-
   // Function to get the appropriate flame icon based on state
   const getFlameIcon = () => {
-    if (completedToday) {
+    if (dailyData.dailyComplete) {
       return '🔥'; // Full red flame when completed today
-    } else if (currentStreak > 0) {
+    } else if (dailyData.streak > 0) {
       return '🔥'; // Empty/gray flame when streak exists but not done today (we'll style it)
     } else {
       return '💨'; // No flame/smoke when no streak
@@ -328,9 +360,9 @@ function App() {
   };
 
   const getFlameStyle = () => {
-    if (completedToday) {
+    if (dailyData.dailyComplete) {
       return 'text-red-500'; // Red flame when completed
-    } else if (currentStreak > 0) {
+    } else if (dailyData.streak > 0) {
       return 'text-gray-400'; // Gray flame when not done today
     } else {
       return 'text-gray-300'; // Very light when no streak
@@ -350,17 +382,17 @@ function App() {
             <span
               className={`text-2xl cursor-pointer transition-all duration-200 hover:scale-110 ${getFlameStyle()}`}
               title={
-                completedToday
-                  ? `${currentStreak} day streak - Completed today!`
-                  : currentStreak > 0
-                    ? `${currentStreak} day streak - Complete today's challenge!`
+                dailyData.dailyComplete
+                  ? `${dailyData.streak} day streak - Completed today!`
+                  : dailyData.streak > 0
+                    ? `${dailyData.streak} day streak - Complete today's challenge!`
                     : 'Start your streak!'
               }
             >
               {getFlameIcon()}
             </span>
             <span className="text-sm font-bold text-gray-600">
-              {currentStreak}
+              {dailyData.streak}
             </span>
           </div>
         )}

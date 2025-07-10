@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ActiveBounties = ({ userData, leaderboard }) => {
+const ActiveBounties = ({ userData, leaderboard, dailyData }) => {
   // Find current user's stats from leaderboard
   const currentUserStats = leaderboard?.find(
     user => user.username === userData?.leetUsername
@@ -33,7 +33,7 @@ const ActiveBounties = ({ userData, leaderboard }) => {
       title: 'Solve the Daily Problem',
       description: "Complete today's featured challenge",
       xp: 200,
-      progress: 0, // This would be 1 if they completed today's challenge
+      progress: dailyData?.dailyComplete ? 1 : 0, // Real daily completion status
       maxProgress: 1,
       expiresIn: '18 hours',
       icon: '📅',
