@@ -20,7 +20,7 @@ function App() {
     streak: 0,
     todaysProblem: null,
     error: null,
-    loading: true
+    loading: true,
   });
 
   // UI state
@@ -161,7 +161,9 @@ function App() {
 
     try {
       console.log('Fetching daily problem for:', userData.leetUsername);
-      const result = await window.electronAPI.getDailyProblem(userData.leetUsername);
+      const result = await window.electronAPI.getDailyProblem(
+        userData.leetUsername
+      );
       console.log('Daily problem result:', result);
       setDailyData({ ...result, loading: false });
     } catch (error) {
@@ -171,7 +173,7 @@ function App() {
         streak: 0,
         todaysProblem: null,
         error: error.message,
-        loading: false
+        loading: false,
       });
     }
   };

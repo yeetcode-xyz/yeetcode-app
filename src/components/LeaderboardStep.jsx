@@ -40,8 +40,16 @@ const LeaderboardStep = ({
 
         {/* Sidebar - Right Column */}
         <div className="space-y-6">
-          <UserStats userData={userData} leaderboard={leaderboard} dailyData={dailyData} />
-          <ActiveBounties userData={userData} leaderboard={leaderboard} dailyData={dailyData} />
+          <UserStats
+            userData={userData}
+            leaderboard={leaderboard}
+            dailyData={dailyData}
+          />
+          <ActiveBounties
+            userData={userData}
+            leaderboard={leaderboard}
+            dailyData={dailyData}
+          />
           <QuickActions groupData={groupData} />
         </div>
       </div>
