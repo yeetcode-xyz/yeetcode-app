@@ -1166,6 +1166,110 @@ ipcMain.handle('refresh-user-xp', async (event, username) => {
   return await refreshUserXP(username);
 });
 
+// Get all bounties
+ipcMain.handle('get-bounties', async (event, username) => {
+  console.log('[DEBUG][get-bounties] called for username:', username);
+
+  try {
+    const bountiesTableName = process.env.BOUNTIES_TABLE || 'Bounties';
+    const scanResult = await dynamodb
+      .scan({ TableName: bountiesTableName })
+      .promise();
+
+    const items = scanResult.Items || [];
+    const bounties = items.map(item => ({
+      bountyId: item.bountyId?.S,
+      count: parseInt(item.count?.N || '0'),
+      expirydate: parseInt(item.expirydate?.N || '0'),
+      startdate: parseInt(item.startdate?.N || '0'),
+      xp: parseInt(item.xp?.N || '0'),
+      description: item.description?.S,
+      difficulty: item.difficulty?.S,
+      users: item.users?.M || {},
+      name: item.name?.S,
+      tags: item.tags?.L?.map(tag => tag.S) || [],
+      title: item.title?.S,
+      type: item.type?.S,
+    }));
+
+    // Calculate progress for each bounty if username is provided
+    if (username) {
+      bounties.forEach(bounty => {
+        const userProgress = bounty.users[username];
+        if (userProgress && userProgress.N) {
+          bounty.userProgress = parseInt(userProgress.N);
+          bounty.progressPercent = Math.min(
+            (bounty.userProgress / bounty.count) * 100,
+            100
+          );
+        } else {
+          bounty.userProgress = 0;
+          bounty.progressPercent = 0;
+        }
+
+        // Check if bounty is expired
+        const now = Math.floor(Date.now() / 1000);
+        bounty.isExpired = now > bounty.expirydate;
+        bounty.isActive = now >= bounty.startdate && !bounty.isExpired;
+
+        // Calculate time remaining
+        if (bounty.isActive) {
+          bounty.timeRemaining = bounty.expirydate - now;
+          bounty.daysRemaining = Math.ceil(
+            bounty.timeRemaining / (24 * 60 * 60)
+          );
+        }
+      });
+    }
+
+    console.log(`[DEBUG][get-bounties] Found ${bounties.length} bounties`);
+    return bounties;
+  } catch (error) {
+    console.error('[ERROR][get-bounties]', error);
+    return [];
+  }
+});
+
+// Update bounty progress
+ipcMain.handle(
+  'update-bounty-progress',
+  async (event, username, bountyId, progress) => {
+    console.log('[DEBUG][update-bounty-progress] called:', {
+      username,
+      bountyId,
+      progress,
+    });
+
+    try {
+      const bountiesTableName = process.env.BOUNTIES_TABLE || 'Bounties';
+
+      const updateParams = {
+        TableName: bountiesTableName,
+        Key: {
+          bountyId: { S: bountyId },
+        },
+        UpdateExpression: 'SET users.#username = :progress',
+        ExpressionAttributeNames: {
+          '#username': username,
+        },
+        ExpressionAttributeValues: {
+          ':progress': { N: progress.toString() },
+        },
+      };
+
+      await dynamodb.updateItem(updateParams).promise();
+      console.log(
+        `[DEBUG][update-bounty-progress] Updated bounty ${bountyId} for user ${username} to ${progress}`
+      );
+
+      return { success: true, progress };
+    } catch (error) {
+      console.error('[ERROR][update-bounty-progress]', error);
+      return { success: false, error: error.message };
+    }
+  }
+);
+
 // Manual trigger for daily challenge notification (for testing)
 ipcMain.handle('check-daily-notification', async () => {
   return await notificationManager.testNotification();

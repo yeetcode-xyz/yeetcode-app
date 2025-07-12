@@ -38,6 +38,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   refreshUserXP: username => ipcRenderer.invoke('refresh-user-xp', username),
 
+  getBounties: username => ipcRenderer.invoke('get-bounties', username),
+
+  updateBountyProgress: (username, bountyId, progress) =>
+    ipcRenderer.invoke('update-bounty-progress', username, bountyId, progress),
+
   checkDailyNotification: () => ipcRenderer.invoke('check-daily-notification'),
 
   // New methods for tracking app state
