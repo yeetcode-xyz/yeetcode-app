@@ -8,7 +8,9 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
 
   // Calculate XP
   const calculateXP = stats => {
-    return stats.easy * 100 + stats.medium * 300 + stats.hard * 500;
+    const problemXP = stats.easy * 100 + stats.medium * 300 + stats.hard * 500;
+    const bonusXP = stats.xp ?? 0; // Daily challenges and other bonus XP
+    return problemXP + bonusXP;
   };
 
   const userXP = calculateXP(currentUserStats);

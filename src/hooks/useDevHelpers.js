@@ -62,18 +62,148 @@ export const useDevHelpers = ({
           navigateToStep('leaderboard');
         },
 
+        // XP Breakdown for debugging
+        breakdownXP: async username => {
+          const user = username || userData?.leetUsername;
+          if (!user) {
+            console.log(
+              '❌ No username provided. Usage: devHelpers.breakdownXP("username") or ensure you\'re logged in'
+            );
+            return;
+          }
+
+          try {
+            // Get user data from database
+            const userDbData = await window.electronAPI?.getUserData(user);
+            if (!userDbData || Object.keys(userDbData).length === 0) {
+              console.log(`❌ No data found for user: ${user}`);
+              return;
+            }
+
+            // Calculate XP breakdown
+            const easy = userDbData.easy || 0;
+            const medium = userDbData.medium || 0;
+            const hard = userDbData.hard || 0;
+            const dailyXP = userDbData.xp || 0;
+
+            const easyXP = easy * 100;
+            const mediumXP = medium * 300;
+            const hardXP = hard * 500;
+            const totalProblemXP = easyXP + mediumXP + hardXP;
+            const totalXP = totalProblemXP + dailyXP;
+
+            // Calculate estimated daily challenges completed
+            const estimatedDailyChallenges = Math.floor(dailyXP / 200);
+
+            console.log(`\n🏆 XP BREAKDOWN for ${user}`);
+            console.log('================================');
+            console.log(`📈 Total XP: ${totalXP.toLocaleString()}`);
+            console.log('\n📊 Problem XP:');
+            console.log(
+              `  🟢 Easy (${easy} × 100):     ${easyXP.toLocaleString()} XP`
+            );
+            console.log(
+              `  🟡 Medium (${medium} × 300):   ${mediumXP.toLocaleString()} XP`
+            );
+            console.log(
+              `  🔴 Hard (${hard} × 500):     ${hardXP.toLocaleString()} XP`
+            );
+            console.log(
+              `  📊 Problem Subtotal:      ${totalProblemXP.toLocaleString()} XP\n`
+            );
+            console.log(
+              `🎯 Daily Challenge XP:      ${dailyXP.toLocaleString()} XP`
+            );
+            console.log(
+              `   (≈ ${estimatedDailyChallenges} daily challenges completed)\n`
+            );
+
+            // Show percentage breakdown
+            console.log('📊 XP Sources:');
+            if (totalXP > 0) {
+              const problemPercent = ((totalProblemXP / totalXP) * 100).toFixed(
+                1
+              );
+              const dailyPercent = ((dailyXP / totalXP) * 100).toFixed(1);
+              console.log(`  📊 Problems: ${problemPercent}%`);
+              console.log(`  🎯 Daily Challenges: ${dailyPercent}%`);
+            }
+
+            // Show additional user data
+            console.log(`\n📊 Additional Data:`);
+            console.log(
+              `  Group ID: ${userDbData.group_id || 'Not in a group'}`
+            );
+            console.log(`  Today Problems: ${userDbData.today || 0}`);
+
+            return {
+              username: user,
+              totalXP,
+              breakdown: {
+                easy: { count: easy, xp: easyXP },
+                medium: { count: medium, xp: mediumXP },
+                hard: { count: hard, xp: hardXP },
+                dailyBonus: dailyXP,
+                estimatedDailyChallenges,
+              },
+            };
+          } catch (error) {
+            console.error('❌ Error getting XP breakdown:', error);
+          }
+        },
+
         // Utilities - now captures current state
-        showState: () => {
-          console.log('🎯 Current app state:', {
-            step,
-            userData,
-            groupData,
-            error,
-            validating,
-            refreshIn,
-            showSuccess,
-            animationClass,
+        state: () => ({
+          step,
+          userData,
+          groupData,
+          error,
+          validating,
+          refreshIn,
+          showSuccess,
+          animationClass,
+        }),
+
+        // Test notification system
+        testNotification: async () => {
+          if (window.electronAPI) {
+            console.log('🔔 Testing daily notification system...');
+            await window.electronAPI.checkDailyNotification();
+            console.log('✅ Notification test triggered');
+          } else {
+            console.log('❌ electronAPI not available');
+          }
+        },
+
+        // Refresh XP by calling the dedicated refresh function
+        refreshXP: async () => {
+          if (window.electronAPI && userData?.leetUsername) {
+            console.log('🔄 Refreshing XP...');
+            const result = await window.electronAPI.refreshUserXP(
+              userData.leetUsername
+            );
+            if (result.success) {
+              console.log(
+                `✅ XP refreshed: ${result.newXP} XP (${result.completedDays} daily challenges completed)`
+              );
+            } else {
+              console.log('❌ XP refresh failed:', result.error);
+            }
+          } else {
+            console.log('❌ Not logged in or electronAPI not available');
+          }
+        },
+
+        // Clear all data
+        reset: () => {
+          setUserData({ name: '', leetUsername: '' });
+          setGroupData({ code: '', joined: false });
+          setStep('welcome');
+          // Clear localStorage
+          Object.values(STORAGE_KEYS).forEach(key => {
+            localStorage.removeItem(key);
           });
+          console.log('🧹 Reset all data');
         },
 
         clearStorage: () => {
@@ -88,6 +218,175 @@ export const useDevHelpers = ({
         clearError: () => {
           setError('');
           console.log('🎯 Cleared error state');
+        },
+
+        // Compare leaderboard vs direct user data
+        compareDataSources: async username => {
+          const user = username || userData?.leetUsername;
+          if (!user) {
+            console.log(
+              '❌ No username provided. Usage: devHelpers.compareDataSources("username") or ensure you\'re logged in'
+            );
+            return;
+          }
+
+          try {
+            console.log('🔍 COMPARING DATA SOURCES');
+            console.log('=========================');
+            console.log('Username:', user);
+
+            // Get direct user data
+            const directUserData = await window.electronAPI?.getUserData(user);
+            console.log('\n📊 Direct User Data (get-user-data):');
+            console.log('  XP:', directUserData?.xp || 0);
+            console.log('  Easy:', directUserData?.easy || 0);
+            console.log('  Medium:', directUserData?.medium || 0);
+            console.log('  Hard:', directUserData?.hard || 0);
+            console.log('  Group ID:', directUserData?.group_id);
+
+            // Get leaderboard data (assuming current group)
+            if (groupData?.code) {
+              const leaderboardData =
+                await window.electronAPI?.getStatsForGroup(groupData.code);
+              const userFromLeaderboard = leaderboardData?.find(
+                u => u.username === user
+              );
+
+              console.log('\n🏆 Leaderboard Data (get-stats-for-group):');
+              if (userFromLeaderboard) {
+                console.log('  XP:', userFromLeaderboard?.xp || 0);
+                console.log('  Easy:', userFromLeaderboard?.easy || 0);
+                console.log('  Medium:', userFromLeaderboard?.medium || 0);
+                console.log('  Hard:', userFromLeaderboard?.hard || 0);
+
+                console.log('\n🚨 DIFFERENCES:');
+                const xpDiff =
+                  (directUserData?.xp || 0) - (userFromLeaderboard?.xp || 0);
+                const easyDiff =
+                  (directUserData?.easy || 0) -
+                  (userFromLeaderboard?.easy || 0);
+                const mediumDiff =
+                  (directUserData?.medium || 0) -
+                  (userFromLeaderboard?.medium || 0);
+                const hardDiff =
+                  (directUserData?.hard || 0) -
+                  (userFromLeaderboard?.hard || 0);
+
+                console.log(
+                  `  XP: ${xpDiff} (${directUserData?.xp || 0} vs ${userFromLeaderboard?.xp || 0})`
+                );
+                console.log(
+                  `  Easy: ${easyDiff} (${directUserData?.easy || 0} vs ${userFromLeaderboard?.easy || 0})`
+                );
+                console.log(
+                  `  Medium: ${mediumDiff} (${directUserData?.medium || 0} vs ${userFromLeaderboard?.medium || 0})`
+                );
+                console.log(
+                  `  Hard: ${hardDiff} (${directUserData?.hard || 0} vs ${userFromLeaderboard?.hard || 0})`
+                );
+
+                if (
+                  xpDiff !== 0 ||
+                  easyDiff !== 0 ||
+                  mediumDiff !== 0 ||
+                  hardDiff !== 0
+                ) {
+                  console.log('⚠️  DATA MISMATCH DETECTED!');
+                } else {
+                  console.log('✅ Data sources match');
+                }
+              } else {
+                console.log('  ❌ User not found in leaderboard!');
+                console.log('  Group code:', groupData.code);
+                console.log(
+                  '  Available users:',
+                  leaderboardData?.map(u => u.username)
+                );
+              }
+            } else {
+              console.log(
+                '\n❌ No group code available for leaderboard comparison'
+              );
+            }
+
+            return { directUserData, groupData: groupData?.code };
+          } catch (error) {
+            console.error('❌ Error comparing data sources:', error);
+          }
+        },
+
+        // Test the complete daily problem function
+        testCompleteDailyProblem: async username => {
+          const user = username || userData?.leetUsername;
+          if (!user) {
+            console.log(
+              '❌ No username provided. Usage: devHelpers.testCompleteDailyProblem("username") or ensure you\'re logged in'
+            );
+            return;
+          }
+
+          try {
+            console.log('🧪 TESTING COMPLETE DAILY PROBLEM');
+            console.log('==================================');
+            console.log('Username:', user);
+
+            // Get user data BEFORE
+            const beforeData = await window.electronAPI?.getUserData(user);
+            console.log('XP before:', beforeData?.xp || 0);
+
+            // Call complete daily problem
+            console.log('Calling completeDailyProblem...');
+            const result = await window.electronAPI?.completeDailyProblem(user);
+            console.log('Complete daily result:', result);
+
+            // Get user data AFTER
+            const afterData = await window.electronAPI?.getUserData(user);
+            console.log('XP after:', afterData?.xp || 0);
+
+            const xpDiff = (afterData?.xp || 0) - (beforeData?.xp || 0);
+            console.log('XP difference:', xpDiff);
+
+            return { result, xpDiff, beforeData, afterData };
+          } catch (error) {
+            console.error('❌ Error testing complete daily problem:', error);
+          }
+        },
+
+        // Test XP refresh function
+        testXPRefresh: async username => {
+          const user = username || userData?.leetUsername;
+          if (!user) {
+            console.log(
+              '❌ No username provided. Usage: devHelpers.testXPRefresh("username") or ensure you\'re logged in'
+            );
+            return;
+          }
+
+          try {
+            console.log('🧪 TESTING XP REFRESH');
+            console.log('=====================');
+            console.log('Username:', user);
+
+            // Get user data BEFORE
+            const beforeData = await window.electronAPI?.getUserData(user);
+            console.log('XP before:', beforeData?.xp || 0);
+
+            // Call refresh XP
+            console.log('Calling refreshUserXP...');
+            const result = await window.electronAPI?.refreshUserXP(user);
+            console.log('Refresh XP result:', result);
+
+            // Get user data AFTER
+            const afterData = await window.electronAPI?.getUserData(user);
+            console.log('XP after:', afterData?.xp || 0);
+
+            const xpDiff = (afterData?.xp || 0) - (beforeData?.xp || 0);
+            console.log('XP difference:', xpDiff);
+
+            return { result, xpDiff, beforeData, afterData };
+          } catch (error) {
+            console.error('❌ Error testing XP refresh:', error);
+          }
         },
       };
     }
@@ -112,30 +411,22 @@ export const useDevHelpers = ({
   useEffect(() => {
     if (import.meta.env.DEV) {
       console.log(`
-🚀 YeetCode Development Helpers Available!
-
-Navigation:
-• devHelpers.goToWelcome() - Go to welcome screen
-• devHelpers.goToOnboarding() - Go to onboarding screen  
-• devHelpers.goToGroup() - Go to group screen
-• devHelpers.goToLeaderboard() - Go to leaderboard screen
-
-Data Setup:
-• devHelpers.setTestUser(name, leetUser) - Set test user data
-• devHelpers.setTestGroup(code) - Set test group data
-• devHelpers.skipGroup() - Skip group setup (for AWS issues)
-
-Quick Test Scenarios:
-• devHelpers.testOnboarding() - Jump to onboarding with test data
-• devHelpers.testLeaderboard() - Jump to leaderboard with test data
-
-Utilities:
-• devHelpers.showState() - Show current app state
-• devHelpers.clearStorage() - Clear all saved data
-• devHelpers.clearError() - Clear error messages
-
-Example: devHelpers.testLeaderboard()
-      `);
+🛠 Dev Helpers Available:
+• devHelpers.setTestUser(name?, leetUser?) - Set test user data
+• devHelpers.setTestGroup(code?) - Set test group
+• devHelpers.skipGroup() - Skip group setup for AWS issues
+• devHelpers.testOnboarding() - Quick onboarding test
+• devHelpers.testLeaderboard() - Quick leaderboard test
+• devHelpers.breakdownXP(username?) - Show detailed XP breakdown
+• devHelpers.refreshXP() - Refresh XP for current user
+• devHelpers.testXPRefresh(username?) - Test XP refresh function
+• devHelpers.testCompleteDailyProblem(username?) - Test daily problem completion
+• devHelpers.testNotification() - Test notification system
+• devHelpers.compareDataSources(username?) - Compare leaderboard vs direct data
+• devHelpers.state() - Show current app state
+• devHelpers.clearStorage() - Clear all stored data
+• devHelpers.goToWelcome/Onboarding/Group/Leaderboard() - Navigate
+        `);
     }
   }, []);
 };

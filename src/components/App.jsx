@@ -62,6 +62,22 @@ function App() {
     }
   }, [step, groupData]);
 
+  // Track app state for smart notifications
+  useEffect(() => {
+    if (window.electronAPI) {
+      window.electronAPI.updateAppState(step, userData, dailyData);
+    }
+  }, [step, userData, dailyData]);
+
+  // Clear app state when component unmounts
+  useEffect(() => {
+    return () => {
+      if (window.electronAPI) {
+        window.electronAPI.clearAppState();
+      }
+    };
+  }, []);
+
   // Handle leaderboard and daily problem refresh
   useEffect(() => {
     if (step !== 'leaderboard' || !groupData.joined || !groupData.code) {
@@ -137,6 +153,7 @@ function App() {
         medium: item.medium ?? 0,
         hard: item.hard ?? 0,
         today: item.today ?? 0,
+        xp: item.xp ?? 0, // Include XP from daily challenges
       }));
 
       // 3) Sort by total problems solved (descending)
@@ -160,11 +177,9 @@ function App() {
     }
 
     try {
-      console.log('Fetching daily problem for:', userData.leetUsername);
       const result = await window.electronAPI.getDailyProblem(
         userData.leetUsername
       );
-      console.log('Daily problem result:', result);
       setDailyData({ ...result, loading: false });
     } catch (error) {
       console.error('Error fetching daily problem:', error);
@@ -176,6 +191,12 @@ function App() {
         loading: false,
       });
     }
+  };
+
+  const handleDailyComplete = async result => {
+    console.log('Daily challenge completed:', result);
+    // Refresh both daily data and leaderboard
+    await Promise.all([fetchDailyProblem(), fetchLeaderboard()]);
   };
 
   const handleStartOnboarding = () => {
@@ -347,6 +368,7 @@ function App() {
     handleJoinGroup,
     handleCreateGroup,
     handleLeaveGroup,
+    handleDailyComplete,
     navigateToStep,
   };
 

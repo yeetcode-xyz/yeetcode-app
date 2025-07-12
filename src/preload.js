@@ -33,4 +33,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   completeDailyProblem: username =>
     ipcRenderer.invoke('complete-daily-problem', username),
+
+  fixUserXP: username => ipcRenderer.invoke('fix-user-xp', username),
+
+  refreshUserXP: username => ipcRenderer.invoke('refresh-user-xp', username),
+
+  checkDailyNotification: () => ipcRenderer.invoke('check-daily-notification'),
+
+  // New methods for tracking app state
+  updateAppState: (step, userData, dailyData) =>
+    ipcRenderer.invoke('update-app-state', step, userData, dailyData),
+
+  clearAppState: () => ipcRenderer.invoke('clear-app-state'),
 });

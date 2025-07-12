@@ -17,6 +17,7 @@ const LeaderboardStep = ({
   showCopySuccess,
   setShowCopySuccess,
   handleLeaveGroup,
+  handleDailyComplete,
 }) => {
   return (
     <div className={`flex flex-col gap-6 ${animationClass}`}>
@@ -33,7 +34,11 @@ const LeaderboardStep = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Main Content - Left 2 Columns */}
         <div className="lg:col-span-2 space-y-6">
-          <TodaysChallenge userData={userData} dailyData={dailyData} />
+          <TodaysChallenge
+            userData={userData}
+            dailyData={dailyData}
+            onDailyComplete={handleDailyComplete}
+          />
           <FriendsLeaderboard leaderboard={leaderboard} userData={userData} />
           <DuelsSection leaderboard={leaderboard} userData={userData} />
         </div>

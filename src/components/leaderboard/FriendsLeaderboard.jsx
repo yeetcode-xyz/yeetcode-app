@@ -4,9 +4,9 @@ const FriendsLeaderboard = ({ leaderboard, userData }) => {
   // XP calculation function
   const calculateXP = user => {
     const baseXP = user.easy * 100 + user.medium * 300 + user.hard * 500;
-    // Add bounty XP if available (for future bounty system)
-    const bountyXP = user.bountyXP || 0;
-    return baseXP + bountyXP;
+    // Add daily challenge XP and other bonus XP from database
+    const bonusXP = user.xp || 0;
+    return baseXP + bonusXP;
   };
 
   return (
@@ -55,38 +55,59 @@ const FriendsLeaderboard = ({ leaderboard, userData }) => {
                           : index === 2
                             ? 'bg-green-100'
                             : isCurrentUser
-                              ? 'bg-green-100'
+                              ? 'bg-blue-50 border-l-4 border-blue-400'
                               : '';
+
+                    const textStyle = isCurrentUser
+                      ? 'font-semibold text-blue-700'
+                      : '';
+                    const rankStyle = isCurrentUser
+                      ? 'font-bold text-blue-700'
+                      : 'font-bold';
 
                     return (
                       <tr
                         key={user.username}
                         className={`border-b border-gray-200 ${bgColor}`}
                       >
-                        <td className="font-bold px-4 py-3">{index + 1}</td>
+                        <td className={`px-4 py-3 ${rankStyle}`}>
+                          #{index + 1}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs font-bold border border-black">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black ${isCurrentUser ? 'bg-blue-200 text-blue-800' : 'bg-gray-300'}`}
+                            >
                               {user.name.substring(0, 2).toUpperCase()}
                             </div>
-                            <span className={isCurrentUser ? 'font-bold' : ''}>
+                            <span
+                              className={
+                                isCurrentUser
+                                  ? 'font-semibold text-blue-700'
+                                  : ''
+                              }
+                            >
                               {isCurrentUser ? 'You' : user.name}
                             </span>
                           </div>
                         </td>
-                        <td className="text-center px-4 py-3 font-bold">
+                        <td className={`text-center px-4 py-3 ${textStyle}`}>
                           {user.easy}
                         </td>
-                        <td className="text-center px-4 py-3 font-bold">
+                        <td className={`text-center px-4 py-3 ${textStyle}`}>
                           {user.medium}
                         </td>
-                        <td className="text-center px-4 py-3 font-bold">
+                        <td className={`text-center px-4 py-3 ${textStyle}`}>
                           {user.hard}
                         </td>
-                        <td className="text-center px-4 py-3 font-bold text-blue-600">
+                        <td
+                          className={`text-center px-4 py-3 font-bold ${isCurrentUser ? 'text-blue-700' : 'text-blue-600'}`}
+                        >
                           {total}
                         </td>
-                        <td className="text-center px-4 py-3 font-bold text-purple-600">
+                        <td
+                          className={`text-center px-4 py-3 font-bold ${isCurrentUser ? 'text-purple-700' : 'text-purple-600'}`}
+                        >
                           {userXP.toLocaleString()}
                         </td>
                       </tr>

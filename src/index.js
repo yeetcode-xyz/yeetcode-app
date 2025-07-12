@@ -1,4 +1,10 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  Notification,
+} = require('electron');
 const path = require('path');
 const electronSquirrelStartup = require('electron-squirrel-startup');
 const dotenv = require('dotenv');
@@ -18,9 +24,10 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 dotenv.config();
 
-// Configure DynamoDB DocumentClient
+// Configure DynamoDB clients - single configuration for entire app
 AWS.config.update({ region: process.env.AWS_REGION });
-const ddb = new AWS.DynamoDB.DocumentClient();
+const ddb = new AWS.DynamoDB.DocumentClient(); // For high-level operations (easier to use)
+const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION }); // For low-level operations (raw format)
 
 // Load environment variables
 console.log('Loading environment variables...');
@@ -103,11 +110,195 @@ const createWindow = () => {
   });
 };
 
+// Daily challenge notification system
+let lastCheckedDate = null;
+
+// Clean notification manager class
+class NotificationManager {
+  constructor() {
+    this.trackingFile = path.join(
+      __dirname,
+      '..',
+      'notification-tracking.json'
+    );
+    this.currentAppState = {
+      step: 'welcome',
+      userData: null,
+      dailyData: null,
+      lastUpdated: null,
+    };
+  }
+
+  loadTracking() {
+    try {
+      if (fs.existsSync(this.trackingFile)) {
+        const data = fs.readFileSync(this.trackingFile, 'utf8');
+        return JSON.parse(data);
+      }
+    } catch (error) {
+      console.error('[ERROR][NotificationManager.loadTracking]', error);
+    }
+    return {};
+  }
+
+  saveTracking(tracking) {
+    try {
+      fs.writeFileSync(this.trackingFile, JSON.stringify(tracking, null, 2));
+    } catch (error) {
+      console.error('[ERROR][NotificationManager.saveTracking]', error);
+    }
+  }
+
+  updateAppState(step, userData, dailyData) {
+    this.currentAppState = {
+      step,
+      userData,
+      dailyData,
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+
+  clearAppState() {
+    this.currentAppState = {
+      step: 'welcome',
+      userData: null,
+      dailyData: null,
+      lastUpdated: null,
+    };
+  }
+
+  async checkForNewDailyChallenge() {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Load persistent notification tracking
+      const notificationTracking = this.loadTracking();
+
+      // Only check once per day and only send notification if not already sent today
+      if (lastCheckedDate === today && notificationTracking[today]) {
+        return;
+      }
+
+      console.log(
+        '[DEBUG][NotificationManager.checkForNewDailyChallenge] Checking for new daily challenge...'
+      );
+
+      // Check if user is in the right state for notifications
+      const shouldNotify =
+        this.currentAppState.step === 'leaderboard' &&
+        this.currentAppState.userData?.leetUsername &&
+        this.currentAppState.dailyData?.dailyComplete === false;
+
+      if (!shouldNotify) {
+        console.log(
+          '[DEBUG][NotificationManager.checkForNewDailyChallenge] User not in leaderboard or already completed daily - skipping notification'
+        );
+        lastCheckedDate = today; // Still mark as checked to avoid repeated checks
+        return;
+      }
+
+      const dailyTableName = process.env.DAILY_TABLE || 'Daily';
+
+      // Check if today's daily challenge exists
+      const scanParams = {
+        TableName: dailyTableName,
+        FilterExpression: '#date = :today',
+        ExpressionAttributeNames: {
+          '#date': 'date',
+        },
+        ExpressionAttributeValues: {
+          ':today': { S: today },
+        },
+      };
+
+      const scanResult = await dynamodb.scan(scanParams).promise();
+      const items = scanResult.Items || [];
+
+      if (items.length > 0 && !notificationTracking[today]) {
+        // New daily challenge found and notification not yet sent for today!
+        const todaysProblem = items[0];
+        const title = todaysProblem.title?.S || 'New Problem';
+
+        console.log(
+          '[DEBUG][NotificationManager.checkForNewDailyChallenge] New daily challenge found for logged-in user:',
+          title
+        );
+
+        // Send notification only if not already sent today and user is eligible
+        if (Notification.isSupported()) {
+          new Notification({
+            title: '🎯 New Daily Challenge Available!',
+            body: `Today's problem: ${title}\nEarn 200 XP by solving it!`,
+            icon: path.join(__dirname, 'assets', 'icon.png'), // Optional: add app icon
+          }).show();
+
+          // Mark notification as sent for today
+          notificationTracking[today] = true;
+          this.saveTracking(notificationTracking);
+
+          // Clean up old tracking data (keep only last 7 days)
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - 7);
+          const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+
+          Object.keys(notificationTracking).forEach(date => {
+            if (date < cutoffDateStr) {
+              delete notificationTracking[date];
+            }
+          });
+          this.saveTracking(notificationTracking);
+        }
+
+        lastCheckedDate = today;
+      }
+    } catch (error) {
+      console.error(
+        '[ERROR][NotificationManager.checkForNewDailyChallenge]',
+        error
+      );
+    }
+  }
+
+  async testNotification() {
+    console.log(
+      '[DEBUG][NotificationManager.testNotification] Manually triggered'
+    );
+    lastCheckedDate = null; // Reset to force check
+
+    // Also reset notification tracking for today to allow testing
+    const today = new Date().toISOString().split('T')[0];
+    const notificationTracking = this.loadTracking();
+    delete notificationTracking[today];
+    this.saveTracking(notificationTracking);
+
+    await this.checkForNewDailyChallenge();
+    return { success: true };
+  }
+}
+
+// Create global notification manager instance
+const notificationManager = new NotificationManager();
+
+// Start daily challenge checker
+const startDailyChallengeChecker = () => {
+  // Check immediately on startup
+  setTimeout(() => notificationManager.checkForNewDailyChallenge(), 5000); // Wait 5 seconds after startup
+
+  // Then check every hour
+  setInterval(
+    () => notificationManager.checkForNewDailyChallenge(),
+    60 * 60 * 1000
+  ); // 1 hour
+};
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   createWindow();
+
+  // Start the daily challenge notification system
+  startDailyChallengeChecker();
 
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
@@ -388,6 +579,37 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
     }
   }
 
+  // Auto-refresh XP for all users in the group to ensure consistency
+  if (items.length > 0) {
+    console.log(
+      '[DEBUG][get-stats-for-group] Auto-refreshing XP for all users in group'
+    );
+    const refreshPromises = items.map(user => refreshUserXP(user.username));
+    await Promise.allSettled(refreshPromises);
+
+    // Re-query to get updated data
+    try {
+      const updatedResult = await ddb.query(queryParams).promise();
+      items = updatedResult.Items || [];
+    } catch (err) {
+      // If re-query fails, use scan as fallback
+      try {
+        const scanParams = {
+          TableName: process.env.USERS_TABLE,
+          FilterExpression: 'group_id = :g',
+          ExpressionAttributeValues: { ':g': groupId },
+        };
+        const scanResult = await ddb.scan(scanParams).promise();
+        items = scanResult.Items || [];
+      } catch (scanErr) {
+        console.error(
+          '[ERROR][get-stats-for-group] Failed to get updated data after XP refresh:',
+          scanErr
+        );
+      }
+    }
+  }
+
   // 3️⃣ Map to leaderboard shape
   const leaderboard = items.map(item => ({
     username: item.username,
@@ -396,6 +618,7 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
     medium: item.medium ?? 0,
     hard: item.hard ?? 0,
     today: item.today ?? 0,
+    xp: item.xp ?? 0, // Include XP from daily challenges and other sources
   }));
   console.log(
     '[DEBUG][get-stats-for-group] returning leaderboard:',
@@ -552,7 +775,6 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
 
   try {
     // Use the low-level DynamoDB client for raw format instead of DocumentClient
-    const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION });
 
     // Scan the Daily table to get all daily problems
     const dailyTableName = process.env.DAILY_TABLE || 'Daily';
@@ -603,6 +825,9 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
       'valid daily problems'
     );
 
+    // Auto-fix XP if user has completed daily challenges but doesn't have proper XP
+    await autoFixUserXP(username, dailyProblems);
+
     const latestProblem = dailyProblems[0];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
 
@@ -615,16 +840,82 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
     // Check if today's problem exists and if user completed it
     const todaysProblem = latestProblem.date === today ? latestProblem : null;
     const dailyComplete =
-      todaysProblem && todaysProblem.users && todaysProblem.users[username];
+      todaysProblem &&
+      todaysProblem.users &&
+      todaysProblem.users[username] &&
+      (todaysProblem.users[username].BOOL === true ||
+        todaysProblem.users[username] === true);
 
-    // Calculate streak by checking consecutive days from the latest
+    console.log(
+      '[DEBUG][get-daily-problem] todaysProblem:',
+      todaysProblem ? 'Found' : 'Not found'
+    );
+    console.log(
+      '[DEBUG][get-daily-problem] todaysProblem.users:',
+      todaysProblem?.users
+    );
+    console.log('[DEBUG][get-daily-problem] checking for username:', username);
+    console.log(
+      '[DEBUG][get-daily-problem] user completion:',
+      todaysProblem?.users?.[username]
+    );
+    console.log(
+      '[DEBUG][get-daily-problem] dailyComplete final result:',
+      dailyComplete
+    );
+
+    // Calculate streak by checking consecutive days going backwards from today
     let streak = 0;
-    for (let i = 0; i < dailyProblems.length; i++) {
-      const problem = dailyProblems[i];
-      if (problem.users && problem.users[username]) {
-        streak++;
-      } else {
-        break; // Streak broken
+    const todayDate = new Date().toISOString().split('T')[0];
+
+    // Check if today's problem is completed first
+    const todayCompleted =
+      todaysProblem &&
+      todaysProblem.users &&
+      todaysProblem.users[username] &&
+      (todaysProblem.users[username].BOOL === true ||
+        todaysProblem.users[username] === true);
+
+    if (todayCompleted) {
+      // If today is completed, start counting from today
+      streak = 1;
+
+      // Go backwards from yesterday
+      for (let i = 1; i < dailyProblems.length; i++) {
+        const problem = dailyProblems[i];
+        const expectedDate = new Date(todayDate);
+        expectedDate.setDate(expectedDate.getDate() - i);
+
+        // Check if this is the consecutive day and user completed it
+        const userCompletion = problem.users && problem.users[username];
+        if (
+          problem.date === expectedDate.toISOString().split('T')[0] &&
+          userCompletion &&
+          (userCompletion.BOOL === true || userCompletion === true)
+        ) {
+          streak++;
+        } else {
+          break; // Streak broken
+        }
+      }
+    } else {
+      // If today is not completed, check backwards from yesterday
+      for (let i = 1; i < dailyProblems.length; i++) {
+        const problem = dailyProblems[i];
+        const expectedDate = new Date(todayDate);
+        expectedDate.setDate(expectedDate.getDate() - i);
+
+        // Check if this is the consecutive day and user completed it
+        const userCompletion = problem.users && problem.users[username];
+        if (
+          problem.date === expectedDate.toISOString().split('T')[0] &&
+          userCompletion &&
+          (userCompletion.BOOL === true || userCompletion === true)
+        ) {
+          streak++;
+        } else {
+          break; // Streak broken
+        }
       }
     }
 
@@ -638,7 +929,7 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
           '[ERROR][get-daily-problem] Failed to fetch problem details:',
           error
         );
-        // Use basic info from database if API fails
+        // Fallback to stored data
         problemDetails = {
           title: todaysProblem.title,
           titleSlug: todaysProblem.slug,
@@ -667,13 +958,100 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
   }
 });
 
+// Auto-fix XP function that runs during get-daily-problem
+const autoFixUserXP = async (username, dailyProblems) => {
+  try {
+    console.log('[DEBUG][autoFixUserXP] Checking XP for user:', username);
+
+    // Use the new refreshUserXP function for consistency
+    const result = await refreshUserXP(username);
+
+    if (result.success) {
+      console.log(
+        `[DEBUG][autoFixUserXP] XP refreshed for ${username}: ${result.newXP} XP`
+      );
+    } else {
+      console.log(
+        `[DEBUG][autoFixUserXP] Failed to refresh XP for ${username}:`,
+        result.error
+      );
+    }
+  } catch (error) {
+    console.error('[ERROR][autoFixUserXP]', error);
+  }
+};
+
+// Function to refresh user XP based on daily completions
+const refreshUserXP = async username => {
+  try {
+    console.log('[DEBUG][refreshUserXP] Refreshing XP for user:', username);
+
+    // Get daily completions for this user
+    const dailyTableName = process.env.DAILY_TABLE || 'Daily';
+    const scanResult = await dynamodb
+      .scan({ TableName: dailyTableName })
+      .promise();
+
+    const items = scanResult.Items || [];
+    const dailyProblems = items
+      .map(item => ({
+        date: item.date?.S,
+        users: item.users?.M || {},
+      }))
+      .filter(item => item.date);
+
+    // Count ALL days this user completed (not consecutive)
+    let totalCompletedDays = 0;
+    for (const problem of dailyProblems) {
+      // Check if user exists and has BOOL: true
+      const userCompletion = problem.users[username];
+      if (
+        userCompletion &&
+        (userCompletion.BOOL === true || userCompletion === true)
+      ) {
+        totalCompletedDays++;
+      }
+    }
+
+    console.log(
+      `[DEBUG][refreshUserXP] User ${username} completed ${totalCompletedDays} total daily challenges`
+    );
+
+    // Calculate total daily XP (200 per challenge)
+    const totalDailyXP = totalCompletedDays * 200;
+
+    // Update user record with correct XP
+    const updateParams = {
+      TableName: process.env.USERS_TABLE,
+      Key: { username },
+      UpdateExpression: 'SET xp = :xp',
+      ExpressionAttributeValues: {
+        ':xp': totalDailyXP,
+      },
+    };
+
+    await ddb.update(updateParams).promise();
+    console.log(
+      `[DEBUG][refreshUserXP] Successfully updated XP for ${username}: ${totalDailyXP}`
+    );
+
+    return {
+      success: true,
+      newXP: totalDailyXP,
+      completedDays: totalCompletedDays,
+    };
+  } catch (error) {
+    console.error('[ERROR][refreshUserXP]', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Mark daily problem as complete and award XP
 ipcMain.handle('complete-daily-problem', async (event, username) => {
   console.log('[DEBUG][complete-daily-problem] called for username:', username);
 
   try {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION });
     const dailyTableName = process.env.DAILY_TABLE || 'Daily';
 
     // First, check if today's daily problem exists using low-level client
@@ -706,7 +1084,11 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
     };
 
     // Check if user already completed today's problem
-    if (todaysProblem.users[username]) {
+    const userCompletion = todaysProblem.users[username];
+    if (
+      userCompletion &&
+      (userCompletion.BOOL === true || userCompletion === true)
+    ) {
       console.log(
         "[DEBUG][complete-daily-problem] User already completed today's problem"
       );
@@ -724,31 +1106,33 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
       Key: {
         date: { S: today },
       },
-      UpdateExpression: 'SET users.#username = :timestamp',
+      UpdateExpression: 'SET users.#username = :completion',
       ExpressionAttributeNames: {
         '#username': username,
       },
       ExpressionAttributeValues: {
-        ':timestamp': { S: new Date().toISOString() },
+        ':completion': { BOOL: true },
       },
     };
 
     await dynamodb.updateItem(updateDailyParams).promise();
     console.log('[DEBUG][complete-daily-problem] Updated Daily table');
 
-    // Award 200 XP to the user and update their daily completion using DocumentClient
+    // Award 200 XP to the user (daily completion is tracked in Daily table)
     const updateUserParams = {
       TableName: process.env.USERS_TABLE,
       Key: { username },
-      UpdateExpression: 'ADD xp :xp SET daily_completed = :today',
+      UpdateExpression: 'ADD xp :xp',
       ExpressionAttributeValues: {
         ':xp': 200,
-        ':today': today,
       },
     };
 
     await ddb.update(updateUserParams).promise();
     console.log('[DEBUG][complete-daily-problem] Awarded 200 XP to user');
+
+    // Refresh XP to ensure consistency
+    await refreshUserXP(username);
 
     // Calculate new streak
     const { streak } = await exports.getDailyProblemStatus(username);
@@ -768,6 +1152,43 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
       newStreak: 0,
     };
   }
+});
+
+// Fix user XP based on daily completions
+ipcMain.handle('fix-user-xp', async (event, username) => {
+  console.log('[DEBUG][fix-user-xp] called for username:', username);
+  return await refreshUserXP(username);
+});
+
+// Refresh user XP (same as fix-user-xp but with different name for clarity)
+ipcMain.handle('refresh-user-xp', async (event, username) => {
+  console.log('[DEBUG][refresh-user-xp] called for username:', username);
+  return await refreshUserXP(username);
+});
+
+// Manual trigger for daily challenge notification (for testing)
+ipcMain.handle('check-daily-notification', async () => {
+  return await notificationManager.testNotification();
+});
+
+// App state tracking for smart notifications
+ipcMain.handle('update-app-state', async (event, step, userData, dailyData) => {
+  console.log('[DEBUG][update-app-state] Updating app state:', {
+    step,
+    username: userData?.leetUsername,
+    dailyComplete: dailyData?.dailyComplete,
+  });
+
+  notificationManager.updateAppState(step, userData, dailyData);
+
+  return { success: true };
+});
+
+ipcMain.handle('clear-app-state', async () => {
+  console.log('[DEBUG][clear-app-state] Clearing app state');
+  notificationManager.clearAppState();
+
+  return { success: true };
 });
 
 // Helper function to fetch problem details from LeetCode API
@@ -847,7 +1268,6 @@ const fetchLeetCodeProblemDetails = async slug => {
 exports.getDailyProblemStatus = async username => {
   // This is a simplified version of get-daily-problem for internal use
   try {
-    const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION });
     const dailyTableName = process.env.DAILY_TABLE || 'Daily';
     const scanResult = await dynamodb
       .scan({ TableName: dailyTableName })
@@ -863,13 +1283,59 @@ exports.getDailyProblemStatus = async username => {
 
     dailyProblems.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    // Use same streak calculation logic as main function
     let streak = 0;
-    for (let i = 0; i < dailyProblems.length; i++) {
-      const problem = dailyProblems[i];
-      if (problem.users[username]) {
-        streak++;
-      } else {
-        break;
+    const todayDate = new Date().toISOString().split('T')[0];
+
+    // Find today's problem
+    const todaysProblem = dailyProblems.find(p => p.date === todayDate);
+    const todayCompleted =
+      todaysProblem &&
+      todaysProblem.users &&
+      todaysProblem.users[username] &&
+      (todaysProblem.users[username].BOOL === true ||
+        todaysProblem.users[username] === true);
+
+    if (todayCompleted) {
+      // If today is completed, start counting from today
+      streak = 1;
+
+      // Go backwards from yesterday
+      for (let i = 1; i < dailyProblems.length; i++) {
+        const problem = dailyProblems[i];
+        const expectedDate = new Date(todayDate);
+        expectedDate.setDate(expectedDate.getDate() - i);
+
+        // Check if this is the consecutive day and user completed it
+        const userCompletion = problem.users && problem.users[username];
+        if (
+          problem.date === expectedDate.toISOString().split('T')[0] &&
+          userCompletion &&
+          (userCompletion.BOOL === true || userCompletion === true)
+        ) {
+          streak++;
+        } else {
+          break; // Streak broken
+        }
+      }
+    } else {
+      // If today is not completed, check backwards from yesterday
+      for (let i = 1; i < dailyProblems.length; i++) {
+        const problem = dailyProblems[i];
+        const expectedDate = new Date(todayDate);
+        expectedDate.setDate(expectedDate.getDate() - i);
+
+        // Check if this is the consecutive day and user completed it
+        const userCompletion = problem.users && problem.users[username];
+        if (
+          problem.date === expectedDate.toISOString().split('T')[0] &&
+          userCompletion &&
+          (userCompletion.BOOL === true || userCompletion === true)
+        ) {
+          streak++;
+        } else {
+          break; // Streak broken
+        }
       }
     }
 

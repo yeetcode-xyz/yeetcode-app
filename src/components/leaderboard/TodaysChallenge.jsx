@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const TodaysChallenge = ({ userData, dailyData }) => {
+const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
   const handleStartCoding = () => {
     if (dailyData.todaysProblem) {
       const leetcodeUrl = `https://leetcode.com/problems/${dailyData.todaysProblem.titleSlug}/`;
