@@ -144,17 +144,22 @@ function App() {
     try {
       // 1) IPC into main, DynamoDB GSI or scan
       const items = await window.electronAPI.getStatsForGroup(groupData.code);
+      console.log('🔍 [FRONTEND] Raw items from backend:', items);
 
       // 2) Normalize + compute totals
-      const normalized = items.map(item => ({
-        username: item.username,
-        name: item.username,
-        easy: item.easy ?? 0,
-        medium: item.medium ?? 0,
-        hard: item.hard ?? 0,
-        today: item.today ?? 0,
-        xp: item.xp ?? 0, // Include XP from daily challenges
-      }));
+      const normalized = items.map(item => {
+        console.log(`🔍 [FRONTEND] Processing user: ${item.username}, name field: "${item.name}"`);
+        return {
+          username: item.username,
+          name: item.name, // Now using the proper display name from backend
+          easy: item.easy ?? 0,
+          medium: item.medium ?? 0,
+          hard: item.hard ?? 0,
+          today: item.today ?? 0,
+          xp: item.xp ?? 0, // Include XP from daily challenges
+        };
+      });
+      console.log('🔍 [FRONTEND] Normalized leaderboard:', normalized);
 
       // 3) Sort by total problems solved (descending)
       normalized.sort((a, b) => {
@@ -250,8 +255,27 @@ function App() {
         return;
       }
 
-      // 3) On success, show indicator then fetch & navigate once
+      // 3) On success, show indicator and update display name
       setShowSuccess(true);
+
+      // Update display name in database
+      if (window.electronAPI) {
+        try {
+          const displayNameResult = await window.electronAPI.updateDisplayName(
+            userData.leetUsername,
+            userData.name
+          );
+          console.log('Display name update result:', displayNameResult);
+          
+          // Also ensure the display name is set when we get user data
+          if (!displayNameResult.success) {
+            console.warn('Display name update failed:', displayNameResult.error);
+          }
+        } catch (displayNameError) {
+          console.error('Error updating display name:', displayNameError);
+          // Don't fail the whole process if display name update fails
+        }
+      }
 
       // Fetch saved user data now
       const userRecord = await window.electronAPI.getUserData(
@@ -287,9 +311,17 @@ function App() {
 
     try {
       if (window.electronAPI) {
+        // Update display name first
+        await window.electronAPI.updateDisplayName(
+          userData.leetUsername,
+          userData.name
+        );
+        
+        // Then join group
         await window.electronAPI.joinGroup(
           userData.leetUsername,
-          groupData.code
+          groupData.code,
+          userData.name
         );
       } else {
         // Mock join for development
@@ -316,8 +348,16 @@ function App() {
         'DEV-' + Math.random().toString(36).substr(2, 5).toUpperCase();
 
       if (window.electronAPI) {
+        // Update display name first
+        await window.electronAPI.updateDisplayName(
+          userData.leetUsername,
+          userData.name
+        );
+        
+        // Then create group
         const result = await window.electronAPI.createGroup(
-          userData.leetUsername
+          userData.leetUsername,
+          userData.name
         );
         groupId = result.groupId;
       } else {

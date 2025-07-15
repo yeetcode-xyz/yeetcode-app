@@ -121,7 +121,7 @@ const ActiveBounties = ({ userData }) => {
   return (
     <div
       className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col"
-      style={{ minHeight: '400px' }}
+      style={{ height: '400px' }}
     >
       <div className="bg-blue-500 px-6 py-4 border-b-4 border-black flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ const ActiveBounties = ({ userData }) => {
           <h3 className="font-bold text-white text-lg">ACTIVE BOUNTIES</h3>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar" style={{ maxHeight: '320px' }}>
         {activeBounties.map(bounty => (
           <div
             key={bounty.bountyId}

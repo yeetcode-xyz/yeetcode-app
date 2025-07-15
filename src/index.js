@@ -428,8 +428,8 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
 AWS.config.logger = console;
 
 // CREATE GROUP
-ipcMain.handle('create-group', async (event, username) => {
-  console.log('[DEBUG][create-group] called for username:', username);
+ipcMain.handle('create-group', async (event, username, displayName) => {
+  console.log('[DEBUG][create-group] called for username:', username, 'displayName:', displayName);
   console.log('[DEBUG][create-group] ENV tables:', {
     USERS_TABLE: process.env.USERS_TABLE,
     GROUPS_TABLE: process.env.GROUPS_TABLE,
@@ -479,8 +479,11 @@ ipcMain.handle('create-group', async (event, username) => {
   const updateParams = {
     TableName: process.env.USERS_TABLE,
     Key: { username },
-    UpdateExpression: 'SET group_id = :g',
-    ExpressionAttributeValues: { ':g': groupId },
+    UpdateExpression: 'SET group_id = :g, display_name = :name',
+    ExpressionAttributeValues: { 
+      ':g': groupId,
+      ':name': displayName || username
+    },
   };
 
   console.log(
@@ -502,20 +505,25 @@ ipcMain.handle('create-group', async (event, username) => {
 });
 
 // JOIN GROUP
-ipcMain.handle('join-group', async (event, username, inviteCode) => {
+ipcMain.handle('join-group', async (event, username, inviteCode, displayName) => {
   console.log(
     '[DEBUG][join-group] called for username:',
     username,
     'inviteCode:',
-    inviteCode
+    inviteCode,
+    'displayName:',
+    displayName
   );
   console.log('[DEBUG][join-group] ENV USERS_TABLE:', process.env.USERS_TABLE);
 
   const updateParams = {
     TableName: process.env.USERS_TABLE,
     Key: { username },
-    UpdateExpression: 'SET group_id = :g',
-    ExpressionAttributeValues: { ':g': inviteCode },
+    UpdateExpression: 'SET group_id = :g, display_name = :name',
+    ExpressionAttributeValues: { 
+      ':g': inviteCode,
+      ':name': displayName || username
+    },
     // removed ConditionExpression so this will upsert
   };
 
@@ -610,15 +618,41 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
     }
   }
 
-  // 3️⃣ Map to leaderboard shape
-  const leaderboard = items.map(item => ({
-    username: item.username,
-    name: item.username,
-    easy: item.easy ?? 0,
-    medium: item.medium ?? 0,
-    hard: item.hard ?? 0,
-    today: item.today ?? 0,
-    xp: item.xp ?? 0, // Include XP from daily challenges and other sources
+  // 3️⃣ Map to leaderboard shape and auto-fix missing display names
+  const leaderboard = await Promise.all(items.map(async item => {
+    console.log(`[DEBUG][get-stats-for-group] User ${item.username}: display_name="${item.display_name}"`);
+    
+    // Auto-fix missing display names by setting them to username
+    let displayName = item.display_name;
+    if (!displayName || displayName === 'undefined') {
+      console.log(`[DEBUG][get-stats-for-group] Auto-fixing display name for user: ${item.username}`);
+      try {
+        const updateParams = {
+          TableName: process.env.USERS_TABLE,
+          Key: { username: item.username },
+          UpdateExpression: 'SET display_name = :name',
+          ExpressionAttributeValues: { 
+            ':name': item.username
+          },
+        };
+        await ddb.update(updateParams).promise();
+        displayName = item.username;
+        console.log(`[DEBUG][get-stats-for-group] Successfully set display name for ${item.username}`);
+      } catch (err) {
+        console.error(`[ERROR][get-stats-for-group] Failed to update display name for ${item.username}:`, err);
+        displayName = item.username; // fallback to username
+      }
+    }
+    
+    return {
+      username: item.username,
+      name: displayName,
+      easy: item.easy ?? 0,
+      medium: item.medium ?? 0,
+      hard: item.hard ?? 0, 
+      today: item.today ?? 0,
+      xp: item.xp ?? 0, // Include XP from daily challenges and other sources
+    };
   }));
   console.log(
     '[DEBUG][get-stats-for-group] returning leaderboard:',
@@ -662,6 +696,42 @@ ipcMain.handle('leave-group', async (event, username) => {
   } catch (err) {
     console.error('[ERROR][leave-group]', err);
     throw err;
+  }
+});
+
+// UPDATE DISPLAY NAME
+ipcMain.handle('update-display-name', async (event, username, displayName) => {
+  console.log('[DEBUG][update-display-name] called for username:', username, 'displayName:', displayName);
+
+  if (!displayName || !displayName.trim()) {
+    console.log('[DEBUG][update-display-name] No display name provided, skipping update');
+    return { success: false, error: 'No display name provided' };
+  }
+
+  const updateParams = {
+    TableName: process.env.USERS_TABLE,
+    Key: { username },
+    UpdateExpression: 'SET display_name = :name',
+    ExpressionAttributeValues: { 
+      ':name': displayName.trim()
+    },
+  };
+
+  console.log(
+    '[DEBUG][update-display-name] about to call ddb.update with:',
+    JSON.stringify(updateParams, null, 2)
+  );
+
+  try {
+    const updateRes = await ddb.update(updateParams).promise();
+    console.log(
+      '[DEBUG][update-display-name] ddb.update response:',
+      JSON.stringify(updateRes, null, 2)
+    );
+    return { success: true };
+  } catch (err) {
+    console.error('[ERROR][update-display-name] ddb.update error:', err);
+    return { success: false, error: err.message };
   }
 });
 
