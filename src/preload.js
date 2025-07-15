@@ -11,7 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   validateLeetCodeUsername: username =>
     ipcRenderer.invoke('validate-leetcode-username', username),
 
-  createGroup: (username, displayName) => ipcRenderer.invoke('create-group', username, displayName),
+  createGroup: (username, displayName) =>
+    ipcRenderer.invoke('create-group', username, displayName),
 
   joinGroup: (username, code, displayName) =>
     ipcRenderer.invoke('join-group', username, code, displayName),
@@ -23,7 +24,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   leaveGroup: username => ipcRenderer.invoke('leave-group', username),
 
-  updateDisplayName: (username, displayName) => ipcRenderer.invoke('update-display-name', username, displayName),
+  updateDisplayName: (username, displayName) =>
+    ipcRenderer.invoke('update-display-name', username, displayName),
 
   openExternalUrl: url => ipcRenderer.invoke('open-external-url', url),
 

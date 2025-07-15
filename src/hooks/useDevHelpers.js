@@ -393,7 +393,7 @@ export const useDevHelpers = ({
         testDisplayName: async (displayName, username) => {
           const user = username || userData?.leetUsername;
           const name = displayName || userData?.name || 'Test Display Name';
-          
+
           if (!user) {
             console.log(
               '❌ No username provided. Usage: devHelpers.testDisplayName("MyName", "username") or ensure you\'re logged in'
@@ -409,24 +409,39 @@ export const useDevHelpers = ({
 
             // Get user data BEFORE
             const beforeData = await window.electronAPI?.getUserData(user);
-            console.log('Display name before:', beforeData?.display_name || 'Not set');
+            console.log(
+              'Display name before:',
+              beforeData?.display_name || 'Not set'
+            );
 
             // Call update display name
             console.log('Calling updateDisplayName...');
-            const result = await window.electronAPI?.updateDisplayName(user, name);
+            const result = await window.electronAPI?.updateDisplayName(
+              user,
+              name
+            );
             console.log('Update display name result:', result);
 
             // Get user data AFTER
             const afterData = await window.electronAPI?.getUserData(user);
-            console.log('Display name after:', afterData?.display_name || 'Not set');
+            console.log(
+              'Display name after:',
+              afterData?.display_name || 'Not set'
+            );
 
             // Test leaderboard data
             if (groupData?.code) {
               console.log('Testing leaderboard display...');
-              const leaderboardData = await window.electronAPI?.getStatsForGroup(groupData.code);
-              const userInLeaderboard = leaderboardData?.find(u => u.username === user);
+              const leaderboardData =
+                await window.electronAPI?.getStatsForGroup(groupData.code);
+              const userInLeaderboard = leaderboardData?.find(
+                u => u.username === user
+              );
               console.log('User in leaderboard:', userInLeaderboard);
-              console.log('Name shown in leaderboard:', userInLeaderboard?.name);
+              console.log(
+                'Name shown in leaderboard:',
+                userInLeaderboard?.name
+              );
             }
 
             return { result, beforeData, afterData };

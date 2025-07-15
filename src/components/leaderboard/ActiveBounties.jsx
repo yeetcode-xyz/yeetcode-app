@@ -129,7 +129,10 @@ const ActiveBounties = ({ userData }) => {
           <h3 className="font-bold text-white text-lg">ACTIVE BOUNTIES</h3>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar" style={{ maxHeight: '320px' }}>
+      <div
+        className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"
+        style={{ maxHeight: '320px' }}
+      >
         {activeBounties.map(bounty => (
           <div
             key={bounty.bountyId}

@@ -40,7 +40,7 @@ const FriendsLeaderboard = ({ leaderboard, userData }) => {
                 </tr>
               </thead>
             </table>
-                         <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
               <table className="min-w-full">
                 <tbody>
                   {leaderboard

@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {},
   },
@@ -14,10 +11,10 @@ export default {
     'sticky-header',
     // Button 3D effect classes
     'btn-3d',
-    'btn-press', 
+    'btn-press',
     'btn-retro',
     'shadow-3d-sm',
-    'shadow-3d-md', 
+    'shadow-3d-md',
     'shadow-3d-lg',
     'panel-3d',
     // Animation classes
@@ -26,6 +23,6 @@ export default {
     'takeover-badge',
     'takeover-rocket',
     'takeover-float',
-    'takeover-pulse'
-  ]
-}; 
+    'takeover-pulse',
+  ],
+};

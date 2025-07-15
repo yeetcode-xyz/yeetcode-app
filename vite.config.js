@@ -15,12 +15,12 @@ module.exports = defineConfig({
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
-        assetFileNames: '[name].[ext]'
-      }
-    }
+        assetFileNames: '[name].[ext]',
+      },
+    },
   },
   server: {
     port: 5173,
-    strictPort: true
-  }
-}); 
+    strictPort: true,
+  },
+});

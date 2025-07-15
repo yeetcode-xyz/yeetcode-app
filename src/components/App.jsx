@@ -148,7 +148,9 @@ function App() {
 
       // 2) Normalize + compute totals
       const normalized = items.map(item => {
-        console.log(`🔍 [FRONTEND] Processing user: ${item.username}, name field: "${item.name}"`);
+        console.log(
+          `🔍 [FRONTEND] Processing user: ${item.username}, name field: "${item.name}"`
+        );
         return {
           username: item.username,
           name: item.name, // Now using the proper display name from backend
@@ -266,10 +268,13 @@ function App() {
             userData.name
           );
           console.log('Display name update result:', displayNameResult);
-          
+
           // Also ensure the display name is set when we get user data
           if (!displayNameResult.success) {
-            console.warn('Display name update failed:', displayNameResult.error);
+            console.warn(
+              'Display name update failed:',
+              displayNameResult.error
+            );
           }
         } catch (displayNameError) {
           console.error('Error updating display name:', displayNameError);
@@ -316,7 +321,7 @@ function App() {
           userData.leetUsername,
           userData.name
         );
-        
+
         // Then join group
         await window.electronAPI.joinGroup(
           userData.leetUsername,
@@ -353,7 +358,7 @@ function App() {
           userData.leetUsername,
           userData.name
         );
-        
+
         // Then create group
         const result = await window.electronAPI.createGroup(
           userData.leetUsername,

@@ -7,7 +7,7 @@ const envPath = path.join(rootDir, '.env');
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 console.log('YeetCode App Environment Setup');
@@ -16,7 +16,7 @@ console.log('------------------------------');
 // Check if .env already exists
 if (fs.existsSync(envPath)) {
   console.log('\n.env file already exists. Do you want to overwrite it? (y/n)');
-  rl.question('> ', (answer) => {
+  rl.question('> ', answer => {
     if (answer.toLowerCase() !== 'y') {
       console.log('Setup canceled. Existing .env file was not modified.');
       rl.close();
@@ -30,21 +30,25 @@ if (fs.existsSync(envPath)) {
 
 function createEnvFile() {
   console.log('\nPlease enter your API URL:');
-  rl.question('> ', (apiUrl) => {
+  rl.question('> ', apiUrl => {
     console.log('\nPlease enter your API key:');
-    rl.question('> ', (apiKey) => {
-      console.log('\nPlease enter your LeetCode API key (press Enter to skip):');
-      rl.question('> ', (leetcodeApiKey) => {
-        console.log('\nPlease enter your LeetCode API URL (press Enter to skip):');
-        rl.question('> ', (leetcodeApiUrl) => {
+    rl.question('> ', apiKey => {
+      console.log(
+        '\nPlease enter your LeetCode API key (press Enter to skip):'
+      );
+      rl.question('> ', leetcodeApiKey => {
+        console.log(
+          '\nPlease enter your LeetCode API URL (press Enter to skip):'
+        );
+        rl.question('> ', leetcodeApiUrl => {
           console.log('\nPlease enter your AWS region:');
-           rl.question('> ', (awsRegion) => {
-             console.log('\nPlease enter your Users table name:');
-             rl.question('> ', (usersTable) => {
-               console.log('\nPlease enter your Groups table name:');
-               rl.question('> ', (groupsTable) => {
-                 // now build the full .env
-                 const envContent = `# API Configuration
+          rl.question('> ', awsRegion => {
+            console.log('\nPlease enter your Users table name:');
+            rl.question('> ', usersTable => {
+              console.log('\nPlease enter your Groups table name:');
+              rl.question('> ', groupsTable => {
+                // now build the full .env
+                const envContent = `# API Configuration
 API_URL=${apiUrl}
 API_KEY=${apiKey}
 
@@ -56,15 +60,15 @@ LEETCODE_API_URL=${leetcodeApiUrl}
 AWS_REGION=${awsRegion}
 USERS_TABLE=${usersTable}
 GROUPS_TABLE=${groupsTable}`;
-                
-                 fs.writeFileSync(envPath, envContent);
-                 console.log('\n.env file created successfully!');
-                 rl.close();
-               });
-             });
-           });
+
+                fs.writeFileSync(envPath, envContent);
+                console.log('\n.env file created successfully!');
+                rl.close();
+              });
+            });
+          });
         });
       });
     });
   });
-} 
+}
