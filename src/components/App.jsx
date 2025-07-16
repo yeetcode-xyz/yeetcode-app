@@ -144,13 +144,8 @@ function App() {
     try {
       // 1) IPC into main, DynamoDB GSI or scan
       const items = await window.electronAPI.getStatsForGroup(groupData.code);
-      console.log('🔍 [FRONTEND] Raw items from backend:', items);
-
       // 2) Normalize + compute totals
       const normalized = items.map(item => {
-        console.log(
-          `🔍 [FRONTEND] Processing user: ${item.username}, name field: "${item.name}"`
-        );
         return {
           username: item.username,
           name: item.name, // Now using the proper display name from backend
