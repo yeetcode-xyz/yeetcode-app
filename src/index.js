@@ -43,7 +43,6 @@ if (fs.existsSync(envPath)) {
     !!process.env.AWS_SECRET_ACCESS_KEY
   );
   console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
-  console.log('[ENV] GROUPS_TABLE =', process.env.GROUPS_TABLE);
   console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
 } else {
   console.log('.env file does not exist');
@@ -437,49 +436,14 @@ ipcMain.handle('create-group', async (event, username, displayName) => {
   );
   console.log('[DEBUG][create-group] ENV tables:', {
     USERS_TABLE: process.env.USERS_TABLE,
-    GROUPS_TABLE: process.env.GROUPS_TABLE,
   });
 
   function gen5Digit() {
     return Math.floor(10000 + Math.random() * 90000).toString();
   }
 
-  let groupId;
-  for (let i = 0; i < 5; i++) {
-    const candidate = gen5Digit();
-    const putParams = {
-      TableName: process.env.GROUPS_TABLE,
-      Item: {
-        group_id: candidate,
-        created_at: new Date().toISOString(),
-      },
-      ConditionExpression: 'attribute_not_exists(group_id)',
-    };
-
-    console.log(
-      '[DEBUG][create-group] about to call ddb.put with:',
-      JSON.stringify(putParams, null, 2)
-    );
-    try {
-      const putRes = await ddb.put(putParams).promise();
-      console.log(
-        '[DEBUG][create-group] ddb.put response:',
-        JSON.stringify(putRes, null, 2)
-      );
-      groupId = candidate;
-      break;
-    } catch (err) {
-      console.error('[ERROR][create-group] ddb.put error:', err);
-      if (err.code !== 'ConditionalCheckFailedException') {
-        throw err;
-      }
-      // collision, will retry
-    }
-  }
-
-  if (!groupId) {
-    throw new Error('Unable to generate unique group code');
-  }
+  // Generate a unique 5-digit group ID
+  const groupId = gen5Digit();
 
   const updateParams = {
     TableName: process.env.USERS_TABLE,
