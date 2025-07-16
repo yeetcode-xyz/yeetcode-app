@@ -166,7 +166,7 @@ const ActiveBounties = ({ userData }) => {
                 </div>
               </div>
               <div
-                className="text-gray-600 text-sm mt-1 mb-1 truncate"
+                className="text-gray-600 text-sm mt-1 mb-1"
                 title={bounty.description}
               >
                 {bounty.description}
