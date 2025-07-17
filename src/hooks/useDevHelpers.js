@@ -175,25 +175,6 @@ export const useDevHelpers = ({
           }
         },
 
-        // Refresh XP by calling the dedicated refresh function
-        refreshXP: async () => {
-          if (window.electronAPI && userData?.leetUsername) {
-            console.log('🔄 Refreshing XP...');
-            const result = await window.electronAPI.refreshUserXP(
-              userData.leetUsername
-            );
-            if (result.success) {
-              console.log(
-                `✅ XP refreshed: ${result.newXP} XP (${result.completedDays} daily challenges completed)`
-              );
-            } else {
-              console.log('❌ XP refresh failed:', result.error);
-            }
-          } else {
-            console.log('❌ Not logged in or electronAPI not available');
-          }
-        },
-
         // Clear all data
         reset: () => {
           setUserData({ name: '', leetUsername: '' });
@@ -315,80 +296,6 @@ export const useDevHelpers = ({
           }
         },
 
-        // Test the complete daily problem function
-        testCompleteDailyProblem: async username => {
-          const user = username || userData?.leetUsername;
-          if (!user) {
-            console.log(
-              '❌ No username provided. Usage: devHelpers.testCompleteDailyProblem("username") or ensure you\'re logged in'
-            );
-            return;
-          }
-
-          try {
-            console.log('🧪 TESTING COMPLETE DAILY PROBLEM');
-            console.log('==================================');
-            console.log('Username:', user);
-
-            // Get user data BEFORE
-            const beforeData = await window.electronAPI?.getUserData(user);
-            console.log('XP before:', beforeData?.xp || 0);
-
-            // Call complete daily problem
-            console.log('Calling completeDailyProblem...');
-            const result = await window.electronAPI?.completeDailyProblem(user);
-            console.log('Complete daily result:', result);
-
-            // Get user data AFTER
-            const afterData = await window.electronAPI?.getUserData(user);
-            console.log('XP after:', afterData?.xp || 0);
-
-            const xpDiff = (afterData?.xp || 0) - (beforeData?.xp || 0);
-            console.log('XP difference:', xpDiff);
-
-            return { result, xpDiff, beforeData, afterData };
-          } catch (error) {
-            console.error('❌ Error testing complete daily problem:', error);
-          }
-        },
-
-        // Test XP refresh function
-        testXPRefresh: async username => {
-          const user = username || userData?.leetUsername;
-          if (!user) {
-            console.log(
-              '❌ No username provided. Usage: devHelpers.testXPRefresh("username") or ensure you\'re logged in'
-            );
-            return;
-          }
-
-          try {
-            console.log('🧪 TESTING XP REFRESH');
-            console.log('=====================');
-            console.log('Username:', user);
-
-            // Get user data BEFORE
-            const beforeData = await window.electronAPI?.getUserData(user);
-            console.log('XP before:', beforeData?.xp || 0);
-
-            // Call refresh XP
-            console.log('Calling refreshUserXP...');
-            const result = await window.electronAPI?.refreshUserXP(user);
-            console.log('Refresh XP result:', result);
-
-            // Get user data AFTER
-            const afterData = await window.electronAPI?.getUserData(user);
-            console.log('XP after:', afterData?.xp || 0);
-
-            const xpDiff = (afterData?.xp || 0) - (beforeData?.xp || 0);
-            console.log('XP difference:', xpDiff);
-
-            return { result, xpDiff, beforeData, afterData };
-          } catch (error) {
-            console.error('❌ Error testing XP refresh:', error);
-          }
-        },
-
         // Test display name functionality
         testDisplayName: async (displayName, username) => {
           const user = username || userData?.leetUsername;
@@ -479,10 +386,7 @@ export const useDevHelpers = ({
 • devHelpers.testOnboarding() - Quick onboarding test
 • devHelpers.testLeaderboard() - Quick leaderboard test
 • devHelpers.breakdownXP(username?) - Show detailed XP breakdown
-• devHelpers.refreshXP() - Refresh XP for current user
-• devHelpers.testXPRefresh(username?) - Test XP refresh function
-• devHelpers.testCompleteDailyProblem(username?) - Test daily problem completion
-• devHelpers.testDisplayName(displayName?, username?) - Test display name functionality 🆕
+• devHelpers.testDisplayName(displayName?, username?) - Test display name functionality
 • devHelpers.testNotification() - Test notification system
 • devHelpers.compareDataSources(username?) - Compare leaderboard vs direct data
 • devHelpers.state() - Show current app state

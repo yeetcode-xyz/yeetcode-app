@@ -14,14 +14,6 @@ const AWS = require('aws-sdk');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
-// Hot reload for development (temporarily disabled to prevent multiple windows)
-// if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-//   require('electron-reload')(__dirname, {
-//     electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
-//     hardResetMethod: 'exit',
-//   });
-// }
-
 dotenv.config();
 
 // Configure DynamoDB clients - single configuration for entire app
@@ -562,36 +554,7 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
     }
   }
 
-  // Auto-refresh XP for all users in the group to ensure consistency
-  if (items.length > 0) {
-    console.log(
-      '[DEBUG][get-stats-for-group] Auto-refreshing XP for all users in group'
-    );
-    const refreshPromises = items.map(user => refreshUserXP(user.username));
-    await Promise.allSettled(refreshPromises);
-
-    // Re-query to get updated data
-    try {
-      const updatedResult = await ddb.query(queryParams).promise();
-      items = updatedResult.Items || [];
-    } catch (err) {
-      // If re-query fails, use scan as fallback
-      try {
-        const scanParams = {
-          TableName: process.env.USERS_TABLE,
-          FilterExpression: 'group_id = :g',
-          ExpressionAttributeValues: { ':g': groupId },
-        };
-        const scanResult = await ddb.scan(scanParams).promise();
-        items = scanResult.Items || [];
-      } catch (scanErr) {
-        console.error(
-          '[ERROR][get-stats-for-group] Failed to get updated data after XP refresh:',
-          scanErr
-        );
-      }
-    }
-  }
+  // Items retrieved from database are already current
 
   // 3️⃣ Map to leaderboard shape and auto-fix missing display names
   const leaderboard = await Promise.all(
@@ -888,9 +851,6 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
       'valid daily problems'
     );
 
-    // Auto-fix XP if user has completed daily challenges but doesn't have proper XP
-    await autoFixUserXP(username, dailyProblems);
-
     const latestProblem = dailyProblems[0];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
 
@@ -1004,6 +964,13 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
       }
     }
 
+    console.log(
+      '[DEBUG][get-daily-problem] returning streak:',
+      streak,
+      'dailyComplete:',
+      dailyComplete
+    );
+
     return {
       dailyComplete,
       streak,
@@ -1020,94 +987,6 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
     };
   }
 });
-
-// Auto-fix XP function that runs during get-daily-problem
-const autoFixUserXP = async (username, dailyProblems) => {
-  try {
-    console.log('[DEBUG][autoFixUserXP] Checking XP for user:', username);
-
-    // Use the new refreshUserXP function for consistency
-    const result = await refreshUserXP(username);
-
-    if (result.success) {
-      console.log(
-        `[DEBUG][autoFixUserXP] XP refreshed for ${username}: ${result.newXP} XP`
-      );
-    } else {
-      console.log(
-        `[DEBUG][autoFixUserXP] Failed to refresh XP for ${username}:`,
-        result.error
-      );
-    }
-  } catch (error) {
-    console.error('[ERROR][autoFixUserXP]', error);
-  }
-};
-
-// Function to refresh user XP based on daily completions
-const refreshUserXP = async username => {
-  try {
-    console.log('[DEBUG][refreshUserXP] Refreshing XP for user:', username);
-
-    // Get daily completions for this user
-    const dailyTableName = process.env.DAILY_TABLE || 'Daily';
-    const scanResult = await dynamodb
-      .scan({ TableName: dailyTableName })
-      .promise();
-
-    const items = scanResult.Items || [];
-    const dailyProblems = items
-      .map(item => ({
-        date: item.date?.S,
-        users: item.users?.M || {},
-      }))
-      .filter(item => item.date);
-
-    // Count ALL days this user completed (not consecutive)
-    let totalCompletedDays = 0;
-    for (const problem of dailyProblems) {
-      // Check if user exists and has BOOL: true
-      const userCompletion = problem.users[username];
-      if (
-        userCompletion &&
-        (userCompletion.BOOL === true || userCompletion === true)
-      ) {
-        totalCompletedDays++;
-      }
-    }
-
-    console.log(
-      `[DEBUG][refreshUserXP] User ${username} completed ${totalCompletedDays} total daily challenges`
-    );
-
-    // Calculate total daily XP (200 per challenge)
-    const totalDailyXP = totalCompletedDays * 200;
-
-    // Update user record with correct XP
-    const updateParams = {
-      TableName: process.env.USERS_TABLE,
-      Key: { username },
-      UpdateExpression: 'SET xp = :xp',
-      ExpressionAttributeValues: {
-        ':xp': totalDailyXP,
-      },
-    };
-
-    await ddb.update(updateParams).promise();
-    console.log(
-      `[DEBUG][refreshUserXP] Successfully updated XP for ${username}: ${totalDailyXP}`
-    );
-
-    return {
-      success: true,
-      newXP: totalDailyXP,
-      completedDays: totalCompletedDays,
-    };
-  } catch (error) {
-    console.error('[ERROR][refreshUserXP]', error);
-    return { success: false, error: error.message };
-  }
-};
 
 // Mark daily problem as complete and award XP
 ipcMain.handle('complete-daily-problem', async (event, username) => {
@@ -1163,7 +1042,6 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
     }
 
     // Update the Daily table to mark user as completed using low-level client
-    // Assume the primary key is just 'date' (modify if it's different in your table schema)
     const updateDailyParams = {
       TableName: dailyTableName,
       Key: {
@@ -1181,7 +1059,7 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
     await dynamodb.updateItem(updateDailyParams).promise();
     console.log('[DEBUG][complete-daily-problem] Updated Daily table');
 
-    // Award 200 XP to the user (daily completion is tracked in Daily table)
+    // Award 200 XP to the user
     const updateUserParams = {
       TableName: process.env.USERS_TABLE,
       Key: { username },
@@ -1194,16 +1072,9 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
     await ddb.update(updateUserParams).promise();
     console.log('[DEBUG][complete-daily-problem] Awarded 200 XP to user');
 
-    // Refresh XP to ensure consistency
-    await refreshUserXP(username);
-
-    // Calculate new streak
-    const { streak } = await exports.getDailyProblemStatus(username);
-
     return {
       success: true,
       xpAwarded: 200,
-      newStreak: streak,
       error: null,
     };
   } catch (error) {
@@ -1212,22 +1083,125 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
       success: false,
       error: error.message,
       xpAwarded: 0,
-      newStreak: 0,
     };
   }
 });
 
-// Fix user XP based on daily completions
-ipcMain.handle('fix-user-xp', async (event, username) => {
-  console.log('[DEBUG][fix-user-xp] called for username:', username);
-  return await refreshUserXP(username);
-});
+// Update bounty progress and check for completion
+ipcMain.handle(
+  'update-bounty-progress',
+  async (event, username, bountyId, newProgress) => {
+    console.log('[DEBUG][update-bounty-progress] called:', {
+      username,
+      bountyId,
+      newProgress,
+    });
 
-// Refresh user XP (same as fix-user-xp but with different name for clarity)
-ipcMain.handle('refresh-user-xp', async (event, username) => {
-  console.log('[DEBUG][refresh-user-xp] called for username:', username);
-  return await refreshUserXP(username);
-});
+    try {
+      const bountiesTableName = process.env.BOUNTIES_TABLE || 'Bounties';
+
+      // First, get the current bounty to check previous progress and XP amount
+      const getBountyParams = {
+        TableName: bountiesTableName,
+        Key: {
+          bountyId: { S: bountyId },
+        },
+      };
+
+      const bountyResult = await dynamodb.getItem(getBountyParams).promise();
+      if (!bountyResult.Item) {
+        throw new Error('Bounty not found');
+      }
+
+      const bountyData = {
+        count: parseInt(bountyResult.Item.count?.N || '0'),
+        xp: parseInt(bountyResult.Item.xp?.N || '0'),
+        users: bountyResult.Item.users?.M || {},
+      };
+
+      // Get previous progress
+      const previousProgress = bountyData.users[username]?.N
+        ? parseInt(bountyData.users[username].N)
+        : 0;
+
+      console.log(
+        '[DEBUG][update-bounty-progress] Previous progress:',
+        previousProgress
+      );
+      console.log('[DEBUG][update-bounty-progress] New progress:', newProgress);
+      console.log(
+        '[DEBUG][update-bounty-progress] Required count:',
+        bountyData.count
+      );
+
+      // Check if this completes the bounty (goes from incomplete to complete)
+      const wasComplete = previousProgress >= bountyData.count;
+      const isNowComplete = newProgress >= bountyData.count;
+      const justCompleted = !wasComplete && isNowComplete;
+
+      console.log('[DEBUG][update-bounty-progress] Was complete:', wasComplete);
+      console.log(
+        '[DEBUG][update-bounty-progress] Is now complete:',
+        isNowComplete
+      );
+      console.log(
+        '[DEBUG][update-bounty-progress] Just completed:',
+        justCompleted
+      );
+
+      // Update bounty progress
+      const updateBountyParams = {
+        TableName: bountiesTableName,
+        Key: {
+          bountyId: { S: bountyId },
+        },
+        UpdateExpression: 'SET users.#username = :progress',
+        ExpressionAttributeNames: {
+          '#username': username,
+        },
+        ExpressionAttributeValues: {
+          ':progress': { N: newProgress.toString() },
+        },
+      };
+
+      await dynamodb.updateItem(updateBountyParams).promise();
+      console.log(
+        `[DEBUG][update-bounty-progress] Updated bounty ${bountyId} for user ${username} to ${newProgress}`
+      );
+
+      let xpAwarded = 0;
+
+      // Award XP if bounty was just completed
+      if (justCompleted) {
+        const updateUserParams = {
+          TableName: process.env.USERS_TABLE,
+          Key: { username },
+          UpdateExpression: 'ADD xp :xp',
+          ExpressionAttributeValues: {
+            ':xp': bountyData.xp,
+          },
+        };
+
+        await ddb.update(updateUserParams).promise();
+        xpAwarded = bountyData.xp;
+        console.log(
+          `[DEBUG][update-bounty-progress] Awarded ${bountyData.xp} XP to user ${username} for completing bounty ${bountyId}`
+        );
+      }
+
+      return {
+        success: true,
+        progress: newProgress,
+        completed: isNowComplete,
+        justCompleted,
+        xpAwarded,
+      };
+    } catch (error) {
+      console.error('[ERROR][update-bounty-progress]', error);
+      return { success: false, error: error.message };
+    }
+  }
+);
 
 // Get all bounties
 ipcMain.handle('get-bounties', async (event, username) => {
@@ -1292,46 +1266,6 @@ ipcMain.handle('get-bounties', async (event, username) => {
     return [];
   }
 });
-
-// Update bounty progress
-ipcMain.handle(
-  'update-bounty-progress',
-  async (event, username, bountyId, progress) => {
-    console.log('[DEBUG][update-bounty-progress] called:', {
-      username,
-      bountyId,
-      progress,
-    });
-
-    try {
-      const bountiesTableName = process.env.BOUNTIES_TABLE || 'Bounties';
-
-      const updateParams = {
-        TableName: bountiesTableName,
-        Key: {
-          bountyId: { S: bountyId },
-        },
-        UpdateExpression: 'SET users.#username = :progress',
-        ExpressionAttributeNames: {
-          '#username': username,
-        },
-        ExpressionAttributeValues: {
-          ':progress': { N: progress.toString() },
-        },
-      };
-
-      await dynamodb.updateItem(updateParams).promise();
-      console.log(
-        `[DEBUG][update-bounty-progress] Updated bounty ${bountyId} for user ${username} to ${progress}`
-      );
-
-      return { success: true, progress };
-    } catch (error) {
-      console.error('[ERROR][update-bounty-progress]', error);
-      return { success: false, error: error.message };
-    }
-  }
-);
 
 // Manual trigger for daily challenge notification (for testing)
 ipcMain.handle('check-daily-notification', async () => {
