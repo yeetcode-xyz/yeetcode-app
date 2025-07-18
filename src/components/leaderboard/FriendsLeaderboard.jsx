@@ -1,14 +1,42 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const RANKS = [
+  { name: 'Script Kiddie', min: 0, max: 499 },
+  { name: 'Debugger', min: 500, max: 1499 },
+  { name: 'Stack Overflower', min: 1500, max: 3499 },
+  { name: 'Algorithm Apprentice', min: 3500, max: 6499 },
+  { name: 'Loop Guru', min: 6500, max: 11999 },
+  { name: 'Recursion Wizard', min: 12000, max: 19999 },
+  { name: 'Regex Sorcerer', min: 20000, max: 34999 },
+  { name: 'Master Yeeter', min: 35000, max: 49999 },
+  { name: '0xDEADBEEF', min: 50000, max: Infinity },
+];
+
+function getRankAndSubdivision(xp) {
+  for (let i = 0; i < RANKS.length; i++) {
+    const { name, min, max } = RANKS[i];
+    if (xp >= min && xp <= max) {
+      const range = max - min + 1;
+      const subSize = Math.floor(range / 3);
+      let sub = 'I';
+      if (xp >= min + 2 * subSize) sub = 'III';
+      else if (xp >= min + subSize) sub = 'II';
+      return { name, sub };
+    }
+  }
+  return { name: 'Unranked', sub: '' };
+}
+
 const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
   // Tab state
   const [activeTab, setActiveTab] = useState('friends');
+  // Tooltip state
+  const [hoveredUser, setHoveredUser] = useState(null);
 
   // XP calculation function
   const calculateXP = user => {
     const baseXP = user.easy * 100 + user.medium * 300 + user.hard * 500;
-    // Add daily challenge XP and other bonus XP from database
     const bonusXP = user.xp || 0;
     return baseXP + bonusXP;
   };
@@ -193,8 +221,27 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
                                     ? 'font-semibold text-blue-700'
                                     : ''
                                 }
+                                onMouseEnter={() =>
+                                  setHoveredUser(user.username)
+                                }
+                                onMouseLeave={() => setHoveredUser(null)}
+                                style={{
+                                  position: 'relative',
+                                  cursor: 'pointer',
+                                }}
                               >
                                 {isCurrentUser ? 'You' : user.name}
+                                {/* Tooltip for rank */}
+                                {hoveredUser === user.username && (
+                                  <div className="absolute left-1/2 bottom-full z-50 mb-1 -translate-x-1/2 bg-black text-white text-xs rounded px-3 py-1 shadow-lg border-2 border-yellow-300 whitespace-nowrap pointer-events-none animate-fade-in-down">
+                                    {(() => {
+                                      const xp = calculateXP(user);
+                                      const { name: rankName, sub: rankSub } =
+                                        getRankAndSubdivision(xp);
+                                      return `${rankName} ${rankSub}`;
+                                    })()}
+                                  </div>
+                                )}
                               </span>
                             </div>
                           </motion.td>
