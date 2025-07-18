@@ -20,12 +20,10 @@ npm run setup-env
 
 Create a `.env` file in the root directory with the following variables:
 
-```toml
-# API Configuration
+```
 API_URL=YOUR_API_URL
 API_KEY=YOUR_API_KEY
 
-# LeetCode API Configuration
 LEETCODE_API_KEY=YOUR_API_KEY
 LEETCODE_API_URL=YOUR_API_URL
 
@@ -37,7 +35,6 @@ VITE_PUBLIC_POSTHOG_HOST=YOUR_API_URL
 
 RESEND_API_KEY=YOUR_API_KEY
 
-# AWS Configuration
 AWS_REGION=YOUR_AWS_REGION
 USERS_TABLE=YOUR_TABLE
 GROUPS_TABLE=YOUR_GROUPS_TABLE
