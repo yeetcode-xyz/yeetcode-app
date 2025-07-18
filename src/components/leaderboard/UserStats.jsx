@@ -44,7 +44,11 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
 
   // Calculate XP
   let userXP;
-  if (typeof window !== 'undefined' && window.devHelpers && userData?.xp !== undefined) {
+  if (
+    typeof window !== 'undefined' &&
+    window.devHelpers &&
+    userData?.xp !== undefined
+  ) {
     // In dev mode, use userData.xp directly if set (for testRankUpAnimation)
     userXP = userData.xp;
   } else {
