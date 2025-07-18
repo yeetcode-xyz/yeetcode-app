@@ -210,7 +210,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
       } catch (error) {
         console.error('Error checking submission:', error);
       }
-    }, 10000); // Poll every 10 seconds
+    }, 1000); // Poll every 1 second
   };
 
   // Handle manual "Solve Now" click
