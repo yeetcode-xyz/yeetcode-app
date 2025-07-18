@@ -31,31 +31,30 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+      <div className="bg-yellow-100 border-4 border-black rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              🎯 Random Problem Selected!
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-gray-200 text-2xl font-bold"
-            >
-              ×
-            </button>
-          </div>
+        <div className="bg-blue-600 border-b-4 border-black px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            🎯 Random Problem Selected!
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-white hover:text-yellow-200 text-2xl font-bold px-2"
+            style={{ lineHeight: 1 }}
+          >
+            ×
+          </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 flex-1">
           <div className="space-y-4">
             {/* Problem Title */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              <h3 className="text-lg font-bold text-black mb-1">
                 {problem.title}
               </h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-xs text-gray-700 font-mono">
                 Problem #{problem.frontendQuestionId}
               </p>
             </div>
@@ -66,7 +65,7 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
                 {getDifficultyIcon(problem.difficulty)}
               </span>
               <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(problem.difficulty)}`}
+                className={`px-3 py-1 rounded-full text-xs font-bold border-2 border-black uppercase ${getDifficultyColor(problem.difficulty)}`}
               >
                 {problem.difficulty}
               </span>
@@ -75,18 +74,18 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
             {/* Topic Tags */}
             {problem.topicTags && problem.topicTags.length > 0 && (
               <div>
-                <p className="text-sm text-gray-600 mb-2">Topics:</p>
+                <p className="text-xs text-gray-700 mb-1 font-bold">Topics:</p>
                 <div className="flex flex-wrap gap-2">
                   {problem.topicTags.slice(0, 3).map((tag, index) => (
                     <span
                       key={index}
-                      className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs"
+                      className="px-2 py-1 bg-blue-100 text-blue-800 border border-black rounded font-mono text-xs"
                     >
                       {tag.name}
                     </span>
                   ))}
                   {problem.topicTags.length > 3 && (
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs">
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 border border-black rounded font-mono text-xs">
                       +{problem.topicTags.length - 3} more
                     </span>
                   )}
@@ -95,27 +94,26 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
             )}
 
             {/* Call to Action */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-blue-800 text-center">
-                Ready to tackle this challenge? 🚀
-              </p>
+            <div className="bg-yellow-200 border-2 border-black p-3 rounded-xl text-center font-bold text-black">
+              Ready to tackle this challenge? 🚀
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end">
+        <div className="bg-yellow-100 border-t-4 border-black px-6 py-4 flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+            className="px-4 py-2 text-black border-2 border-black rounded-lg font-bold btn-3d hover:bg-yellow-200 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 font-medium transition-all duration-200 shadow-md hover:shadow-lg"
+            className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg border-2 border-black font-bold btn-3d transition-all shadow-md flex items-center gap-2"
           >
-            Open Problem 🎯
+            <span>🎯</span>
+            Open Problem
           </button>
         </div>
       </div>

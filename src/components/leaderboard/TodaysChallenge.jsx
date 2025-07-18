@@ -88,7 +88,7 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
           <h3 className="font-bold text-white text-lg">TODAY'S CHALLENGE</h3>
         </div>
       </div>
-      <div className="p-6">
+      <div className="p-6 h-full overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold">{problem.title}</h3>
           <div className="flex items-center gap-2">
@@ -122,8 +122,9 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Action button (left) */}
+          <div className="flex-shrink-0">
             {dailyData.dailyComplete ? (
               <button
                 className="bg-gray-500 text-white px-6 py-2 rounded-lg border-2 border-black font-bold flex items-center gap-2 cursor-not-allowed"
@@ -143,33 +144,34 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2 text-gray-600">
-              <span className="text-orange-500 text-lg">🔥</span>
-              <div>
-                <div className="font-bold text-orange-500">
-                  {dailyData.streak} day streak
-                </div>
-                <div className="text-xs">
-                  {dailyData.dailyComplete
-                    ? 'Great job today!'
-                    : 'Keep it going!'}
-                </div>
+          {/* Completed message (center) */}
+          <div className="flex-1 flex justify-center">
+            {dailyData.dailyComplete && (
+              <div
+                className="px-2 py-1 bg-green-100 border border-green-300 rounded text-green-800 font-bold flex items-center gap-1 justify-center"
+                style={{ fontSize: '14px' }}
+              >
+                <span>🎉</span>
+                <span>Daily challenge completed! You earned 200 XP.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Streak info (right) */}
+          <div className="flex-shrink-0 flex items-center gap-2 text-gray-600">
+            <span className="text-orange-500 text-lg">🔥</span>
+            <div>
+              <div className="font-bold text-orange-500">
+                {dailyData.streak} day streak
+              </div>
+              <div className="text-xs">
+                {dailyData.dailyComplete
+                  ? 'Great job today!'
+                  : 'Keep it going!'}
               </div>
             </div>
           </div>
         </div>
-
-        {dailyData.dailyComplete && (
-          <div className="mt-4 p-3 bg-green-100 border-2 border-green-300 rounded-lg">
-            <div className="flex items-center gap-2 text-green-800">
-              <span>🎉</span>
-              <span className="font-bold">
-                Daily challenge completed! You earned 200 XP.
-              </span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

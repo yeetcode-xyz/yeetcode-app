@@ -242,17 +242,18 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     return (
       <div
         key={duel.duelId}
-        className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 mb-3"
+        className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 mb-4"
+        style={{ height: '85px' }}
       >
         <div className="flex justify-between items-start mb-2">
           <div>
-            <h5 className="font-bold text-sm">
+            <h5 className="font-bold text-sm" style={{ fontSize: '12px' }}>
               {isChallenger
                 ? `Challenge sent to ${otherUserDisplay}`
-                : `Challenge from ${otherUserDisplay}`}
+                : `Challenge from ${otherUserDisplay} • ${duel.difficulty}`}
             </h5>
-            <p className="text-xs text-gray-600">
-              {duel.difficulty} • {duel.problemTitle}
+            <p className="text-gray-600" style={{ fontSize: '12px' }}>
+              {isChallenger ? `${duel.difficulty} • All the best!` : ''}
             </p>
           </div>
           <span className="text-xs bg-yellow-200 px-2 py-1 rounded font-bold">
@@ -265,14 +266,14 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             <button
               onClick={() => handleAcceptDuel(duel.duelId)}
               disabled={actionLoading[`accept_${duel.duelId}`]}
-              className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm font-bold btn-3d disabled:opacity-50"
+              className="flex-1 bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs font-bold btn-3d disabled:opacity-50"
             >
               {actionLoading[`accept_${duel.duelId}`] ? '⏳' : '✅'} Accept
             </button>
             <button
               onClick={() => handleRejectDuel(duel.duelId)}
               disabled={actionLoading[`reject_${duel.duelId}`]}
-              className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm font-bold btn-3d disabled:opacity-50"
+              className="flex-1 bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold btn-3d disabled:opacity-50"
             >
               {actionLoading[`reject_${duel.duelId}`] ? '⏳' : '❌'} Reject
             </button>
@@ -301,6 +302,11 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     const duelStarted = duelStarts[duel.duelId];
     const showProblem = duelStarted || userTime !== null;
 
+    // Only show time if it's a valid number
+    const validUserTime = typeof userTime === 'number' && !isNaN(userTime);
+    const validOpponentTime =
+      typeof opponentTime === 'number' && !isNaN(opponentTime);
+
     return (
       <div
         key={duel.duelId}
@@ -309,9 +315,8 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
         <div className="flex justify-between items-start mb-2">
           <div>
             <h5 className="font-bold text-sm">Dueling {otherUserDisplay}</h5>
-            <p className="text-xs text-gray-600">
-              {duel.difficulty} •{' '}
-              {showProblem ? duel.problemTitle : 'Problem Hidden'}
+            <p className="text-gray-600" style={{ fontSize: '12px' }}>
+              {duel.difficulty} • Problem Hidden
             </p>
           </div>
           <span className="text-xs bg-blue-200 px-2 py-1 rounded font-bold">
@@ -322,19 +327,22 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
         <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
           <div className="text-center">
             <div className="font-bold">You</div>
-            <div className={userTime ? 'text-green-600' : 'text-gray-400'}>
-              {userTime ? formatTime(userTime) : 'Not submitted'}
+            <div className={validUserTime ? 'text-green-600' : 'text-gray-400'}>
+              {validUserTime ? formatTime(userTime) : 'Not submitted'}
             </div>
           </div>
           <div className="text-center">
             <div className="font-bold">{otherUserDisplay}</div>
-            <div className={opponentTime ? 'text-green-600' : 'text-gray-400'}>
-              {opponentTime ? formatTime(opponentTime) : 'Not submitted'}
+            <div
+              className={validOpponentTime ? 'text-green-600' : 'text-gray-400'}
+            >
+              {validOpponentTime ? formatTime(opponentTime) : 'Not submitted'}
             </div>
           </div>
         </div>
 
-        {!showProblem && userTime === null && (
+        {/* Show Start Duel if user's time is null and duel hasn't started for them */}
+        {userTime == null && !duelStarted && (
           <button
             onClick={() => handleStartDuel(duel.duelId, duel.problemSlug)}
             className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-bold btn-3d"
@@ -343,7 +351,8 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           </button>
         )}
 
-        {showProblem && userTime === null && (
+        {/* Show Solve Now only if duelStarted is true and userTime is null */}
+        {duelStarted && userTime == null && (
           <div className="space-y-2">
             <button
               onClick={() => handleSolveNow(duel.problemSlug)}
@@ -359,13 +368,13 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           </div>
         )}
 
-        {userTime !== null && (
+        {validUserTime && (
           <div className="text-center">
             <p className="text-sm text-green-600 font-bold">
               ✅ You submitted in {formatTime(userTime)}
             </p>
             <p className="text-xs text-gray-600">
-              {opponentTime
+              {validOpponentTime
                 ? 'Both submitted! Check results below.'
                 : 'Waiting for opponent to finish...'}
             </p>
@@ -459,6 +468,23 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     return null;
   };
 
+  // When duels are reloaded, reset duelStarts for duels that are not started
+  useEffect(() => {
+    setDuelStarts(prev => {
+      const newStarts = { ...prev };
+      duels.forEach(duel => {
+        const isChallenger = duel.challenger === userData.leetUsername;
+        const userTime = isChallenger
+          ? duel.challengerTime
+          : duel.challengeeTime;
+        if (!userTime) {
+          newStarts[duel.duelId] = undefined;
+        }
+      });
+      return newStarts;
+    });
+  }, [duels, userData.leetUsername]);
+
   if (loading) {
     return (
       <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
@@ -478,35 +504,31 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
   const completedDuels = duels.filter(d => d.completed).slice(0, 3); // Show last 3 completed
 
   return (
-    <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
-      {/* Notifications */}
+    <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg h-[32rem] relative">
+      {/* Notifications (fixed bar at the top) */}
       {notifications.length > 0 && (
-        <div className="absolute top-4 right-4 z-50 space-y-2">
+        <div className="absolute left-0 right-0 top-0 z-20 flex flex-col items-center pointer-events-none">
           {notifications.map(notification => (
             <div
               key={notification.id}
-              className={`px-4 py-2 rounded-lg border-2 border-black text-sm font-bold ${
-                notification.type === 'success'
-                  ? 'bg-green-200 text-green-800'
-                  : notification.type === 'error'
-                    ? 'bg-red-200 text-red-800'
-                    : 'bg-blue-200 text-blue-800'
-              }`}
+              className={`mt-2 px-3 py-1 rounded border-2 border-white shadow text-xs font-bold flex items-center gap-2 pointer-events-auto
+                ${notification.type === 'success' ? 'bg-green-600 text-white' : ''}
+                ${notification.type === 'error' ? 'bg-red-600 text-white' : ''}
+                ${notification.type === 'info' ? 'bg-blue-600 text-white' : ''}
+              `}
             >
               {notification.message}
             </div>
           ))}
         </div>
       )}
-
       <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
         <div className="flex items-center gap-2">
           <span className="text-white text-lg">⚔️</span>
           <h3 className="font-bold text-white text-lg">DUELS</h3>
         </div>
       </div>
-
-      <div className="p-6">
+      <div className="p-6" style={{ height: '310px' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Challenge Friends */}
           <div className="bg-white p-4 border-2 border-black rounded-lg shadow-md">
@@ -575,7 +597,10 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
               <span className="text-lg">📊</span>
             </div>
 
-            <div className="max-h-80 overflow-y-auto custom-scrollbar">
+            <div
+              className="overflow-y-auto custom-scrollbar"
+              style={{ height: '190px' }}
+            >
               {/* Render all duels using the new branching logic */}
               {duels.map(renderDuel)}
 

@@ -1,4 +1,33 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const RANKS = [
+  { name: 'Script Kiddie', min: 0, max: 499 },
+  { name: 'Debugger', min: 500, max: 1499 },
+  { name: 'Stack Overflower', min: 1500, max: 3499 },
+  { name: 'Algorithm Apprentice', min: 3500, max: 6499 },
+  { name: 'Loop Guru', min: 6500, max: 11999 },
+  { name: 'Recursion Wizard', min: 12000, max: 19999 },
+  { name: 'Regex Sorcerer', min: 20000, max: 34999 },
+  { name: 'Master Yeeter', min: 35000, max: 49999 },
+  { name: '0xDEADBEEF', min: 50000, max: Infinity },
+];
+
+function getRankAndSubdivision(xp) {
+  for (let i = 0; i < RANKS.length; i++) {
+    const { name, min, max } = RANKS[i];
+    if (xp >= min && xp <= max) {
+      const range = max - min + 1;
+      const subSize = Math.floor(range / 3);
+      let sub = 'I';
+      if (xp >= min + 2 * subSize) sub = 'III';
+      else if (xp >= min + subSize) sub = 'II';
+      // III is highest, I is lowest
+      return { name, sub };
+    }
+  }
+  return { name: 'Unranked', sub: '' };
+}
 
 const UserStats = ({ userData, leaderboard, dailyData }) => {
   // Find current user's stats from leaderboard (case-insensitive)
@@ -6,86 +35,77 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
     user => user.username === userData?.leetUsername?.toLowerCase()
   ) || { easy: 0, medium: 0, hard: 0 };
 
-  // Calculate XP
+  // Always define calculateXP at the top level
   const calculateXP = stats => {
     const problemXP = stats.easy * 100 + stats.medium * 300 + stats.hard * 500;
     const bonusXP = stats.xp ?? 0; // Daily challenges and other bonus XP
     return problemXP + bonusXP;
   };
 
-  const userXP = calculateXP(currentUserStats);
+  // Calculate XP
+  let userXP;
+  if (
+    typeof window !== 'undefined' &&
+    window.devHelpers &&
+    userData?.xp !== undefined
+  ) {
+    // In dev mode, use userData.xp directly if set (for testRankUpAnimation)
+    userXP = userData.xp;
+  } else {
+    userXP = calculateXP(currentUserStats);
+  }
   const totalProblems =
     currentUserStats.easy + currentUserStats.medium + currentUserStats.hard;
 
   // Use real streak data from dailyData
   const currentStreak = dailyData?.streak || 0;
 
-  // Calculate rank based on XP
+  // Calculate leaderboard rank
   const getRank = () => {
     if (!leaderboard || leaderboard.length === 0) return 'N/A';
-
     const sortedByXP = leaderboard
       .map(user => calculateXP(user))
       .sort((a, b) => b - a);
-
     const userRank = sortedByXP.findIndex(xp => xp === userXP) + 1;
     return userRank > 0 ? `#${userRank}` : 'N/A';
   };
 
-  // Expanded rank tier system with wider bounds
-  const getRankTier = () => {
-    if (userXP >= 100000) return 'Mythic Yeeter';
-    if (userXP >= 50000) return 'Grandmaster Yeeter';
-    if (userXP >= 25000) return 'Master Yeeter';
-    if (userXP >= 15000) return 'Diamond I';
-    if (userXP >= 10000) return 'Diamond II';
-    if (userXP >= 7500) return 'Platinum I';
-    if (userXP >= 5000) return 'Platinum II';
-    if (userXP >= 3500) return 'Gold I';
-    if (userXP >= 2000) return 'Gold II';
-    if (userXP >= 1000) return 'Silver I';
-    if (userXP >= 500) return 'Silver II';
-    if (userXP >= 200) return 'Bronze I';
-    if (userXP >= 50) return 'Bronze II';
-    return 'Unranked';
-  };
+  // Coding-themed rank and subdivision
+  const { name: rankName, sub: rankSub } = getRankAndSubdivision(userXP);
 
-  const getNextTierXP = () => {
-    if (userXP < 50) return 50 - userXP;
-    if (userXP < 200) return 200 - userXP;
-    if (userXP < 500) return 500 - userXP;
-    if (userXP < 1000) return 1000 - userXP;
-    if (userXP < 2000) return 2000 - userXP;
-    if (userXP < 3500) return 3500 - userXP;
-    if (userXP < 5000) return 5000 - userXP;
-    if (userXP < 7500) return 7500 - userXP;
-    if (userXP < 10000) return 10000 - userXP;
-    if (userXP < 15000) return 15000 - userXP;
-    if (userXP < 25000) return 25000 - userXP;
-    if (userXP < 50000) return 50000 - userXP;
-    if (userXP < 100000) return 100000 - userXP;
+  // Progress to next rank
+  const getNextRankXP = () => {
+    for (let i = 0; i < RANKS.length; i++) {
+      if (userXP < RANKS[i].max) return RANKS[i].max + 1 - userXP;
+    }
     return 0;
   };
 
-  const getTierProgress = () => {
-    if (userXP < 50) return (userXP / 50) * 100;
-    if (userXP < 200) return ((userXP - 50) / 150) * 100;
-    if (userXP < 500) return ((userXP - 200) / 300) * 100;
-    if (userXP < 1000) return ((userXP - 500) / 500) * 100;
-    if (userXP < 2000) return ((userXP - 1000) / 1000) * 100;
-    if (userXP < 3500) return ((userXP - 2000) / 1500) * 100;
-    if (userXP < 5000) return ((userXP - 3500) / 1500) * 100;
-    if (userXP < 7500) return ((userXP - 5000) / 2500) * 100;
-    if (userXP < 10000) return ((userXP - 7500) / 2500) * 100;
-    if (userXP < 15000) return ((userXP - 10000) / 5000) * 100;
-    if (userXP < 25000) return ((userXP - 15000) / 10000) * 100;
-    if (userXP < 50000) return ((userXP - 25000) / 25000) * 100;
-    if (userXP < 100000) return ((userXP - 50000) / 50000) * 100;
+  // Progress bar for current rank
+  const getRankProgress = () => {
+    for (let i = 0; i < RANKS.length; i++) {
+      const { min, max } = RANKS[i];
+      if (userXP >= min && userXP <= max) {
+        return ((userXP - min) / (max - min + 1)) * 100;
+      }
+    }
     return 100;
   };
 
+  // Rank-up animation
+  const [showRankUp, setShowRankUp] = useState(false);
+  const prevRank = useRef('');
+  useEffect(() => {
+    const currentRank = `${rankName} ${rankSub}`;
+    if (prevRank.current && prevRank.current !== currentRank) {
+      setShowRankUp(true);
+      setTimeout(() => setShowRankUp(false), 2000);
+    }
+    prevRank.current = currentRank;
+  }, [rankName, rankSub]);
+
   return (
-    <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-80">
+    <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-80 relative">
       <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
         <div className="flex items-center gap-2">
           <span className="text-white text-lg">📊</span>
@@ -118,23 +138,47 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
             </div>
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-sm items-center">
               <span>Rank Progress</span>
-              <span className="font-bold">{getRankTier()}</span>
+              <span className="font-bold flex items-center gap-1">
+                <span>{rankName}</span>
+                {rankSub && (
+                  <span className="text-xs text-gray-500">{rankSub}</span>
+                )}
+              </span>
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full">
               <div
                 className="h-2 bg-blue-500 rounded-full transition-all duration-300"
-                style={{ width: `${getTierProgress()}%` }}
+                style={{ width: `${getRankProgress()}%` }}
               ></div>
             </div>
             <div className="text-xs text-gray-600 text-center">
-              {getNextTierXP() > 0
-                ? `${getNextTierXP().toLocaleString()} XP to next tier`
-                : 'Max tier reached!'}
+              {getNextRankXP() > 0
+                ? `${getNextRankXP().toLocaleString()} XP to next rank`
+                : 'Max rank reached!'}
             </div>
           </div>
         </div>
+        {/* Rank-up animation */}
+        <AnimatePresence>
+          {showRankUp && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
+              className="absolute left-0 top-8 z-20 bg-yellow-300 border-4 border-black rounded-xl px-4 sm:px-8 py-3 shadow-2xl flex items-center gap-6 text-xl font-bold max-w-3xl min-w-[300px] whitespace-nowrap text-left"
+              style={{ width: '100%' }}
+            >
+              <span>🚀</span>
+              <span>Rank Up!</span>
+              <span className="text-blue-700">
+                {rankName} {rankSub}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

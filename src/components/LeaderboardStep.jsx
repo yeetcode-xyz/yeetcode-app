@@ -16,8 +16,10 @@ const LeaderboardStep = ({
   refreshIn,
   showCopySuccess,
   setShowCopySuccess,
+  notifications,
   handleLeaveGroup,
   handleDailyComplete,
+  quickActionsProps = {},
 }) => {
   return (
     <div className={`flex flex-col gap-6 ${animationClass}`}>
@@ -27,6 +29,7 @@ const LeaderboardStep = ({
         refreshIn={refreshIn}
         showCopySuccess={showCopySuccess}
         setShowCopySuccess={setShowCopySuccess}
+        notifications={notifications}
         handleLeaveGroup={handleLeaveGroup}
       />
 
@@ -39,7 +42,11 @@ const LeaderboardStep = ({
             dailyData={dailyData}
             onDailyComplete={handleDailyComplete}
           />
-          <FriendsLeaderboard leaderboard={leaderboard} userData={userData} />
+          <FriendsLeaderboard
+            leaderboard={leaderboard}
+            userData={userData}
+            notifications={notifications}
+          />
           <DuelsSection leaderboard={leaderboard} userData={userData} />
         </div>
 
@@ -55,7 +62,7 @@ const LeaderboardStep = ({
             leaderboard={leaderboard}
             dailyData={dailyData}
           />
-          <QuickActions groupData={groupData} />
+          <QuickActions groupData={groupData} {...quickActionsProps} />
         </div>
       </div>
     </div>

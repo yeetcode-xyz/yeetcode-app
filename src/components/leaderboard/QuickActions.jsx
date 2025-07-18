@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAnalytics } from '../../utils/analytics';
 import RandomProblemModal from './RandomProblemModal';
 
-const QuickActions = ({ groupData }) => {
+const QuickActions = ({ groupData, handleLogout }) => {
   const analytics = useAnalytics();
   const [showInviteOptions, setShowInviteOptions] = useState(false);
   const [loadingProblem, setLoadingProblem] = useState(false);
@@ -155,7 +155,7 @@ const QuickActions = ({ groupData }) => {
     <>
       <div
         className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col"
-        style={{ height: '283px' }}
+        style={{ height: '285px' }}
       >
         <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
           <div className="flex items-center gap-2">
@@ -180,6 +180,14 @@ const QuickActions = ({ groupData }) => {
               >
                 <span>{loadingProblem ? '⏳' : '🎯'}</span>
                 {loadingProblem ? 'LOADING...' : 'RANDOM PROBLEM'}
+              </button>
+              {/* Logout button at the bottom */}
+              <button
+                onClick={handleLogout}
+                className="w-full mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg border-2 border-black font-bold flex items-center justify-center gap-2 btn-3d shadow"
+              >
+                <span>🚪</span>
+                LOG OUT
               </button>
             </>
           ) : (

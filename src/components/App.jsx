@@ -1,5 +1,5 @@
 import '../index.css';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAnalytics } from '../utils/analytics';
 import { STORAGE_KEYS, saveToStorage, loadFromStorage } from '../utils/storage';
 import { useDevHelpers } from '../hooks/useDevHelpers';
@@ -23,6 +23,10 @@ function App() {
   });
   const [groupData, setGroupData] = useState({ code: '', joined: false });
   const [leaderboard, setLeaderboard] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+
+  // Fix: Declare previousLeaderboardRef here
+  const previousLeaderboardRef = useRef([]);
 
   // Daily problem global state
   const [dailyData, setDailyData] = useState({
@@ -160,12 +164,100 @@ function App() {
     return () => clearInterval(countdown);
   }, [step, groupData.joined, groupData.code]);
 
+  // Add useEffect to detect leaderboard changes and trigger notifications
+  useEffect(() => {
+    if (previousLeaderboardRef.current.length) {
+      detectLeaderboardChanges(leaderboard, previousLeaderboardRef.current);
+    }
+    previousLeaderboardRef.current = leaderboard;
+  }, [leaderboard]);
+
   // Helper functions
   const saveAppState = (currentStep, currentGroupData) => {
     saveToStorage(STORAGE_KEYS.APP_STATE, {
       step: currentStep,
       groupData: currentGroupData,
     });
+  };
+
+  // Notification management
+  const addNotification = (type, message) => {
+    const id = Date.now() + Math.random();
+    const notification = { id, type, message };
+
+    setNotifications(prev => [notification, ...prev.slice(0, 2)]); // Keep only 3 notifications
+
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  };
+
+  // Detect leaderboard changes and generate notifications
+  const detectLeaderboardChanges = (newLeaderboard, oldLeaderboard) => {
+    if (!oldLeaderboard.length) return; // Skip first load
+
+    // Calculate XP for sorting
+    const calculateXP = user => {
+      const baseXP = user.easy * 100 + user.medium * 300 + user.hard * 500;
+      return baseXP + (user.xp || 0);
+    };
+
+    // Sort both leaderboards by XP
+    const newSorted = [...newLeaderboard].sort(
+      (a, b) => calculateXP(b) - calculateXP(a)
+    );
+    const oldSorted = [...oldLeaderboard].sort(
+      (a, b) => calculateXP(b) - calculateXP(a)
+    );
+
+    // Create maps for quick lookup
+    const newUserMap = new Map(
+      newSorted.map((user, index) => [
+        user.username,
+        { ...user, rank: index + 1 },
+      ])
+    );
+    const oldUserMap = new Map(
+      oldSorted.map((user, index) => [
+        user.username,
+        { ...user, rank: index + 1 },
+      ])
+    );
+
+    // Check for new users (joined)
+    for (const [username, user] of newUserMap) {
+      if (!oldUserMap.has(username)) {
+        addNotification('joined', `${user.name} joined the competition! 🎯`);
+      }
+    }
+
+    // Check for users who left
+    for (const [username, user] of oldUserMap) {
+      if (!newUserMap.has(username)) {
+        addNotification('left', `${user.name} left the group 👋`);
+      }
+    }
+
+    // Check for rank changes (overtakes)
+    for (const [username, newUser] of newUserMap) {
+      const oldUser = oldUserMap.get(username);
+      if (oldUser && oldUser.rank > newUser.rank) {
+        // User moved up in rank
+        const rankDiff = oldUser.rank - newUser.rank;
+        if (rankDiff === 1) {
+          addNotification(
+            'overtake',
+            `${newUser.name} overtook rank #${newUser.rank}! 🔥`
+          );
+        } else {
+          addNotification(
+            'overtake',
+            `${newUser.name} jumped ${rankDiff} ranks to #${newUser.rank}! ⚡`
+          );
+        }
+      }
+    }
   };
 
   const navigateToStep = newStep => {
@@ -518,6 +610,22 @@ function App() {
     }
   };
 
+  // Logout handler
+  const handleLogout = () => {
+    setUserData({ email: '', verified: false, name: '', leetUsername: '' });
+    setGroupData({ code: '', joined: false });
+    setLeaderboard([]);
+    setStep('welcome');
+    setDailyData({
+      dailyComplete: false,
+      streak: 0,
+      todaysProblem: null,
+      error: null,
+      loading: true,
+    });
+    localStorage.clear();
+  };
+
   const stepProps = {
     animationClass,
     error,
@@ -535,6 +643,7 @@ function App() {
     refreshIn,
     showCopySuccess,
     setShowCopySuccess,
+    notifications, // Add notifications for LeaderboardHeader
     handleStartOnboarding,
     handleEmailSent,
     handleVerificationSuccess,
@@ -603,7 +712,9 @@ function App() {
       {step === 'verification' && <VerificationStep {...stepProps} />}
       {step === 'onboarding' && <OnboardingStep {...stepProps} />}
       {step === 'group' && <GroupStep {...stepProps} />}
-      {step === 'leaderboard' && <LeaderboardStep {...stepProps} />}
+      {step === 'leaderboard' && (
+        <LeaderboardStep {...stepProps} quickActionsProps={{ handleLogout }} />
+      )}
 
       <style>{`
         .fade-in {

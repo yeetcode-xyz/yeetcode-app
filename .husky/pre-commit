@@ -2,15 +2,37 @@ echo "🔍 Running pre-commit checks..."
 
 # Check if code is formatted with Prettier
 echo "📝 Checking code formatting with Prettier..."
-npm run format
+npm run format:check
 
-# If format check fails, suggest running format command
+# If format check fails, auto-format the code and block commit
 if [ $? -ne 0 ]; then
   echo ""
-  echo "❌ Code formatting check failed!"
-  echo "💡 Please run 'npm run format' to fix formatting issues"
-  echo "   Or run 'npm run format:check' to see what needs to be fixed"
-  echo ""
-  exit 1
+  echo "❌ Some files are not properly formatted!"
+  echo "🔧 Running 'npm run format' to auto-format all files..."
+  
+  npm run format
+  
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Auto-formatting failed. Please check your code and try again."
+    echo "💡 You may need to fix formatting issues manually."
+    exit 1
+  else
+    echo ""
+    echo "✅ Files have been auto-formatted with Prettier."
+    echo "📋 Files that were formatted:"
+    echo "   - All JavaScript/TypeScript/CSS/JSON files have been updated"
+    echo ""
+    echo "🚫 COMMIT BLOCKED: Please review the formatted changes and re-commit."
+    echo "💡 Next steps:"
+    echo "   1. Review the formatting changes in your files"
+    echo "   2. Stage the formatted files: git add ."
+    echo "   3. Commit again: git commit"
+    exit 1
+  fi
 fi
+
+echo ""
+echo "✅ All files are properly formatted!"
+echo "✅ All pre-commit checks passed!"
 
