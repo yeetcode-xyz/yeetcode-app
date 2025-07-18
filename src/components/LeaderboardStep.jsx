@@ -19,6 +19,7 @@ const LeaderboardStep = ({
   notifications,
   handleLeaveGroup,
   handleDailyComplete,
+  quickActionsProps = {},
 }) => {
   return (
     <div className={`flex flex-col gap-6 ${animationClass}`}>
@@ -61,7 +62,7 @@ const LeaderboardStep = ({
             leaderboard={leaderboard}
             dailyData={dailyData}
           />
-          <QuickActions groupData={groupData} />
+          <QuickActions groupData={groupData} {...quickActionsProps} />
         </div>
       </div>
     </div>

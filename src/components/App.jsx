@@ -610,6 +610,22 @@ function App() {
     }
   };
 
+  // Logout handler
+  const handleLogout = () => {
+    setUserData({ email: '', verified: false, name: '', leetUsername: '' });
+    setGroupData({ code: '', joined: false });
+    setLeaderboard([]);
+    setStep('welcome');
+    setDailyData({
+      dailyComplete: false,
+      streak: 0,
+      todaysProblem: null,
+      error: null,
+      loading: true,
+    });
+    localStorage.clear();
+  };
+
   const stepProps = {
     animationClass,
     error,
@@ -696,7 +712,9 @@ function App() {
       {step === 'verification' && <VerificationStep {...stepProps} />}
       {step === 'onboarding' && <OnboardingStep {...stepProps} />}
       {step === 'group' && <GroupStep {...stepProps} />}
-      {step === 'leaderboard' && <LeaderboardStep {...stepProps} />}
+      {step === 'leaderboard' && (
+        <LeaderboardStep {...stepProps} quickActionsProps={{ handleLogout }} />
+      )}
 
       <style>{`
         .fade-in {

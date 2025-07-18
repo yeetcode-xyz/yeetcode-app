@@ -612,6 +612,48 @@ export const useDevHelpers = ({
             console.error('❌ Error testing display name:', error);
           }
         },
+
+        // Dev helper: test rank up animation
+        testRankUpAnimation: () => {
+          // Use the same RANKS as in UserStats
+          const RANKS = [
+            { name: 'Script Kiddie', min: 0, max: 499 },
+            { name: 'Debugger', min: 500, max: 1499 },
+            { name: 'Stack Overflower', min: 1500, max: 3499 },
+            { name: 'Algorithm Apprentice', min: 3500, max: 6499 },
+            { name: 'Loop Guru', min: 6500, max: 11999 },
+            { name: 'Recursion Wizard', min: 12000, max: 19999 },
+            { name: 'Regex Sorcerer', min: 20000, max: 34999 },
+            { name: 'Master Yeeter', min: 35000, max: 49999 },
+            { name: '0xDEADBEEF', min: 50000, max: Infinity },
+          ];
+          // Find the next rank above current XP
+          const currentXP = userData?.xp || 0;
+          let nextRank = null;
+          for (let i = 0; i < RANKS.length; i++) {
+            if (currentXP < RANKS[i].max) {
+              nextRank = RANKS[i];
+              break;
+            }
+          }
+          if (!nextRank || !setUserData) {
+            console.log(
+              '❌ Could not find next rank or setUserData not available'
+            );
+            return;
+          }
+          // Set XP to just below the next rank
+          const xpBefore =
+            nextRank.min + Math.floor((nextRank.max - nextRank.min) / 3) - 10;
+          const xpAfter =
+            nextRank.min + Math.floor((nextRank.max - nextRank.min) / 3) + 10;
+          setUserData({ ...userData, xp: xpBefore });
+          console.log(`🧪 Set XP to just below rank: ${xpBefore}`);
+          setTimeout(() => {
+            setUserData({ ...userData, xp: xpAfter });
+            console.log(`🧪 Set XP to just above rank: ${xpAfter}`);
+          }, 1200);
+        },
       };
     }
   }, [

@@ -157,7 +157,7 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.5 }}
-              className="absolute left-1/2 top-8 transform -translate-x-1/2 z-20 bg-yellow-300 border-4 border-black rounded-xl px-6 py-3 shadow-2xl flex items-center gap-3 text-xl font-bold animate-bounce"
+              className="absolute left-1/2 top-8 transform -translate-x-1/2 z-20 bg-yellow-300 border-4 border-black rounded-xl px-6 py-3 shadow-2xl flex items-center gap-3 text-xl font-bold"
             >
               <span>🚀</span>
               <span>Rank Up!</span>
