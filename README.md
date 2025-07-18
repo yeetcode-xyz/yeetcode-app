@@ -20,12 +20,31 @@ npm run setup-env
 
 Create a `.env` file in the root directory with the following variables:
 
-```
-LEETCODE_API_KEY=YOUR_API_KEY_HERE
-LEETCODE_API_URL=YOUR_AWS_URL_HERE
+```toml
+# API Configuration
+API_URL=YOUR_API_URL
+API_KEY=YOUR_API_KEY
+
+# LeetCode API Configuration
+LEETCODE_API_KEY=YOUR_API_KEY
+LEETCODE_API_URL=YOUR_API_URL
+
+AWS_ACCESS_KEY_ID=YOUR_API_KEY
+AWS_SECRET_ACCESS_KEY=YOUR_API_KEY
+
+VITE_PUBLIC_POSTHOG_KEY=YOUR_API_KEY
+VITE_PUBLIC_POSTHOG_HOST=YOUR_API_URL
+
+RESEND_API_KEY=YOUR_API_KEY
+
+# AWS Configuration
+AWS_REGION=YOUR_AWS_REGION
+USERS_TABLE=YOUR_TABLE
+GROUPS_TABLE=YOUR_GROUPS_TABLE
+DUELS_TABLE=DUELS_TABLE
 ```
 
-Replace `YOUR_API_KEY_HERE` with your actual API key.
+Replace every assignment with your actual API key/IDs.
 
 ### Installation
 
