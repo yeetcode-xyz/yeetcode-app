@@ -302,6 +302,11 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     const duelStarted = duelStarts[duel.duelId];
     const showProblem = duelStarted || userTime !== null;
 
+    // Only show time if it's a valid number
+    const validUserTime = typeof userTime === 'number' && !isNaN(userTime);
+    const validOpponentTime =
+      typeof opponentTime === 'number' && !isNaN(opponentTime);
+
     return (
       <div
         key={duel.duelId}
@@ -310,7 +315,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
         <div className="flex justify-between items-start mb-2">
           <div>
             <h5 className="font-bold text-sm">Dueling {otherUserDisplay}</h5>
-            <p className="text-xs text-gray-600">
+            <p className="text-gray-600" style={{ fontSize: '12px' }}>
               {duel.difficulty} •{' '}
               {showProblem ? duel.problemTitle : 'Problem Hidden'}
             </p>
@@ -323,19 +328,22 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
         <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
           <div className="text-center">
             <div className="font-bold">You</div>
-            <div className={userTime ? 'text-green-600' : 'text-gray-400'}>
-              {userTime ? formatTime(userTime) : 'Not submitted'}
+            <div className={validUserTime ? 'text-green-600' : 'text-gray-400'}>
+              {validUserTime ? formatTime(userTime) : 'Not submitted'}
             </div>
           </div>
           <div className="text-center">
             <div className="font-bold">{otherUserDisplay}</div>
-            <div className={opponentTime ? 'text-green-600' : 'text-gray-400'}>
-              {opponentTime ? formatTime(opponentTime) : 'Not submitted'}
+            <div
+              className={validOpponentTime ? 'text-green-600' : 'text-gray-400'}
+            >
+              {validOpponentTime ? formatTime(opponentTime) : 'Not submitted'}
             </div>
           </div>
         </div>
 
-        {!showProblem && userTime === null && (
+        {/* Show Start Duel if user's time is null and duel hasn't started for them */}
+        {userTime == null && !duelStarted && (
           <button
             onClick={() => handleStartDuel(duel.duelId, duel.problemSlug)}
             className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-bold btn-3d"
@@ -344,7 +352,8 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           </button>
         )}
 
-        {showProblem && userTime === null && (
+        {/* Show Solve Now only if duelStarted is true and userTime is null */}
+        {duelStarted && userTime == null && (
           <div className="space-y-2">
             <button
               onClick={() => handleSolveNow(duel.problemSlug)}
@@ -360,13 +369,13 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           </div>
         )}
 
-        {userTime !== null && (
+        {validUserTime && (
           <div className="text-center">
             <p className="text-sm text-green-600 font-bold">
               ✅ You submitted in {formatTime(userTime)}
             </p>
             <p className="text-xs text-gray-600">
-              {opponentTime
+              {validOpponentTime
                 ? 'Both submitted! Check results below.'
                 : 'Waiting for opponent to finish...'}
             </p>
@@ -459,6 +468,23 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
 
     return null;
   };
+
+  // When duels are reloaded, reset duelStarts for duels that are not started
+  useEffect(() => {
+    setDuelStarts(prev => {
+      const newStarts = { ...prev };
+      duels.forEach(duel => {
+        const isChallenger = duel.challenger === userData.leetUsername;
+        const userTime = isChallenger
+          ? duel.challengerTime
+          : duel.challengeeTime;
+        if (!userTime) {
+          newStarts[duel.duelId] = undefined;
+        }
+      });
+      return newStarts;
+    });
+  }, [duels, userData.leetUsername]);
 
   if (loading) {
     return (
