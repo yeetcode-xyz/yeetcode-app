@@ -11,6 +11,7 @@ const dotenv = require('dotenv');
 const axios = require('axios');
 const fs = require('fs');
 const AWS = require('aws-sdk');
+const { Resend } = require('resend');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -20,6 +21,9 @@ dotenv.config();
 AWS.config.update({ region: process.env.AWS_REGION });
 const ddb = new AWS.DynamoDB.DocumentClient(); // For high-level operations (easier to use)
 const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION }); // For low-level operations (raw format)
+
+// Configure Resend client for magic link emails
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Load environment variables
 console.log('Loading environment variables...');
@@ -37,6 +41,7 @@ if (fs.existsSync(envPath)) {
   console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
   console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
   console.log('[ENV] DUELS_TABLE =', process.env.DUELS_TABLE || 'Duels');
+  console.log('[ENV] RESEND_API_KEY =', !!process.env.RESEND_API_KEY);
 } else {
   console.log('.env file does not exist');
   dotenv.config();
@@ -46,6 +51,150 @@ if (fs.existsSync(envPath)) {
 console.log('Environment variables loaded:');
 console.log('LEETCODE_API_URL exists:', !!process.env.LEETCODE_API_URL);
 console.log('LEETCODE_API_KEY exists:', !!process.env.LEETCODE_API_KEY);
+
+// ========================================
+// MAGIC LINK AUTHENTICATION SYSTEM
+// ========================================
+
+// Generate a 6-digit verification code
+const generateVerificationCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Send magic link email with verification code
+const sendMagicLinkEmail = async (email, code) => {
+  console.log('[DEBUG][sendMagicLinkEmail] Sending to:', email, 'Code:', code);
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log('[DEBUG] No Resend API key, using mock email for development');
+    return { success: true, messageId: 'mock-id-' + Date.now() };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'YeetCode <auth@yeetcode.xyz>',
+      to: [email],
+      subject: 'Your YeetCode Verification Code',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1a1a1a; font-size: 28px; margin: 0;">🚀 YeetCode</h1>
+            <p style="color: #666; font-size: 16px; margin: 10px 0 0 0;">Competitive LeetCode Platform</p>
+          </div>
+          
+          <div style="background: #f8f9fa; border: 2px solid #000; border-radius: 12px; padding: 30px; text-align: center;">
+            <h2 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0;">Your Verification Code</h2>
+            
+            <div style="background: #fff; border: 3px solid #000; border-radius: 8px; padding: 20px; margin: 20px 0; font-family: 'Courier New', monospace;">
+              <div style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px;">${code}</div>
+            </div>
+            
+            <p style="color: #374151; font-size: 16px; margin: 20px 0 10px 0;">
+              Enter this code in your YeetCode app to continue setting up your account.
+            </p>
+            
+            <p style="color: #6b7280; font-size: 14px; margin: 10px 0;">
+              This code will expire in 10 minutes.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
+            <p>If you didn't request this verification code, you can safely ignore this email.</p>
+            <p>© 2024 YeetCode. Ready to compete?</p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('[ERROR][sendMagicLinkEmail] Resend error:', error);
+      throw new Error(`Email sending failed: ${error.message}`);
+    }
+
+    console.log(
+      '[DEBUG][sendMagicLinkEmail] Email sent successfully:',
+      data?.id
+    );
+    return { success: true, messageId: data?.id };
+  } catch (error) {
+    console.error('[ERROR][sendMagicLinkEmail] Failed to send email:', error);
+    throw error;
+  }
+};
+
+// Store verification code in DynamoDB with TTL
+const storeVerificationCode = async (email, code) => {
+  const ttl = Math.floor(Date.now() / 1000) + 10 * 60; // 10 minutes from now
+
+  const params = {
+    TableName: process.env.USERS_TABLE,
+    Item: {
+      username: `verification_${email.toLowerCase()}`, // Temporary key for verification
+      email: email.toLowerCase(),
+      verification_code: code,
+      ttl: ttl,
+      created_at: new Date().toISOString(),
+    },
+  };
+
+  try {
+    await ddb.put(params).promise();
+    console.log('[DEBUG][storeVerificationCode] Stored code for:', email);
+    return { success: true };
+  } catch (error) {
+    console.error(
+      '[ERROR][storeVerificationCode] Failed to store code:',
+      error
+    );
+    throw error;
+  }
+};
+
+// Verify code and return user data
+const verifyCodeAndGetUser = async (email, code) => {
+  const normalizedEmail = email.toLowerCase();
+
+  try {
+    // Get verification record
+    const verificationParams = {
+      TableName: process.env.USERS_TABLE,
+      Key: { username: `verification_${normalizedEmail}` },
+    };
+
+    const verificationResult = await ddb.get(verificationParams).promise();
+    const verificationRecord = verificationResult.Item;
+
+    if (!verificationRecord) {
+      return { success: false, error: 'No verification code found' };
+    }
+
+    if (verificationRecord.verification_code !== code) {
+      return { success: false, error: 'Invalid verification code' };
+    }
+
+    // Check if code has expired
+    const now = Math.floor(Date.now() / 1000);
+    if (verificationRecord.ttl < now) {
+      return { success: false, error: 'Verification code has expired' };
+    }
+
+    // Code is valid! Clean up verification record
+    await ddb.delete(verificationParams).promise();
+
+    console.log('[DEBUG][verifyCodeAndGetUser] Code verified for:', email);
+    return {
+      success: true,
+      email: normalizedEmail,
+      verified: true,
+    };
+  } catch (error) {
+    console.error(
+      '[ERROR][verifyCodeAndGetUser] Failed to verify code:',
+      error
+    );
+    throw error;
+  }
+};
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (electronSquirrelStartup) {
@@ -1372,6 +1521,121 @@ ipcMain.handle('clear-app-state', async () => {
   notificationManager.clearAppState();
 
   return { success: true };
+});
+
+// ========================================
+// MAGIC LINK AUTH HANDLERS
+// ========================================
+
+// Send magic link with verification code
+ipcMain.handle('send-magic-link', async (event, email) => {
+  console.log('[DEBUG][send-magic-link] called for email:', email);
+
+  if (!email || !email.trim()) {
+    return { success: false, error: 'Email is required' };
+  }
+
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { success: false, error: 'Invalid email format' };
+  }
+
+  try {
+    const code = generateVerificationCode();
+
+    // Store code in database
+    await storeVerificationCode(email, code);
+
+    // Send email
+    await sendMagicLinkEmail(email, code);
+
+    console.log('[DEBUG][send-magic-link] Success for:', email);
+    return {
+      success: true,
+      message: 'Verification code sent to your email',
+      email: email.toLowerCase(),
+    };
+  } catch (error) {
+    console.error('[ERROR][send-magic-link]', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to send verification code',
+    };
+  }
+});
+
+// Verify magic link code
+ipcMain.handle('verify-magic-token', async (event, email, code) => {
+  console.log(
+    '[DEBUG][verify-magic-token] called for email:',
+    email,
+    'code:',
+    code
+  );
+
+  if (!email || !code) {
+    return { success: false, error: 'Email and code are required' };
+  }
+
+  try {
+    const result = await verifyCodeAndGetUser(email, code);
+
+    if (!result.success) {
+      return result;
+    }
+
+    console.log(
+      '[DEBUG][verify-magic-token] Verification successful for:',
+      email
+    );
+    return result;
+  } catch (error) {
+    console.error('[ERROR][verify-magic-token]', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to verify code',
+    };
+  }
+});
+
+// Update user record with email after LeetCode verification
+ipcMain.handle('update-user-email', async (event, leetUsername, email) => {
+  console.log(
+    '[DEBUG][update-user-email] called for:',
+    leetUsername,
+    'email:',
+    email
+  );
+
+  const normalizedUsername = leetUsername.toLowerCase();
+  const normalizedEmail = email.toLowerCase();
+
+  try {
+    const updateParams = {
+      TableName: process.env.USERS_TABLE,
+      Key: { username: normalizedUsername },
+      UpdateExpression: 'SET email = :email, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':email': normalizedEmail,
+        ':updated_at': new Date().toISOString(),
+      },
+    };
+
+    await ddb.update(updateParams).promise();
+    console.log(
+      '[DEBUG][update-user-email] Email updated for user:',
+      normalizedUsername
+    );
+
+    return { success: true };
+  } catch (error) {
+    console.error('[ERROR][update-user-email]', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to update user email',
+    };
+  }
 });
 
 // ========================================

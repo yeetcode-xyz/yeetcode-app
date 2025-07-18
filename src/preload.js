@@ -51,6 +51,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   clearAppState: () => ipcRenderer.invoke('clear-app-state'),
 
+  // Magic link authentication methods
+  sendMagicLink: email => ipcRenderer.invoke('send-magic-link', email),
+
+  verifyMagicToken: (email, code) =>
+    ipcRenderer.invoke('verify-magic-token', email, code),
+
+  updateUserEmail: (leetUsername, email) =>
+    ipcRenderer.invoke('update-user-email', leetUsername, email),
+
   // Duel system methods
   getUserDuels: username => ipcRenderer.invoke('get-user-duels', username),
 

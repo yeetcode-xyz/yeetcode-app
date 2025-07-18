@@ -22,7 +22,17 @@ const OnboardingStep = ({
   return (
     <div className={`flex flex-col gap-4 ${animationClass}`}>
       <div className="text-center mb-2">
-        <h2 className="text-lg font-bold">Let's get you set up!</h2>
+        <h2 className="text-lg font-bold">
+          Almost there! Let's connect your LeetCode
+        </h2>
+        {userData.email && (
+          <div className="mt-2 p-2 bg-green-50 border border-green-300 rounded-lg">
+            <p className="text-green-700 text-sm">
+              ✅ Email verified:{' '}
+              <span className="font-bold">{userData.email}</span>
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -57,6 +67,9 @@ const OnboardingStep = ({
               {validating ? 'Checking...' : 'Continue'}
             </button>
           </div>
+          <p className="text-xs text-gray-500 mt-1">
+            We'll verify this username exists on LeetCode
+          </p>
         </div>
       </div>
 

@@ -153,7 +153,10 @@ const QuickActions = ({ groupData }) => {
 
   return (
     <>
-      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-72">
+      <div
+        className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col"
+        style={{ height: '283px' }}
+      >
         <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
           <div className="flex items-center gap-2">
             <span className="text-lg">⚡</span>
