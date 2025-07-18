@@ -155,7 +155,7 @@ const QuickActions = ({ groupData, handleLogout }) => {
     <>
       <div
         className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col"
-        style={{ height: '283px' }}
+        style={{ height: '285px' }}
       >
         <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
           <div className="flex items-center gap-2">
