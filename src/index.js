@@ -318,7 +318,12 @@ const validateLeetCodeUsername = async username => {
   const API_KEY = process.env.LEETCODE_API_KEY;
   const API_URL = process.env.LEETCODE_API_URL;
 
-  console.log('Validating LeetCode username with:', { username });
+  // Convert username to lowercase for case-insensitive validation
+  const normalizedUsername = username.toLowerCase();
+  console.log('Validating LeetCode username with:', {
+    original: username,
+    normalized: normalizedUsername,
+  });
   console.log('Using API URL:', API_URL);
   console.log('API key exists:', !!API_KEY);
 
@@ -329,9 +334,9 @@ const validateLeetCodeUsername = async username => {
     );
     // Simple mock validation - accept any non-empty username
     return {
-      exists: username && username.trim().length > 0,
+      exists: normalizedUsername && normalizedUsername.trim().length > 0,
       error:
-        username && username.trim().length > 0
+        normalizedUsername && normalizedUsername.trim().length > 0
           ? null
           : 'Username cannot be empty',
     };
@@ -347,7 +352,7 @@ const validateLeetCodeUsername = async username => {
         'x-api-key': API_KEY,
       },
       data: {
-        username: username,
+        username: normalizedUsername,
       },
     };
 
@@ -431,6 +436,10 @@ ipcMain.handle('create-group', async (event, username, displayName) => {
     USERS_TABLE: process.env.USERS_TABLE,
   });
 
+  // Convert username to lowercase for case-insensitive operations
+  const normalizedUsername = username.toLowerCase();
+  console.log('[DEBUG][create-group] normalized username:', normalizedUsername);
+
   function gen5Digit() {
     return Math.floor(10000 + Math.random() * 90000).toString();
   }
@@ -440,11 +449,11 @@ ipcMain.handle('create-group', async (event, username, displayName) => {
 
   const updateParams = {
     TableName: process.env.USERS_TABLE,
-    Key: { username },
+    Key: { username: normalizedUsername },
     UpdateExpression: 'SET group_id = :g, display_name = :name',
     ExpressionAttributeValues: {
       ':g': groupId,
-      ':name': displayName || username,
+      ':name': displayName || username, // Use original username for display
     },
   };
 
@@ -483,13 +492,17 @@ ipcMain.handle(
       process.env.USERS_TABLE
     );
 
+    // Convert username to lowercase for case-insensitive operations
+    const normalizedUsername = username.toLowerCase();
+    console.log('[DEBUG][join-group] normalized username:', normalizedUsername);
+
     const updateParams = {
       TableName: process.env.USERS_TABLE,
-      Key: { username },
+      Key: { username: normalizedUsername },
       UpdateExpression: 'SET group_id = :g, display_name = :name',
       ExpressionAttributeValues: {
         ':g': inviteCode,
-        ':name': displayName || username,
+        ':name': displayName || username, // Use original username for display
       },
       // removed ConditionExpression so this will upsert
     };
@@ -614,9 +627,16 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
 ipcMain.handle('get-user-data', async (event, username) => {
   console.log('[DEBUG][get-user-data] fetching for', username);
 
+  // Convert username to lowercase for case-insensitive lookup
+  const normalizedUsername = username.toLowerCase();
+  console.log(
+    '[DEBUG][get-user-data] normalized username:',
+    normalizedUsername
+  );
+
   const params = {
     TableName: process.env.USERS_TABLE,
-    Key: { username },
+    Key: { username: normalizedUsername },
   };
 
   try {
@@ -632,9 +652,13 @@ ipcMain.handle('get-user-data', async (event, username) => {
 ipcMain.handle('leave-group', async (event, username) => {
   console.log('[DEBUG][leave-group] called for username:', username);
 
+  // Convert username to lowercase for case-insensitive operations
+  const normalizedUsername = username.toLowerCase();
+  console.log('[DEBUG][leave-group] normalized username:', normalizedUsername);
+
   const params = {
     TableName: process.env.USERS_TABLE,
-    Key: { username },
+    Key: { username: normalizedUsername },
     // remove the group_id attribute
     UpdateExpression: 'REMOVE group_id',
   };
@@ -665,9 +689,16 @@ ipcMain.handle('update-display-name', async (event, username, displayName) => {
     return { success: false, error: 'No display name provided' };
   }
 
+  // Convert username to lowercase for case-insensitive operations
+  const normalizedUsername = username.toLowerCase();
+  console.log(
+    '[DEBUG][update-display-name] normalized username:',
+    normalizedUsername
+  );
+
   const updateParams = {
     TableName: process.env.USERS_TABLE,
-    Key: { username },
+    Key: { username: normalizedUsername },
     UpdateExpression: 'SET display_name = :name',
     ExpressionAttributeValues: {
       ':name': displayName.trim(),
