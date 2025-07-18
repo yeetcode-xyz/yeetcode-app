@@ -1,9 +1,9 @@
 import React from 'react';
 
 const UserStats = ({ userData, leaderboard, dailyData }) => {
-  // Find current user's stats from leaderboard
+  // Find current user's stats from leaderboard (case-insensitive)
   const currentUserStats = leaderboard?.find(
-    user => user.username === userData?.leetUsername
+    user => user.username === userData?.leetUsername?.toLowerCase()
   ) || { easy: 0, medium: 0, hard: 0 };
 
   // Calculate XP

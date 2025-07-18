@@ -46,7 +46,7 @@ const FriendsLeaderboard = ({ leaderboard, userData }) => {
                   .sort((a, b) => calculateXP(b) - calculateXP(a))
                   .map((user, index) => {
                     const isCurrentUser =
-                      user.username === userData.leetUsername;
+                      user.username === userData.leetUsername?.toLowerCase();
                     const total = user.easy + user.medium + user.hard;
                     const userXP = calculateXP(user);
                     const bgColor =

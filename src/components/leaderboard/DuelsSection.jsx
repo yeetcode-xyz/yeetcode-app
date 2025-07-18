@@ -23,9 +23,9 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
   // Refs for polling intervals
   const pollingIntervals = useRef({});
 
-  // Filter out current user from friends list
+  // Filter out current user from friends list (case-insensitive)
   const availableFriends = leaderboard.filter(
-    user => user.username !== userData?.leetUsername
+    user => user.username !== userData?.leetUsername?.toLowerCase()
   );
 
   // Load duels on component mount
