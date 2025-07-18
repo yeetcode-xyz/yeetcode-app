@@ -570,50 +570,81 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
 
   // Items retrieved from database are already current
 
-  // 3️⃣ Map to leaderboard shape and auto-fix missing display names
+  // 3️⃣ Map to leaderboard shape and handle case consistency
   const leaderboard = await Promise.all(
     items.map(async item => {
       console.log(
         `[DEBUG][get-stats-for-group] User ${item.username}: display_name="${item.display_name}"`
       );
 
+      const normalizedUsername = item.username.toLowerCase();
+      let userData = item;
+
+      // Check if we need to fetch data from the normalized username key
+      // This handles cases where old data exists with original case but new operations use lowercase
+      if (item.username !== normalizedUsername && (!item.xp || item.xp === 0)) {
+        console.log(
+          `[DEBUG][get-stats-for-group] Checking for case mismatch data for ${item.username} -> ${normalizedUsername}`
+        );
+        try {
+          const alternateData = await ddb
+            .get({
+              TableName: process.env.USERS_TABLE,
+              Key: { username: normalizedUsername },
+            })
+            .promise();
+
+          if (alternateData.Item && alternateData.Item.xp > 0) {
+            console.log(
+              `[DEBUG][get-stats-for-group] Found better data for ${normalizedUsername}:`,
+              alternateData.Item
+            );
+            userData = { ...item, ...alternateData.Item };
+          }
+        } catch (err) {
+          console.log(
+            `[DEBUG][get-stats-for-group] No alternate data found for ${normalizedUsername}`
+          );
+        }
+      }
+
       // Auto-fix missing display names by setting them to username
-      let displayName = item.display_name;
+      let displayName = userData.display_name;
       if (!displayName || displayName === 'undefined') {
         console.log(
-          `[DEBUG][get-stats-for-group] Auto-fixing display name for user: ${item.username}`
+          `[DEBUG][get-stats-for-group] Auto-fixing display name for user: ${userData.username}`
         );
         try {
           const updateParams = {
             TableName: process.env.USERS_TABLE,
-            Key: { username: item.username },
+            Key: { username: normalizedUsername },
             UpdateExpression: 'SET display_name = :name',
             ExpressionAttributeValues: {
-              ':name': item.username,
+              ':name': userData.username, // Use original case for display
             },
           };
           await ddb.update(updateParams).promise();
-          displayName = item.username;
+          displayName = userData.username;
           console.log(
-            `[DEBUG][get-stats-for-group] Successfully set display name for ${item.username}`
+            `[DEBUG][get-stats-for-group] Successfully set display name for ${normalizedUsername} (display: ${userData.username})`
           );
         } catch (err) {
           console.error(
-            `[ERROR][get-stats-for-group] Failed to update display name for ${item.username}:`,
+            `[ERROR][get-stats-for-group] Failed to update display name for ${userData.username}:`,
             err
           );
-          displayName = item.username; // fallback to username
+          displayName = userData.username; // fallback to username
         }
       }
 
       return {
-        username: item.username,
+        username: normalizedUsername,
         name: displayName,
-        easy: item.easy ?? 0,
-        medium: item.medium ?? 0,
-        hard: item.hard ?? 0,
-        today: item.today ?? 0,
-        xp: item.xp ?? 0, // Include XP from daily challenges and other sources
+        easy: userData.easy ?? 0,
+        medium: userData.medium ?? 0,
+        hard: userData.hard ?? 0,
+        today: userData.today ?? 0,
+        xp: userData.xp ?? 0, // Include XP from daily challenges and other sources
       };
     })
   );
@@ -831,6 +862,13 @@ ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
 ipcMain.handle('get-daily-problem', async (event, username) => {
   console.log('[DEBUG][get-daily-problem] called for username:', username);
 
+  // Convert username to lowercase for case-insensitive operations
+  const normalizedUsername = username.toLowerCase();
+  console.log(
+    '[DEBUG][get-daily-problem] normalized username:',
+    normalizedUsername
+  );
+
   try {
     // Use the low-level DynamoDB client for raw format instead of DocumentClient
 
@@ -897,9 +935,9 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
     const dailyComplete =
       todaysProblem &&
       todaysProblem.users &&
-      todaysProblem.users[username] &&
-      (todaysProblem.users[username].BOOL === true ||
-        todaysProblem.users[username] === true);
+      todaysProblem.users[normalizedUsername] &&
+      (todaysProblem.users[normalizedUsername].BOOL === true ||
+        todaysProblem.users[normalizedUsername] === true);
 
     console.log(
       '[DEBUG][get-daily-problem] todaysProblem:',
@@ -909,10 +947,13 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
       '[DEBUG][get-daily-problem] todaysProblem.users:',
       todaysProblem?.users
     );
-    console.log('[DEBUG][get-daily-problem] checking for username:', username);
+    console.log(
+      '[DEBUG][get-daily-problem] checking for username:',
+      normalizedUsername
+    );
     console.log(
       '[DEBUG][get-daily-problem] user completion:',
-      todaysProblem?.users?.[username]
+      todaysProblem?.users?.[normalizedUsername]
     );
     console.log(
       '[DEBUG][get-daily-problem] dailyComplete final result:',
@@ -927,9 +968,9 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
     const todayCompleted =
       todaysProblem &&
       todaysProblem.users &&
-      todaysProblem.users[username] &&
-      (todaysProblem.users[username].BOOL === true ||
-        todaysProblem.users[username] === true);
+      todaysProblem.users[normalizedUsername] &&
+      (todaysProblem.users[normalizedUsername].BOOL === true ||
+        todaysProblem.users[normalizedUsername] === true);
 
     if (todayCompleted) {
       // If today is completed, start counting from today
@@ -942,7 +983,8 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
         expectedDate.setDate(expectedDate.getDate() - i);
 
         // Check if this is the consecutive day and user completed it
-        const userCompletion = problem.users && problem.users[username];
+        const userCompletion =
+          problem.users && problem.users[normalizedUsername];
         if (
           problem.date === expectedDate.toISOString().split('T')[0] &&
           userCompletion &&
@@ -961,7 +1003,8 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
         expectedDate.setDate(expectedDate.getDate() - i);
 
         // Check if this is the consecutive day and user completed it
-        const userCompletion = problem.users && problem.users[username];
+        const userCompletion =
+          problem.users && problem.users[normalizedUsername];
         if (
           problem.date === expectedDate.toISOString().split('T')[0] &&
           userCompletion &&
@@ -1024,6 +1067,13 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
 ipcMain.handle('complete-daily-problem', async (event, username) => {
   console.log('[DEBUG][complete-daily-problem] called for username:', username);
 
+  // Convert username to lowercase for case-insensitive operations
+  const normalizedUsername = username.toLowerCase();
+  console.log(
+    '[DEBUG][complete-daily-problem] normalized username:',
+    normalizedUsername
+  );
+
   try {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     const dailyTableName = process.env.DAILY_TABLE || 'Daily';
@@ -1058,7 +1108,7 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
     };
 
     // Check if user already completed today's problem
-    const userCompletion = todaysProblem.users[username];
+    const userCompletion = todaysProblem.users[normalizedUsername];
     if (
       userCompletion &&
       (userCompletion.BOOL === true || userCompletion === true)
@@ -1081,7 +1131,7 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
       },
       UpdateExpression: 'SET users.#username = :completion',
       ExpressionAttributeNames: {
-        '#username': username,
+        '#username': normalizedUsername,
       },
       ExpressionAttributeValues: {
         ':completion': { BOOL: true },
@@ -1094,7 +1144,7 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
     // Award 200 XP to the user
     const updateUserParams = {
       TableName: process.env.USERS_TABLE,
-      Key: { username },
+      Key: { username: normalizedUsername },
       UpdateExpression: 'ADD xp :xp',
       ExpressionAttributeValues: {
         ':xp': 200,
@@ -1332,6 +1382,13 @@ ipcMain.handle('clear-app-state', async () => {
 ipcMain.handle('get-user-duels', async (event, username) => {
   console.log('[DEBUG][get-user-duels] called for username:', username);
 
+  // Convert username to lowercase for case-insensitive operations
+  const normalizedUsername = username.toLowerCase();
+  console.log(
+    '[DEBUG][get-user-duels] normalized username:',
+    normalizedUsername
+  );
+
   try {
     const duelsTableName = process.env.DUELS_TABLE || 'Duels';
 
@@ -1340,7 +1397,7 @@ ipcMain.handle('get-user-duels', async (event, username) => {
       TableName: duelsTableName,
       FilterExpression: 'challenger = :username OR challengee = :username',
       ExpressionAttributeValues: {
-        ':username': { S: username },
+        ':username': { S: normalizedUsername },
       },
     };
 
@@ -1400,6 +1457,16 @@ ipcMain.handle(
       difficulty
     );
 
+    // Convert usernames to lowercase for case-insensitive operations
+    const normalizedChallenger = challengerUsername.toLowerCase();
+    const normalizedChallengee = challengeeUsername.toLowerCase();
+    console.log(
+      '[DEBUG][create-duel] normalized challenger:',
+      normalizedChallenger,
+      'normalized challengee:',
+      normalizedChallengee
+    );
+
     try {
       const duelsTableName = process.env.DUELS_TABLE || 'Duels';
       const duelId = `duel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -1409,8 +1476,8 @@ ipcMain.handle(
 
       const duelItem = {
         duelId: { S: duelId },
-        challenger: { S: challengerUsername },
-        challengee: { S: challengeeUsername },
+        challenger: { S: normalizedChallenger },
+        challengee: { S: normalizedChallengee },
         difficulty: { S: difficulty },
         status: { S: 'PENDING' },
         problemSlug: { S: problem.titleSlug },
