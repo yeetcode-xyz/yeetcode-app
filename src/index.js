@@ -588,7 +588,7 @@ ipcMain.handle('create-group', async (event, username, displayName) => {
   // Convert username to lowercase for case-insensitive operations
   const normalizedUsername = username.toLowerCase();
   console.log('[DEBUG][create-group] normalized username:', normalizedUsername);
-
+  console.log('[DEBUG][create-group] normalized displayName:', displayName);
   function gen5Digit() {
     return Math.floor(10000 + Math.random() * 90000).toString();
   }
