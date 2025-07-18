@@ -2,7 +2,7 @@ echo "🔍 Running pre-commit checks..."
 
 # Check if code is formatted with Prettier
 echo "📝 Checking code formatting with Prettier..."
-npm run format:check
+npm run format
 
 # If format check fails, suggest running format command
 if [ $? -ne 0 ]; then
