@@ -16,6 +16,7 @@ const LeaderboardStep = ({
   refreshIn,
   showCopySuccess,
   setShowCopySuccess,
+  notifications,
   handleLeaveGroup,
   handleDailyComplete,
 }) => {
@@ -27,6 +28,7 @@ const LeaderboardStep = ({
         refreshIn={refreshIn}
         showCopySuccess={showCopySuccess}
         setShowCopySuccess={setShowCopySuccess}
+        notifications={notifications}
         handleLeaveGroup={handleLeaveGroup}
       />
 
@@ -39,7 +41,11 @@ const LeaderboardStep = ({
             dailyData={dailyData}
             onDailyComplete={handleDailyComplete}
           />
-          <FriendsLeaderboard leaderboard={leaderboard} userData={userData} />
+          <FriendsLeaderboard
+            leaderboard={leaderboard}
+            userData={userData}
+            notifications={notifications}
+          />
           <DuelsSection leaderboard={leaderboard} userData={userData} />
         </div>
 
