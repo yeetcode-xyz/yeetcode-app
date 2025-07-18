@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
+  // Tab state
+  const [activeTab, setActiveTab] = useState('friends');
+
   // XP calculation function
   const calculateXP = user => {
     const baseXP = user.easy * 100 + user.medium * 300 + user.hard * 500;
@@ -10,23 +13,52 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
     return baseXP + bonusXP;
   };
 
+  // Check if any notification is a 'left' type for this cycle
+  const hasLeftNotification = notifications.some(n => n.type === 'left');
+  // Filter out overtake notifications if someone left
+  const filteredNotifications = hasLeftNotification
+    ? notifications.filter(n => n.type !== 'overtake')
+    : notifications;
+
   return (
     <div
       className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col"
       style={{ height: '310px' }}
     >
       <div className="bg-blue-500 px-6 py-4 border-b-4 border-black flex-shrink-0">
+        {/* Header: Title + Tabs + Notifications */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <span className="text-white text-lg">🏆</span>
-            <h3 className="font-bold text-white text-lg">
-              FRIENDS LEADERBOARD
-            </h3>
+            <h3 className="font-bold text-white text-lg">LEADERBOARD</h3>
+            {/* Tabs (inline with title) */}
+            <div className="flex gap-2 ml-4">
+              <button
+                className={`btn-3d shadow-md px-3 py-1 rounded-lg font-bold border-2 border-b-0 border-white focus:outline-none transition-colors text-sm ${
+                  activeTab === 'friends'
+                    ? 'bg-yellow-100 text-black'
+                    : 'bg-blue-200 text-black hover:bg-yellow-200'
+                }`}
+                onClick={() => setActiveTab('friends')}
+              >
+                Friends
+              </button>
+              <button
+                className={`btn-3d shadow-md px-3 py-1 rounded-lg font-bold border-2 border-b-0 border-white focus:outline-none transition-colors text-sm ${
+                  activeTab === 'university'
+                    ? 'bg-yellow-100 text-black'
+                    : 'bg-blue-200 text-black0 hover:bg-yellow-200'
+                }`}
+                onClick={() => setActiveTab('university')}
+              >
+                University
+              </button>
+            </div>
           </div>
           {/* Notification Bar (inline) */}
           <div className="relative min-h-[24px] flex items-center">
             <AnimatePresence mode="popLayout">
-              {notifications.map(notification => (
+              {filteredNotifications.map(notification => (
                 <motion.div
                   key={notification.id}
                   initial={{ opacity: 0, y: -20, scale: 0.8 }}
@@ -56,7 +88,12 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
         </div>
       </div>
       <div className="flex-1 overflow-hidden">
-        {leaderboard.length === 0 ? (
+        {activeTab === 'university' ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500 text-lg font-bold">
+            <span>🏫 University Leaderboard</span>
+            <span className="mt-2">Coming soon!</span>
+          </div>
+        ) : leaderboard.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
             No competitors yet! Invite friends to join.
           </div>
