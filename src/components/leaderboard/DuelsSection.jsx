@@ -316,8 +316,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           <div>
             <h5 className="font-bold text-sm">Dueling {otherUserDisplay}</h5>
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
-              {duel.difficulty} •{' '}
-              Problem Hidden
+              {duel.difficulty} • Problem Hidden
             </p>
           </div>
           <span className="text-xs bg-blue-200 px-2 py-1 rounded font-bold">
