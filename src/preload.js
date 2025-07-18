@@ -54,4 +54,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-app-state', step, userData, dailyData),
 
   clearAppState: () => ipcRenderer.invoke('clear-app-state'),
+
+  // Duel system methods
+  getUserDuels: username => ipcRenderer.invoke('get-user-duels', username),
+
+  createDuel: (challengerUsername, challengeeUsername, difficulty) =>
+    ipcRenderer.invoke(
+      'create-duel',
+      challengerUsername,
+      challengeeUsername,
+      difficulty
+    ),
+
+  acceptDuel: duelId => ipcRenderer.invoke('accept-duel', duelId),
+
+  rejectDuel: duelId => ipcRenderer.invoke('reject-duel', duelId),
+
+  recordDuelSubmission: (duelId, username, elapsedMs) =>
+    ipcRenderer.invoke('record-duel-submission', duelId, username, elapsedMs),
+
+  getDuel: duelId => ipcRenderer.invoke('get-duel', duelId),
+
+  fetchLeetCodeSubmissions: (username, limit) =>
+    ipcRenderer.invoke('fetch-leetcode-submissions', username, limit),
+
+  simulateDuelCompletion: (duelId, username, timeInSeconds) =>
+    ipcRenderer.invoke(
+      'simulate-duel-completion',
+      duelId,
+      username,
+      timeInSeconds
+    ),
 });

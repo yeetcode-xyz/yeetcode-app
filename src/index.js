@@ -44,6 +44,7 @@ if (fs.existsSync(envPath)) {
   );
   console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
   console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
+  console.log('[ENV] DUELS_TABLE =', process.env.DUELS_TABLE || 'Duels');
 } else {
   console.log('.env file does not exist');
   dotenv.config();
@@ -1357,6 +1358,577 @@ ipcMain.handle('clear-app-state', async () => {
 
   return { success: true };
 });
+
+// ========================================
+// DUEL SYSTEM HANDLERS
+// ========================================
+
+// Get all duels for a user
+ipcMain.handle('get-user-duels', async (event, username) => {
+  console.log('[DEBUG][get-user-duels] called for username:', username);
+
+  try {
+    const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+
+    // Scan for duels where user is either challenger or challengee
+    const scanParams = {
+      TableName: duelsTableName,
+      FilterExpression: 'challenger = :username OR challengee = :username',
+      ExpressionAttributeValues: {
+        ':username': { S: username },
+      },
+    };
+
+    const scanResult = await dynamodb.scan(scanParams).promise();
+    const items = scanResult.Items || [];
+
+    const duels = items.map(item => ({
+      duelId: item.duelId?.S,
+      challenger: item.challenger?.S,
+      challengee: item.challengee?.S,
+      difficulty: item.difficulty?.S,
+      status: item.status?.S,
+      problemSlug: item.problemSlug?.S,
+      problemTitle: item.problemTitle?.S,
+      createdAt: item.createdAt?.S,
+      startTime: item.startTime?.S,
+      challengerTime: item.challengerTime?.N
+        ? parseInt(item.challengerTime.N)
+        : null,
+      challengeeTime: item.challengeeTime?.N
+        ? parseInt(item.challengeeTime.N)
+        : null,
+      winner: item.winner?.S,
+      xpAwarded: item.xpAwarded?.N ? parseInt(item.xpAwarded.N) : null,
+    }));
+
+    console.log(
+      `[DEBUG][get-user-duels] Found ${duels.length} duels for user ${username}`
+    );
+    return duels.filter(
+      duel => duel.status === 'PENDING' || duel.status === 'ACTIVE'
+    );
+  } catch (error) {
+    console.error('[ERROR][get-user-duels]', error);
+
+    if (error.code === 'ResourceNotFoundException') {
+      console.log(
+        '[DEBUG][get-user-duels] Duels table not found - returning empty array for development'
+      );
+      return [];
+    }
+
+    throw error;
+  }
+});
+
+// Create a new duel
+ipcMain.handle(
+  'create-duel',
+  async (event, challengerUsername, challengeeUsername, difficulty) => {
+    console.log(
+      '[DEBUG][create-duel] challenger:',
+      challengerUsername,
+      'challengee:',
+      challengeeUsername,
+      'difficulty:',
+      difficulty
+    );
+
+    try {
+      const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+      const duelId = `duel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Get a random problem for the duel
+      const problem = await fetchRandomProblemForDuel(difficulty);
+
+      const duelItem = {
+        duelId: { S: duelId },
+        challenger: { S: challengerUsername },
+        challengee: { S: challengeeUsername },
+        difficulty: { S: difficulty },
+        status: { S: 'PENDING' },
+        problemSlug: { S: problem.titleSlug },
+        problemTitle: { S: problem.title },
+        createdAt: { S: new Date().toISOString() },
+      };
+
+      const putParams = {
+        TableName: duelsTableName,
+        Item: duelItem,
+      };
+
+      await dynamodb.putItem(putParams).promise();
+      console.log('[DEBUG][create-duel] Duel created successfully:', duelId);
+
+      return {
+        duelId,
+        challenger: challengerUsername,
+        challengee: challengeeUsername,
+        difficulty,
+        status: 'PENDING',
+        problemSlug: problem.titleSlug,
+        problemTitle: problem.title,
+        createdAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('[ERROR][create-duel]', error);
+
+      if (error.code === 'ResourceNotFoundException') {
+        console.log(
+          '[DEBUG][create-duel] Duels table not found - please create the table'
+        );
+        throw new Error(
+          'Duels table not found. Please create the Duels table in DynamoDB.'
+        );
+      }
+
+      throw error;
+    }
+  }
+);
+
+// Accept a duel
+ipcMain.handle('accept-duel', async (event, duelId) => {
+  console.log('[DEBUG][accept-duel] called for duelId:', duelId);
+
+  try {
+    const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+    const startTime = new Date().toISOString();
+
+    const updateParams = {
+      TableName: duelsTableName,
+      Key: { duelId: { S: duelId } },
+      UpdateExpression: 'SET #status = :status, startTime = :startTime',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':status': { S: 'ACTIVE' },
+        ':startTime': { S: startTime },
+      },
+      ReturnValues: 'ALL_NEW',
+    };
+
+    const result = await dynamodb.updateItem(updateParams).promise();
+    console.log('[DEBUG][accept-duel] Duel accepted successfully');
+
+    const updatedDuel = {
+      duelId: result.Attributes.duelId?.S,
+      challenger: result.Attributes.challenger?.S,
+      challengee: result.Attributes.challengee?.S,
+      difficulty: result.Attributes.difficulty?.S,
+      status: result.Attributes.status?.S,
+      problemSlug: result.Attributes.problemSlug?.S,
+      problemTitle: result.Attributes.problemTitle?.S,
+      createdAt: result.Attributes.createdAt?.S,
+      startTime: result.Attributes.startTime?.S,
+    };
+
+    return updatedDuel;
+  } catch (error) {
+    console.error('[ERROR][accept-duel]', error);
+    throw error;
+  }
+});
+
+// Reject a duel
+ipcMain.handle('reject-duel', async (event, duelId) => {
+  console.log('[DEBUG][reject-duel] called for duelId:', duelId);
+
+  try {
+    const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+
+    const deleteParams = {
+      TableName: duelsTableName,
+      Key: { duelId: { S: duelId } },
+    };
+
+    await dynamodb.deleteItem(deleteParams).promise();
+    console.log('[DEBUG][reject-duel] Duel rejected and deleted successfully');
+
+    return { success: true, duelId };
+  } catch (error) {
+    console.error('[ERROR][reject-duel]', error);
+    throw error;
+  }
+});
+
+// Helper function to record duel submission logic
+const recordDuelSubmissionLogic = async (duelId, username, elapsedMs) => {
+  const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+
+  // First get the current duel
+  const getParams = {
+    TableName: duelsTableName,
+    Key: { duelId: { S: duelId } },
+  };
+
+  const getResult = await dynamodb.getItem(getParams).promise();
+  if (!getResult.Item) {
+    throw new Error('Duel not found');
+  }
+
+  const duel = getResult.Item;
+  const challenger = duel.challenger?.S;
+  const challengee = duel.challengee?.S;
+
+  // Determine which field to update
+  const isChallenger = username === challenger;
+  const timeField = isChallenger ? 'challengerTime' : 'challengeeTime';
+
+  // Update the duel with the submission time
+  const updateParams = {
+    TableName: duelsTableName,
+    Key: { duelId: { S: duelId } },
+    UpdateExpression: `SET ${timeField} = :time`,
+    ExpressionAttributeValues: {
+      ':time': { N: elapsedMs.toString() },
+    },
+    ReturnValues: 'ALL_NEW',
+  };
+
+  const updateResult = await dynamodb.updateItem(updateParams).promise();
+  const updatedDuel = updateResult.Attributes;
+
+  // Check if both players have submitted
+  const challengerTime = updatedDuel.challengerTime?.N
+    ? parseInt(updatedDuel.challengerTime.N)
+    : null;
+  const challengeeTime = updatedDuel.challengeeTime?.N
+    ? parseInt(updatedDuel.challengeeTime.N)
+    : null;
+
+  let winner = null;
+  let xpAwarded = 0;
+
+  if (challengerTime !== null && challengeeTime !== null) {
+    // Both players have submitted, determine winner
+    winner = challengerTime <= challengeeTime ? challenger : challengee;
+
+    // Calculate XP
+    const baseXP =
+      duel.difficulty?.S === 'Easy'
+        ? 100
+        : duel.difficulty?.S === 'Medium'
+          ? 300
+          : duel.difficulty?.S === 'Hard'
+            ? 500
+            : 200;
+    xpAwarded = baseXP + 200; // Base XP + 200 bonus for winner
+
+    // Update duel with winner and complete status
+    const finalUpdateParams = {
+      TableName: duelsTableName,
+      Key: { duelId: { S: duelId } },
+      UpdateExpression:
+        'SET #status = :status, winner = :winner, xpAwarded = :xp',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':status': { S: 'COMPLETED' },
+        ':winner': { S: winner },
+        ':xp': { N: xpAwarded.toString() },
+      },
+    };
+
+    await dynamodb.updateItem(finalUpdateParams).promise();
+
+    // Award XP to winner
+    await awardDuelXP(winner, xpAwarded);
+
+    console.log(
+      `[DEBUG][recordDuelSubmissionLogic] Duel completed. Winner: ${winner}, XP awarded: ${xpAwarded}`
+    );
+  }
+
+  return {
+    success: true,
+    duelId,
+    challengerTime,
+    challengeeTime,
+    winner,
+    xpAwarded,
+    completed: challengerTime !== null && challengeeTime !== null,
+  };
+};
+
+// Record duel submission
+ipcMain.handle(
+  'record-duel-submission',
+  async (event, duelId, username, elapsedMs) => {
+    console.log(
+      '[DEBUG][record-duel-submission] duelId:',
+      duelId,
+      'username:',
+      username,
+      'elapsedMs:',
+      elapsedMs
+    );
+
+    try {
+      return await recordDuelSubmissionLogic(duelId, username, elapsedMs);
+    } catch (error) {
+      console.error('[ERROR][record-duel-submission]', error);
+      throw error;
+    }
+  }
+);
+
+// Get a specific duel
+ipcMain.handle('get-duel', async (event, duelId) => {
+  console.log('[DEBUG][get-duel] called for duelId:', duelId);
+
+  try {
+    const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+
+    const getParams = {
+      TableName: duelsTableName,
+      Key: { duelId: { S: duelId } },
+    };
+
+    const result = await dynamodb.getItem(getParams).promise();
+    if (!result.Item) {
+      return null;
+    }
+
+    const duel = {
+      duelId: result.Item.duelId?.S,
+      challenger: result.Item.challenger?.S,
+      challengee: result.Item.challengee?.S,
+      difficulty: result.Item.difficulty?.S,
+      status: result.Item.status?.S,
+      problemSlug: result.Item.problemSlug?.S,
+      problemTitle: result.Item.problemTitle?.S,
+      createdAt: result.Item.createdAt?.S,
+      startTime: result.Item.startTime?.S,
+      challengerTime: result.Item.challengerTime?.N
+        ? parseInt(result.Item.challengerTime.N)
+        : null,
+      challengeeTime: result.Item.challengeeTime?.N
+        ? parseInt(result.Item.challengeeTime.N)
+        : null,
+      winner: result.Item.winner?.S,
+      xpAwarded: result.Item.xpAwarded?.N
+        ? parseInt(result.Item.xpAwarded.N)
+        : null,
+    };
+
+    return duel;
+  } catch (error) {
+    console.error('[ERROR][get-duel]', error);
+    throw error;
+  }
+});
+
+// Fetch LeetCode submissions for polling
+ipcMain.handle(
+  'fetch-leetcode-submissions',
+  async (event, username, limit = 5) => {
+    console.log(
+      '[DEBUG][fetch-leetcode-submissions] called for username:',
+      username,
+      'limit:',
+      limit
+    );
+
+    try {
+      // Use real LeetCode GraphQL API
+      const query = `
+      query recentAcSubmissions($username: String!, $limit: Int!) {
+        recentAcSubmissionList(username: $username, limit: $limit) {
+          titleSlug
+          timestamp
+        }
+      }
+    `;
+
+      const variables = {
+        username: username,
+        limit: limit,
+      };
+
+      console.log(
+        '[DEBUG][fetch-leetcode-submissions] Making GraphQL request to LeetCode...'
+      );
+
+      const response = await axios.post(
+        'https://leetcode.com/graphql',
+        {
+          query: query,
+          variables: variables,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'YeetCode/1.0',
+          },
+        }
+      );
+
+      console.log(
+        '[DEBUG][fetch-leetcode-submissions] Response status:',
+        response.status
+      );
+
+      const data = response.data;
+      if (data.errors) {
+        console.error(
+          '[ERROR][fetch-leetcode-submissions] GraphQL errors:',
+          data.errors
+        );
+        throw new Error('GraphQL query failed: ' + JSON.stringify(data.errors));
+      }
+
+      const submissions = data.data.recentAcSubmissionList || [];
+
+      // Convert timestamp to readable format and add additional fields for compatibility
+      const formattedSubmissions = submissions.map(sub => ({
+        titleSlug: sub.titleSlug,
+        timestamp: new Date(parseInt(sub.timestamp) * 1000).toISOString(), // Convert Unix timestamp to ISO string
+        statusDisplay: 'Accepted', // All submissions from this endpoint are accepted
+        lang: 'unknown', // LeetCode API doesn't provide language in this endpoint
+      }));
+
+      console.log(
+        `[DEBUG][fetch-leetcode-submissions] Successfully fetched ${formattedSubmissions.length} submissions for ${username}`
+      );
+      return formattedSubmissions;
+    } catch (error) {
+      console.error('[ERROR][fetch-leetcode-submissions]', error);
+
+      // Return empty array on error so duels continue working
+      console.log(
+        '[DEBUG][fetch-leetcode-submissions] Returning empty array due to error'
+      );
+      return [];
+    }
+  }
+);
+
+// Manual duel completion for testing (when LeetCode API isn't available)
+ipcMain.handle(
+  'simulate-duel-completion',
+  async (event, duelId, username, timeInSeconds = null) => {
+    console.log(
+      '[DEBUG][simulate-duel-completion] duelId:',
+      duelId,
+      'username:',
+      username,
+      'timeInSeconds:',
+      timeInSeconds
+    );
+
+    try {
+      // Generate a realistic random time if not provided (30 seconds to 10 minutes)
+      const elapsedMs = timeInSeconds
+        ? timeInSeconds * 1000
+        : (30 + Math.random() * 570) * 1000;
+
+      // Use the existing record-duel-submission logic
+      const result = await recordDuelSubmissionLogic(
+        duelId,
+        username,
+        elapsedMs
+      );
+
+      console.log(
+        '[DEBUG][simulate-duel-completion] Simulated completion with time:',
+        elapsedMs + 'ms'
+      );
+      return result;
+    } catch (error) {
+      console.error('[ERROR][simulate-duel-completion]', error);
+      throw error;
+    }
+  }
+);
+
+// Helper function to fetch random problem for duel
+const fetchRandomProblemForDuel = async difficulty => {
+  try {
+    // Use the existing fetch-random-problem logic
+    const difficultyMap = {
+      Easy: 'EASY',
+      Medium: 'MEDIUM',
+      Hard: 'HARD',
+      Random: ['EASY', 'MEDIUM', 'HARD'][Math.floor(Math.random() * 3)],
+    };
+
+    const targetDifficulty = difficultyMap[difficulty] || 'MEDIUM';
+
+    // Mock problems for different difficulties
+    const mockProblems = {
+      EASY: [
+        { titleSlug: 'two-sum', title: 'Two Sum' },
+        { titleSlug: 'palindrome-number', title: 'Palindrome Number' },
+        { titleSlug: 'roman-to-integer', title: 'Roman to Integer' },
+        { titleSlug: 'valid-parentheses', title: 'Valid Parentheses' },
+      ],
+      MEDIUM: [
+        { titleSlug: 'add-two-numbers', title: 'Add Two Numbers' },
+        {
+          titleSlug: 'longest-substring-without-repeating-characters',
+          title: 'Longest Substring Without Repeating Characters',
+        },
+        {
+          titleSlug: 'container-with-most-water',
+          title: 'Container With Most Water',
+        },
+        { titleSlug: 'group-anagrams', title: 'Group Anagrams' },
+      ],
+      HARD: [
+        {
+          titleSlug: 'median-of-two-sorted-arrays',
+          title: 'Median of Two Sorted Arrays',
+        },
+        {
+          titleSlug: 'regular-expression-matching',
+          title: 'Regular Expression Matching',
+        },
+        { titleSlug: 'merge-k-sorted-lists', title: 'Merge k Sorted Lists' },
+        { titleSlug: 'trapping-rain-water', title: 'Trapping Rain Water' },
+      ],
+    };
+
+    const problemsForDifficulty =
+      mockProblems[targetDifficulty] || mockProblems['MEDIUM'];
+    const randomProblem =
+      problemsForDifficulty[
+        Math.floor(Math.random() * problemsForDifficulty.length)
+      ];
+
+    console.log(
+      `[DEBUG][fetchRandomProblemForDuel] Selected ${targetDifficulty} problem: ${randomProblem.title}`
+    );
+
+    return {
+      titleSlug: randomProblem.titleSlug,
+      title: randomProblem.title,
+      difficulty: targetDifficulty,
+    };
+  } catch (error) {
+    console.error('[ERROR][fetchRandomProblemForDuel]', error);
+    throw error;
+  }
+};
+
+// Helper function to award XP for duel victory
+const awardDuelXP = async (username, xpAmount) => {
+  try {
+    const updateParams = {
+      TableName: process.env.USERS_TABLE,
+      Key: { username },
+      UpdateExpression: 'ADD xp :xp',
+      ExpressionAttributeValues: {
+        ':xp': xpAmount,
+      },
+    };
+
+    await ddb.update(updateParams).promise();
+    console.log(`[DEBUG][awardDuelXP] Awarded ${xpAmount} XP to ${username}`);
+  } catch (error) {
+    console.error('[ERROR][awardDuelXP]', error);
+    throw error;
+  }
+};
 
 // Helper function to fetch problem details from LeetCode API
 const fetchLeetCodeProblemDetails = async slug => {

@@ -389,6 +389,188 @@ export const useDevHelpers = ({
           }
         },
 
+        // Test duel completion (simulate solving a problem)
+        simulateDuelWin: async (timeInSeconds = null) => {
+          if (!userData?.leetUsername) {
+            console.log('❌ Please log in first');
+            return;
+          }
+
+          try {
+            // Get active duels
+            const duels = await window.electronAPI?.getUserDuels(
+              userData.leetUsername
+            );
+            const activeDuels = duels?.filter(d => d.status === 'ACTIVE');
+
+            if (activeDuels?.length === 0) {
+              console.log(
+                '❌ No active duels found. Create and accept a duel first.'
+              );
+              console.log('');
+              console.log('💡 How to test duels with automatic detection:');
+              console.log('1. Challenge a friend or have them challenge you');
+              console.log('2. Accept the duel to make it ACTIVE');
+              console.log('3. Start the duel and click "Solve Now"');
+              console.log(
+                '4. Solve the problem on LeetCode (automatic detection) OR use devHelpers.simulateDuelWin()'
+              );
+              return;
+            }
+
+            const duel = activeDuels[0];
+            console.log('🧪 SIMULATING DUEL COMPLETION');
+            console.log('==============================');
+            console.log('Duel ID:', duel.duelId);
+            console.log('Problem:', duel.problemTitle);
+            console.log(
+              'Your time:',
+              timeInSeconds ? `${timeInSeconds} seconds` : 'Random (30s-10min)'
+            );
+            console.log(
+              'Opponent:',
+              duel.challenger === userData.leetUsername
+                ? duel.challengee
+                : duel.challenger
+            );
+
+            const result = await window.electronAPI?.simulateDuelCompletion(
+              duel.duelId,
+              userData.leetUsername,
+              timeInSeconds
+            );
+
+            console.log('✅ Duel completion simulated!');
+            console.log('Result:', result);
+
+            if (result.completed) {
+              console.log(`🎉 Winner: ${result.winner}`);
+              console.log(`💰 XP Awarded: ${result.xpAwarded}`);
+              console.log('');
+              console.log(
+                '🔄 Refresh the duels section to see the completed state!'
+              );
+            } else {
+              console.log('⏳ Waiting for opponent to finish...');
+              console.log('');
+              console.log('💡 To simulate opponent completion too:');
+              console.log(
+                `devHelpers.simulateOpponentWin("${duel.duelId}", ${(timeInSeconds || 300) + 30})`
+              );
+            }
+
+            return result;
+          } catch (error) {
+            console.error('❌ Error simulating duel completion:', error);
+          }
+        },
+
+        // Simulate opponent completing a duel (for full testing)
+        simulateOpponentWin: async (duelId, timeInSeconds = null) => {
+          if (!userData?.leetUsername) {
+            console.log('❌ Please log in first');
+            return;
+          }
+
+          try {
+            // Get the duel
+            const duel = await window.electronAPI?.getDuel(duelId);
+            if (!duel) {
+              console.log('❌ Duel not found');
+              return;
+            }
+
+            // Find the opponent
+            const opponent =
+              duel.challenger === userData.leetUsername
+                ? duel.challengee
+                : duel.challenger;
+
+            console.log('🧪 SIMULATING OPPONENT COMPLETION');
+            console.log('==================================');
+            console.log('Duel ID:', duelId);
+            console.log('Opponent:', opponent);
+            console.log(
+              'Opponent time:',
+              timeInSeconds ? `${timeInSeconds} seconds` : 'Random (30s-10min)'
+            );
+
+            const result = await window.electronAPI?.simulateDuelCompletion(
+              duelId,
+              opponent,
+              timeInSeconds
+            );
+
+            console.log('✅ Opponent completion simulated!');
+            console.log('Result:', result);
+
+            if (result.completed) {
+              console.log(`🎉 Winner: ${result.winner}`);
+              console.log(`💰 XP Awarded: ${result.xpAwarded} (to winner)`);
+              console.log('');
+              console.log(
+                '🔄 Check the duels section - should show completed state!'
+              );
+            }
+
+            return result;
+          } catch (error) {
+            console.error('❌ Error simulating opponent completion:', error);
+          }
+        },
+
+        // Test automatic submission detection with real LeetCode API
+        testSubmissionDetection: async () => {
+          if (!userData?.leetUsername) {
+            console.log('❌ Please log in first');
+            return;
+          }
+
+          try {
+            console.log('🧪 TESTING REAL LEETCODE SUBMISSION DETECTION');
+            console.log('==============================================');
+            console.log('Username:', userData.leetUsername);
+
+            const submissions =
+              await window.electronAPI?.fetchLeetCodeSubmissions(
+                userData.leetUsername,
+                10
+              );
+
+            console.log(
+              '📥 Recent submissions from LeetCode API:',
+              submissions?.length || 0
+            );
+            if (submissions?.length > 0) {
+              console.log('Recent accepted submissions:');
+              submissions.forEach((sub, i) => {
+                console.log(
+                  `  ${i + 1}. ${sub.titleSlug} - ${sub.statusDisplay} - ${sub.timestamp}`
+                );
+              });
+            } else {
+              console.log('No recent submissions found');
+            }
+
+            console.log('');
+            console.log('💡 The automatic detection system:');
+            console.log('• Polls every 10 seconds when a duel is started');
+            console.log(
+              '• Uses real LeetCode GraphQL API to get recent accepted submissions'
+            );
+            console.log(
+              '• Automatically detects when you solve the duel problem'
+            );
+            console.log(
+              '• For manual testing, use devHelpers.simulateDuelWin()'
+            );
+
+            return submissions;
+          } catch (error) {
+            console.error('❌ Error testing submission detection:', error);
+          }
+        },
+
         // Test display name functionality
         testDisplayName: async (displayName, username) => {
           const user = username || userData?.leetUsername;
@@ -483,6 +665,9 @@ export const useDevHelpers = ({
 • devHelpers.testXPRefresh(username?) - Test XP refresh function
 • devHelpers.testCompleteDailyProblem(username?) - Test daily problem completion
 • devHelpers.testDisplayName(displayName?, username?) - Test display name functionality 🆕
+        • devHelpers.simulateDuelWin(timeInSeconds?) - Simulate completing a duel for testing 🆕
+        • devHelpers.simulateOpponentWin(duelId, timeInSeconds?) - Simulate opponent completion 🆕
+        • devHelpers.testSubmissionDetection() - Test real LeetCode submission detection 🆕
 • devHelpers.testNotification() - Test notification system
 • devHelpers.compareDataSources(username?) - Compare leaderboard vs direct data
 • devHelpers.state() - Show current app state

@@ -45,8 +45,8 @@ function createEnvFile() {
           rl.question('> ', awsRegion => {
             console.log('\nPlease enter your Users table name:');
             rl.question('> ', usersTable => {
-                // now build the full .env
-                const envContent = `# API Configuration
+              // now build the full .env
+              const envContent = `# API Configuration
 API_URL=${apiUrl}
 API_KEY=${apiKey}
 
@@ -58,13 +58,13 @@ LEETCODE_API_URL=${leetcodeApiUrl}
 AWS_REGION=${awsRegion}
 USERS_TABLE=${usersTable}`;
 
-                fs.writeFileSync(envPath, envContent);
-                console.log('\n.env file created successfully!');
-                rl.close();
-              });
+              fs.writeFileSync(envPath, envContent);
+              console.log('\n.env file created successfully!');
+              rl.close();
             });
           });
         });
       });
     });
+  });
 }
