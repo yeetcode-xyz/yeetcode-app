@@ -4,6 +4,8 @@ import { useAnalytics } from '../utils/analytics';
 import { STORAGE_KEYS, saveToStorage, loadFromStorage } from '../utils/storage';
 import { useDevHelpers } from '../hooks/useDevHelpers';
 import WelcomeStep from './WelcomeStep';
+import EmailStep from './EmailStep';
+import VerificationStep from './VerificationStep';
 import OnboardingStep from './OnboardingStep';
 import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
@@ -13,7 +15,12 @@ function App() {
 
   // Core state
   const [step, setStep] = useState('welcome');
-  const [userData, setUserData] = useState({ name: '', leetUsername: '' });
+  const [userData, setUserData] = useState({
+    email: '',
+    verified: false,
+    name: '',
+    leetUsername: '',
+  });
   const [groupData, setGroupData] = useState({ code: '', joined: false });
   const [leaderboard, setLeaderboard] = useState([]);
 
@@ -40,8 +47,21 @@ function App() {
     const savedAppState = loadFromStorage(STORAGE_KEYS.APP_STATE);
 
     if (savedUserData) {
-      setUserData(savedUserData);
-      console.log('Loaded saved user data:', savedUserData);
+      // Handle existing users (update them with email fields if missing)
+      const updatedUserData = {
+        email: savedUserData.email || '',
+        verified:
+          savedUserData.verified || (savedUserData.leetUsername ? true : false), // Existing users are considered verified
+        name: savedUserData.name || '',
+        leetUsername: savedUserData.leetUsername || '',
+      };
+      setUserData(updatedUserData);
+      console.log('Loaded saved user data:', updatedUserData);
+
+      // If it's an existing user with no email but has leetUsername, they can skip email verification
+      if (savedUserData.leetUsername && !savedUserData.email) {
+        console.log('Existing user without email - will update on next login');
+      }
     }
 
     if (savedAppState) {
@@ -254,7 +274,40 @@ function App() {
   };
 
   const handleStartOnboarding = () => {
+    navigateToStep('email');
+  };
+
+  // Magic link authentication handlers
+  const handleEmailSent = email => {
+    setUserData(prev => ({ ...prev, email: email.toLowerCase() }));
+    navigateToStep('verification');
+  };
+
+  const handleVerificationSuccess = result => {
+    setUserData(prev => ({
+      ...prev,
+      email: result.email.toLowerCase(),
+      verified: true,
+    }));
     navigateToStep('onboarding');
+  };
+
+  const handleResendCode = async () => {
+    if (!userData.email) {
+      throw new Error('No email address found');
+    }
+
+    if (window.electronAPI) {
+      const result = await window.electronAPI.sendMagicLink(userData.email);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to resend code');
+      }
+    }
+  };
+
+  const handleBackToEmail = () => {
+    setUserData(prev => ({ ...prev, verified: false }));
+    navigateToStep('email');
   };
 
   const handleValidateLeet = async () => {
@@ -307,7 +360,7 @@ function App() {
       // 3) On success, show indicator and update display name
       setShowSuccess(true);
 
-      // Update display name in database
+      // Update display name and email in database
       if (window.electronAPI) {
         try {
           const displayNameResult = await window.electronAPI.updateDisplayName(
@@ -315,6 +368,19 @@ function App() {
             userData.name
           );
           console.log('Display name update result:', displayNameResult);
+
+          // Update user email in database
+          if (userData.email && userData.verified) {
+            const emailUpdateResult = await window.electronAPI.updateUserEmail(
+              userData.leetUsername,
+              userData.email
+            );
+            console.log('Email update result:', emailUpdateResult);
+
+            if (!emailUpdateResult.success) {
+              console.warn('Email update failed:', emailUpdateResult.error);
+            }
+          }
 
           // Also ensure the display name is set when we get user data
           if (!displayNameResult.success) {
@@ -324,8 +390,8 @@ function App() {
             );
           }
         } catch (displayNameError) {
-          console.error('Error updating display name:', displayNameError);
-          // Don't fail the whole process if display name update fails
+          console.error('Error updating user data:', displayNameError);
+          // Don't fail the whole process if update fails
         }
       }
 
@@ -455,18 +521,25 @@ function App() {
   const stepProps = {
     animationClass,
     error,
+    setError,
     userData,
     setUserData,
+    email: userData.email, // Add email as separate prop for VerificationStep
     groupData,
     setGroupData,
     leaderboard,
     dailyData,
     validating,
+    setValidating,
     showSuccess,
     refreshIn,
     showCopySuccess,
     setShowCopySuccess,
     handleStartOnboarding,
+    handleEmailSent,
+    handleVerificationSuccess,
+    handleResendCode,
+    handleBackToEmail,
     handleValidateLeet,
     handleJoinGroup,
     handleCreateGroup,
@@ -526,6 +599,8 @@ function App() {
       </div>
 
       {step === 'welcome' && <WelcomeStep {...stepProps} />}
+      {step === 'email' && <EmailStep {...stepProps} />}
+      {step === 'verification' && <VerificationStep {...stepProps} />}
       {step === 'onboarding' && <OnboardingStep {...stepProps} />}
       {step === 'group' && <GroupStep {...stepProps} />}
       {step === 'leaderboard' && <LeaderboardStep {...stepProps} />}
