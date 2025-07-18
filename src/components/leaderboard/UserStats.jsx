@@ -35,14 +35,21 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
     user => user.username === userData?.leetUsername
   ) || { easy: 0, medium: 0, hard: 0 };
 
-  // Calculate XP
+  // Always define calculateXP at the top level
   const calculateXP = stats => {
     const problemXP = stats.easy * 100 + stats.medium * 300 + stats.hard * 500;
     const bonusXP = stats.xp ?? 0; // Daily challenges and other bonus XP
     return problemXP + bonusXP;
   };
 
-  const userXP = calculateXP(currentUserStats);
+  // Calculate XP
+  let userXP;
+  if (typeof window !== 'undefined' && window.devHelpers && userData?.xp !== undefined) {
+    // In dev mode, use userData.xp directly if set (for testRankUpAnimation)
+    userXP = userData.xp;
+  } else {
+    userXP = calculateXP(currentUserStats);
+  }
   const totalProblems =
     currentUserStats.easy + currentUserStats.medium + currentUserStats.hard;
 
@@ -156,8 +163,9 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.5 }}
-              className="absolute left-1/2 top-8 transform -translate-x-1/2 z-20 bg-yellow-300 border-4 border-black rounded-xl px-6 py-3 shadow-2xl flex items-center gap-3 text-xl font-bold"
+              transition={{ duration: 0.3 }}
+              className="absolute left-0 top-8 z-20 bg-yellow-300 border-4 border-black rounded-xl px-4 sm:px-8 py-3 shadow-2xl flex items-center gap-6 text-xl font-bold max-w-3xl min-w-[300px] whitespace-nowrap text-left"
+              style={{ width: '100%' }}
             >
               <span>🚀</span>
               <span>Rank Up!</span>
