@@ -38,10 +38,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   completeDailyProblem: username =>
     ipcRenderer.invoke('complete-daily-problem', username),
 
-  fixUserXP: username => ipcRenderer.invoke('fix-user-xp', username),
-
-  refreshUserXP: username => ipcRenderer.invoke('refresh-user-xp', username),
-
   getBounties: username => ipcRenderer.invoke('get-bounties', username),
 
   updateBountyProgress: (username, bountyId, progress) =>
@@ -85,4 +81,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       username,
       timeInSeconds
     ),
+});
+
+// Expose environment variables for PostHog
+contextBridge.exposeInMainWorld('envVars', {
+  posthogKey: process.env.VITE_PUBLIC_POSTHOG_KEY || process.env.POSTHOG_KEY,
+  posthogHost:
+    process.env.VITE_PUBLIC_POSTHOG_HOST ||
+    process.env.POSTHOG_HOST ||
+    'https://app.posthog.com',
+  nodeEnv: process.env.NODE_ENV,
 });

@@ -1,5 +1,6 @@
 import '../index.css';
 import React, { useState, useEffect } from 'react';
+import { useAnalytics } from '../utils/analytics';
 import { STORAGE_KEYS, saveToStorage, loadFromStorage } from '../utils/storage';
 import { useDevHelpers } from '../hooks/useDevHelpers';
 import WelcomeStep from './WelcomeStep';
@@ -8,6 +9,8 @@ import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
 
 function App() {
+  const analytics = useAnalytics();
+
   // Core state
   const [step, setStep] = useState('welcome');
   const [userData, setUserData] = useState({ name: '', leetUsername: '' });
@@ -47,6 +50,39 @@ function App() {
       console.log('Loaded saved app state:', savedAppState);
     }
   }, []);
+
+  // Track app initialization
+  useEffect(() => {
+    analytics.trackFeatureUsed('app_opened', {
+      step: step,
+      has_saved_data: !!loadFromStorage(STORAGE_KEYS.USER_DATA),
+    });
+  }, [analytics]);
+
+  // Track step changes
+  useEffect(() => {
+    analytics.trackFeatureUsed('step_viewed', {
+      step: step,
+      user_name: userData.name || 'anonymous',
+      has_group: groupData.joined,
+    });
+  }, [step, analytics, userData.name, groupData.joined]);
+
+  // Identify user when userData changes
+  useEffect(() => {
+    if (userData.name && userData.leetUsername) {
+      // Note: User identification is handled by PostHog directly since it's a specific PostHog feature
+      // We'll keep this one direct PostHog call for user identification
+      const posthog = window.posthog;
+      if (posthog) {
+        posthog.identify(userData.leetUsername, {
+          name: userData.name,
+          leetcode_username: userData.leetUsername,
+          app_version: '1.0.0',
+        });
+      }
+    }
+  }, [userData]);
 
   // Save user data when it changes
   useEffect(() => {
@@ -165,6 +201,12 @@ function App() {
         return totalB - totalA;
       });
 
+      // Track leaderboard view
+      const userRank =
+        normalized.findIndex(user => user.username === userData.leetUsername) +
+        1;
+      analytics.trackLeaderboardView(normalized.length, userRank || 0);
+
       setLeaderboard(normalized);
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
@@ -197,6 +239,16 @@ function App() {
 
   const handleDailyComplete = async result => {
     console.log('Daily challenge completed:', result);
+
+    // Track daily problem completion
+    if (dailyData.todaysProblem) {
+      analytics.trackDailyProblemComplete(
+        dailyData.todaysProblem.title,
+        0, // time spent - we don't track this currently
+        dailyData.streak + 1 // assuming streak increases by 1
+      );
+    }
+
     // Refresh both daily data and leaderboard
     await Promise.all([fetchDailyProblem(), fetchLeaderboard()]);
   };
@@ -328,11 +380,18 @@ function App() {
         console.log('Mock joining group:', groupData.code);
       }
 
+      // Track successful group join
+      analytics.trackGroupJoin(groupData.code, true);
+
       const newGroupData = { ...groupData, joined: true };
       setGroupData(newGroupData);
       navigateToStep('leaderboard');
     } catch (err) {
       console.error('Error joining group:', err);
+
+      // Track failed group join
+      analytics.trackGroupJoin(groupData.code, false);
+
       setError(
         err.message ||
           'Failed to join group. Try using devHelpers.skipGroup() for development.'
@@ -363,6 +422,10 @@ function App() {
       } else {
         console.log('Mock creating group:', groupId);
       }
+
+      // Track group creation (treat as successful group join)
+      analytics.trackGroupJoin(groupId, true);
+      analytics.trackFeatureUsed('group_created', { group_code: groupId });
 
       const newGroupData = { code: groupId, joined: true };
       setGroupData(newGroupData);

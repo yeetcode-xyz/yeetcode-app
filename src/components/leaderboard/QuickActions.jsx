@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useAnalytics } from '../../utils/analytics';
 import RandomProblemModal from './RandomProblemModal';
 
 const QuickActions = ({ groupData }) => {
+  const analytics = useAnalytics();
   const [showInviteOptions, setShowInviteOptions] = useState(false);
   const [loadingProblem, setLoadingProblem] = useState(false);
   const [showProblemModal, setShowProblemModal] = useState(false);
@@ -14,6 +16,9 @@ const QuickActions = ({ groupData }) => {
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(getInviteMessage());
     alert('Invite message copied to clipboard! 📋');
+    analytics.trackFeatureUsed('invite_copied', {
+      group_code: groupData?.code,
+    });
     setShowInviteOptions(false);
   };
 
@@ -26,6 +31,9 @@ const QuickActions = ({ groupData }) => {
     } else {
       window.open(`https://wa.me/?text=${message}`, '_blank');
     }
+    analytics.trackFeatureUsed('invite_shared_whatsapp', {
+      group_code: groupData?.code,
+    });
     setShowInviteOptions(false);
   };
 
@@ -38,12 +46,18 @@ const QuickActions = ({ groupData }) => {
     } else {
       window.open(`https://t.me/share/url?text=${message}`, '_blank');
     }
+    analytics.trackFeatureUsed('invite_shared_telegram', {
+      group_code: groupData?.code,
+    });
     setShowInviteOptions(false);
   };
 
   const handleShareDiscord = () => {
     navigator.clipboard.writeText(getInviteMessage());
     alert('Message copied! Paste it in your Discord channel 🎮');
+    analytics.trackFeatureUsed('invite_shared_discord', {
+      group_code: groupData?.code,
+    });
     setShowInviteOptions(false);
   };
 
@@ -57,6 +71,9 @@ const QuickActions = ({ groupData }) => {
     } else {
       window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
     }
+    analytics.trackFeatureUsed('invite_shared_email', {
+      group_code: groupData?.code,
+    });
     setShowInviteOptions(false);
   };
 
@@ -83,6 +100,13 @@ const QuickActions = ({ groupData }) => {
 
     try {
       const randomProblem = await fetchRandomProblem();
+
+      // Track random problem generation
+      analytics.trackRandomProblemGenerated(
+        randomProblem.difficulty,
+        randomProblem.topicTags?.[0]?.name || 'Unknown'
+      );
+
       setSelectedProblem(randomProblem);
       setShowProblemModal(true);
     } catch (error) {
@@ -97,6 +121,12 @@ const QuickActions = ({ groupData }) => {
 
   const handleConfirmProblem = async () => {
     if (selectedProblem) {
+      // Track when user opens random problem
+      analytics.trackFeatureUsed('random_problem_opened', {
+        problem_title: selectedProblem.title,
+        difficulty: selectedProblem.difficulty,
+      });
+
       const leetcodeUrl = `https://leetcode.com/problems/${selectedProblem.titleSlug}/`;
       if (window.electronAPI?.openExternalUrl) {
         await window.electronAPI.openExternalUrl(leetcodeUrl);

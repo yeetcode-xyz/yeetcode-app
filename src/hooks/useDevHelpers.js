@@ -175,25 +175,6 @@ export const useDevHelpers = ({
           }
         },
 
-        // Refresh XP by calling the dedicated refresh function
-        refreshXP: async () => {
-          if (window.electronAPI && userData?.leetUsername) {
-            console.log('🔄 Refreshing XP...');
-            const result = await window.electronAPI.refreshUserXP(
-              userData.leetUsername
-            );
-            if (result.success) {
-              console.log(
-                `✅ XP refreshed: ${result.newXP} XP (${result.completedDays} daily challenges completed)`
-              );
-            } else {
-              console.log('❌ XP refresh failed:', result.error);
-            }
-          } else {
-            console.log('❌ Not logged in or electronAPI not available');
-          }
-        },
-
         // Clear all data
         reset: () => {
           setUserData({ name: '', leetUsername: '' });
@@ -668,6 +649,7 @@ export const useDevHelpers = ({
         • devHelpers.simulateDuelWin(timeInSeconds?) - Simulate completing a duel for testing 🆕
         • devHelpers.simulateOpponentWin(duelId, timeInSeconds?) - Simulate opponent completion 🆕
         • devHelpers.testSubmissionDetection() - Test real LeetCode submission detection 🆕
+• devHelpers.testDisplayName(displayName?, username?) - Test display name functionality
 • devHelpers.testNotification() - Test notification system
 • devHelpers.compareDataSources(username?) - Compare leaderboard vs direct data
 • devHelpers.state() - Show current app state
