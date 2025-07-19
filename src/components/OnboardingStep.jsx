@@ -71,6 +71,49 @@ const OnboardingStep = ({
             We'll verify this username exists on LeetCode
           </p>
         </div>
+
+        <div>
+          <label className="block text-sm font-bold mb-1">
+            University (optional)
+          </label>
+          <select
+            className="border-2 border-black rounded-lg px-3 py-2 w-full focus:border-blue-500 focus:outline-none transition-colors"
+            value={userData.university || ''}
+            onChange={e => {
+              setUserData({ ...userData, university: e.target.value });
+            }}
+          >
+            <option value="">No University</option>
+            <option value="Massachusetts Institute of Technology">
+              Massachusetts Institute of Technology
+            </option>
+            <option value="Stanford University">Stanford University</option>
+            <option value="Carnegie Mellon University">
+              Carnegie Mellon University
+            </option>
+            <option value="University of California, Berkeley">
+              University of California, Berkeley
+            </option>
+            <option value="Stony Brook University">
+              Stony Brook University
+            </option>
+            <option value="other">My university not listed</option>
+          </select>
+          {userData.university === 'other' && (
+            <input
+              className="border-2 border-black rounded-lg px-3 py-2 w-full mt-2 focus:border-blue-500 focus:outline-none transition-colors"
+              placeholder="Enter your university"
+              value={userData.customUniversity || ''}
+              onChange={e =>
+                setUserData({
+                  ...userData,
+                  customUniversity: e.target.value,
+                  university: e.target.value,
+                })
+              }
+            />
+          )}
+        </div>
       </div>
 
       {error && (
