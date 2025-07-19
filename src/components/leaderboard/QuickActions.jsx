@@ -191,7 +191,13 @@ const QuickActions = ({ groupData, handleLogout }) => {
               </button>
             </>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 flex flex-col">
+              <button
+                onClick={() => setShowInviteOptions(false)}
+                className="w-full bg-red-200 hover:bg-red-300 text-black px-4 py-1 rounded border border-black font-bold text-xs"
+              >
+                ← BACK
+              </button>
               <div className="text-center mb-3">
                 <h4 className="font-bold text-sm mb-1">
                   Share Group: {groupData.code}
@@ -204,25 +210,25 @@ const QuickActions = ({ groupData, handleLogout }) => {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={handleShareWhatsApp}
-                  className="bg-green-400 hover:bg-green-500 text-white px-3 py-2 rounded border-2 border-black font-bold text-xs btn-3d flex items-center justify-center gap-1"
+                  className="bg-green-400 hover:bg-green-500 text-white px-4 py-2 rounded border-2 border-black font-bold text-xs btn-3d flex items-center justify-center gap-1"
                 >
                   📱 WhatsApp
                 </button>
                 <button
                   onClick={handleShareTelegram}
-                  className="bg-blue-400 hover:bg-blue-500 text-white px-3 py-2 rounded border-2 border-black font-bold text-xs btn-3d flex items-center justify-center gap-1"
+                  className="bg-blue-400 hover:bg-blue-500 text-white px-4 py-2 rounded border-2 border-black font-bold text-xs btn-3d flex items-center justify-center gap-1"
                 >
                   ✈️ Telegram
                 </button>
                 <button
                   onClick={handleShareDiscord}
-                  className="bg-purple-400 hover:bg-purple-500 text-white px-3 py-2 rounded border-2 border-black font-bold text-xs btn-3d flex items-center justify-center gap-1"
+                  className="bg-purple-400 hover:bg-purple-500 text-white px-4 py-2 rounded border-2 border-black font-bold text-xs btn-3d flex items-center justify-center gap-1"
                 >
                   🎮 Discord
                 </button>
                 <button
                   onClick={handleShareEmail}
-                  className="bg-red-400 hover:bg-red-500 text-white px-3 py-2 rounded border-2 border-black font-bold text-xs btn-3d flex items-center justify-center gap-1"
+                  className="bg-red-400 hover:bg-red-500 text-white px-4 py-2 rounded border-2 border-black font-bold text-xs btn-3d flex items-center justify-center gap-1"
                 >
                   📧 Email
                 </button>
@@ -233,13 +239,6 @@ const QuickActions = ({ groupData, handleLogout }) => {
                 className="w-full bg-gray-200 hover:bg-gray-300 text-black px-4 py-2 rounded-lg border-2 border-black font-bold text-xs btn-3d"
               >
                 📋 COPY MESSAGE
-              </button>
-
-              <button
-                onClick={() => setShowInviteOptions(false)}
-                className="w-full bg-red-200 hover:bg-red-300 text-black px-4 py-1 rounded border border-black font-bold text-xs"
-              >
-                ← BACK
               </button>
             </div>
           )}
