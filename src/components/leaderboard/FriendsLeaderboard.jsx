@@ -41,6 +41,15 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
     return baseXP + bonusXP;
   };
 
+  const getRankLabel = xp => {
+    const { name: rankName, sub: rankSub } = getRankAndSubdivision(xp);
+    return `${rankName} ${rankSub}`;
+  };
+
+  const uniLeaderboard = leaderboard.filter(
+    u => (u.university || '').toLowerCase() === (userData.university || '').toLowerCase()
+  );
+
   const renderTable = data => (
     <div className="h-full overflow-y-auto custom-scrollbar">
       <table className="min-w-full table-fixed">
@@ -137,12 +146,7 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
                           {isCurrentUser ? 'You' : user.name}
                           {hoveredUser === user.username && (
                             <div className="absolute left-1/2 bottom-full z-50 mb-1 -translate-x-1/2 bg-black text-white text-xs rounded px-3 py-1 shadow-lg border-2 border-yellow-300 whitespace-nowrap pointer-events-none animate-fade-in-down">
-                              {(() => {
-                                const xp = calculateXP(user);
-                                const { name: rankName, sub: rankSub } =
-                                  getRankAndSubdivision(xp);
-                                return `${rankName} ${rankSub}`;
-                              })()}
+                              {getRankLabel(userXP)}
                             </div>
                           )}
                         </span>
@@ -298,21 +302,14 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
       </div>
       <div className="flex-1 overflow-hidden">
         {activeTab === 'university' ? (
-          (() => {
-            const uniData = leaderboard.filter(
-              u =>
-                (u.university || '').toLowerCase() ===
-                (userData.university || '').toLowerCase()
-            );
-            return uniData.length ? (
-              renderTable(uniData)
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-gray-500 text-lg font-bold">
-                <span>🏫 University Leaderboard</span>
-                <span className="mt-2">No players yet!</span>
-              </div>
-            );
-          })()
+          uniLeaderboard.length ? (
+            renderTable(uniLeaderboard)
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-lg font-bold">
+              <span>🏫 University Leaderboard</span>
+              <span className="mt-2">No players yet!</span>
+            </div>
+          )
         ) : leaderboard.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
             No competitors yet! Invite friends to join.
