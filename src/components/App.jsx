@@ -553,10 +553,14 @@ function App() {
           }
 
           // Update university
-          if (userData.university) {
+          const universityToSave =
+            userData.university === 'other'
+              ? userData.customUniversity
+              : userData.university;
+          if (universityToSave) {
             const uniResult = await window.electronAPI.updateUserUniversity(
               userData.leetUsername,
-              userData.university
+              universityToSave
             );
             console.log('University update result:', uniResult);
           }

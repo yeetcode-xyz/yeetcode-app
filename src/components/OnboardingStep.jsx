@@ -80,7 +80,20 @@ const OnboardingStep = ({
             className="border-2 border-black rounded-lg px-3 py-2 w-full focus:border-blue-500 focus:outline-none transition-colors"
             value={userData.university || ''}
             onChange={e => {
-              setUserData({ ...userData, university: e.target.value });
+              const value = e.target.value;
+              if (value === 'other') {
+                setUserData({
+                  ...userData,
+                  university: 'other',
+                  customUniversity: '',
+                });
+              } else {
+                setUserData({
+                  ...userData,
+                  university: value,
+                  customUniversity: '',
+                });
+              }
             }}
           >
             <option value="">No University</option>
@@ -108,7 +121,6 @@ const OnboardingStep = ({
                 setUserData({
                   ...userData,
                   customUniversity: e.target.value,
-                  university: e.target.value,
                 })
               }
             />

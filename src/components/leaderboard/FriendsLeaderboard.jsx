@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const RANKS = [
@@ -46,8 +46,16 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
     return `${rankName} ${rankSub}`;
   };
 
-  const uniLeaderboard = leaderboard.filter(
-    u => (u.university || '').toLowerCase() === (userData.university || '').toLowerCase()
+  const userUniversity =
+    userData.university === 'other'
+      ? userData.customUniversity
+      : userData.university;
+  const uniLeaderboard = useMemo(
+    () =>
+      leaderboard.filter(
+        u => (u.university || '').toLowerCase() === (userUniversity || '').toLowerCase()
+      ),
+    [leaderboard, userUniversity]
   );
 
   const renderTable = data => (
