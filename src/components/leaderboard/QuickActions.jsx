@@ -16,9 +16,7 @@ const QuickActions = ({ groupData, handleLogout }) => {
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(getInviteMessage());
     alert('Invite message copied to clipboard! 📋');
-    analytics.trackFeatureUsed('invite_copied', {
-      group_code: groupData?.code,
-    });
+    analytics.trackInviteShared('clipboard', groupData?.code);
     setShowInviteOptions(false);
   };
 
@@ -31,9 +29,7 @@ const QuickActions = ({ groupData, handleLogout }) => {
     } else {
       window.open(`https://wa.me/?text=${message}`, '_blank');
     }
-    analytics.trackFeatureUsed('invite_shared_whatsapp', {
-      group_code: groupData?.code,
-    });
+    analytics.trackInviteShared('whatsapp', groupData?.code);
     setShowInviteOptions(false);
   };
 
@@ -46,18 +42,14 @@ const QuickActions = ({ groupData, handleLogout }) => {
     } else {
       window.open(`https://t.me/share/url?text=${message}`, '_blank');
     }
-    analytics.trackFeatureUsed('invite_shared_telegram', {
-      group_code: groupData?.code,
-    });
+    analytics.trackInviteShared('telegram', groupData?.code);
     setShowInviteOptions(false);
   };
 
   const handleShareDiscord = () => {
     navigator.clipboard.writeText(getInviteMessage());
     alert('Message copied! Paste it in your Discord channel 🎮');
-    analytics.trackFeatureUsed('invite_shared_discord', {
-      group_code: groupData?.code,
-    });
+    analytics.trackInviteShared('discord', groupData?.code);
     setShowInviteOptions(false);
   };
 
@@ -71,9 +63,7 @@ const QuickActions = ({ groupData, handleLogout }) => {
     } else {
       window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
     }
-    analytics.trackFeatureUsed('invite_shared_email', {
-      group_code: groupData?.code,
-    });
+    analytics.trackInviteShared('email', groupData?.code);
     setShowInviteOptions(false);
   };
 

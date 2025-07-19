@@ -75,38 +75,42 @@ function App() {
     }
   }, []);
 
-  // Track app initialization
+  // Track app initialization (only once)
   useEffect(() => {
     analytics.trackFeatureUsed('app_opened', {
       step: step,
       has_saved_data: !!loadFromStorage(STORAGE_KEYS.USER_DATA),
     });
-  }, [analytics]);
+  }, []); // Remove analytics dependency to prevent infinite loops
 
-  // Track step changes
+  // Track step changes (debounced to prevent spam)
   useEffect(() => {
-    analytics.trackFeatureUsed('step_viewed', {
-      step: step,
-      user_name: userData.name || 'anonymous',
-      has_group: groupData.joined,
-    });
-  }, [step, analytics, userData.name, groupData.joined]);
+    const timeoutId = setTimeout(() => {
+      analytics.trackFeatureUsed('step_viewed', {
+        step: step,
+        user_name: userData.name || 'anonymous',
+        has_group: groupData.joined,
+      });
+    }, 1000); // 1 second debounce
 
-  // Identify user when userData changes
+    return () => clearTimeout(timeoutId);
+  }, [step, userData.name, groupData.joined]); // Remove analytics dependency
+
+  // Identify user when userData changes (debounced)
   useEffect(() => {
     if (userData.name && userData.leetUsername) {
-      // Note: User identification is handled by PostHog directly since it's a specific PostHog feature
-      // We'll keep this one direct PostHog call for user identification
-      const posthog = window.posthog;
-      if (posthog) {
-        posthog.identify(userData.leetUsername, {
+      const timeoutId = setTimeout(() => {
+        // Use secure analytics identification instead of direct PostHog access
+        analytics.identifyUser(userData.leetUsername, {
           name: userData.name,
           leetcode_username: userData.leetUsername,
           app_version: '1.0.0',
         });
-      }
+      }, 2000); // 2 second debounce for user identification
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [userData]);
+  }, [userData.name, userData.leetUsername]); // Remove analytics dependency
 
   // Save user data when it changes
   useEffect(() => {
@@ -138,30 +142,91 @@ function App() {
     };
   }, []);
 
-  // Handle leaderboard and daily problem refresh
+  // Smart refresh system based on app focus
   useEffect(() => {
     if (step !== 'leaderboard' || !groupData.joined || !groupData.code) {
       return;
     }
 
-    // First load right away, and reset the counter
-    fetchLeaderboard();
-    fetchDailyProblem();
-    setRefreshIn(60);
+    let lastRefreshTime = 0;
+    let currentInterval = null;
+    let isAppFocused = true;
 
-    // Then tick every second: when it hits 1, fetch again & reset
-    const countdown = setInterval(() => {
-      setRefreshIn(r => {
-        if (r <= 1) {
-          fetchLeaderboard();
-          fetchDailyProblem();
-          return 60;
-        }
-        return r - 1;
-      });
-    }, 1000);
+    // Get initial refresh interval based on focus
+    const getRefreshInterval = () => {
+      return isAppFocused ? 60 : 600; // 1 min focused, 10 min unfocused
+    };
 
-    return () => clearInterval(countdown);
+    // Function to refresh data with minimum delay check
+    const refreshData = () => {
+      const now = Date.now();
+      const timeSinceLastRefresh = now - lastRefreshTime;
+      const minimumDelay = 60 * 1000; // 1 minute minimum
+
+      if (timeSinceLastRefresh >= minimumDelay) {
+        fetchLeaderboard();
+        fetchDailyProblem();
+        lastRefreshTime = now;
+        console.log(
+          `[REFRESH] Data refreshed at ${new Date().toLocaleTimeString()}`
+        );
+      } else {
+        console.log(
+          `[REFRESH] Skipped - only ${Math.round(timeSinceLastRefresh / 1000)}s since last refresh`
+        );
+      }
+    };
+
+    // Function to start/restart the refresh timer
+    const startRefreshTimer = () => {
+      if (currentInterval) {
+        clearInterval(currentInterval);
+      }
+
+      const interval = getRefreshInterval();
+      setRefreshIn(interval);
+
+      currentInterval = setInterval(() => {
+        setRefreshIn(r => {
+          if (r <= 1) {
+            refreshData();
+            return getRefreshInterval();
+          }
+          return r - 1;
+        });
+      }, 1000);
+    };
+
+    // Handle focus/blur events
+    const handleFocus = () => {
+      console.log('[FOCUS] App gained focus');
+      isAppFocused = true;
+      refreshData(); // Refresh immediately when app gains focus
+      startRefreshTimer(); // Restart with focused interval
+    };
+
+    const handleBlur = () => {
+      console.log('[FOCUS] App lost focus');
+      isAppFocused = false;
+      startRefreshTimer(); // Restart with unfocused interval
+    };
+
+    // Set up focus/blur listeners
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    // Initial load and start timer
+    refreshData();
+    lastRefreshTime = Date.now();
+    startRefreshTimer();
+
+    return () => {
+      if (currentInterval) {
+        clearInterval(currentInterval);
+      }
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
   }, [step, groupData.joined, groupData.code]);
 
   // Add useEffect to detect leaderboard changes and trigger notifications

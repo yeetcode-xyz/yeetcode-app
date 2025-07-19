@@ -25,6 +25,13 @@ const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION }); // For lo
 // Configure Resend client for magic link emails
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Helper function to get date X days ago in YYYY-MM-DD format
+const getDateXDaysAgo = days => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+};
+
 // Load environment variables
 console.log('Loading environment variables...');
 const envPath = path.join(__dirname, '..', '.env');
@@ -32,25 +39,30 @@ console.log('Checking for .env file at:', envPath);
 if (fs.existsSync(envPath)) {
   console.log('.env file exists');
   dotenv.config({ path: envPath });
-  console.log('[ENV] AWS_REGION =', process.env.AWS_REGION);
-  console.log('[ENV] AWS_ACCESS_KEY_ID =', !!process.env.AWS_ACCESS_KEY_ID);
-  console.log(
-    '[ENV] AWS_SECRET_ACCESS_KEY =',
-    !!process.env.AWS_SECRET_ACCESS_KEY
-  );
-  console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
-  console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
-  console.log('[ENV] DUELS_TABLE =', process.env.DUELS_TABLE || 'Duels');
-  console.log('[ENV] RESEND_API_KEY =', !!process.env.RESEND_API_KEY);
+
+  // Only log environment variables in development
+  if (isDev) {
+    console.log('[ENV] AWS_REGION =', process.env.AWS_REGION);
+    console.log('[ENV] AWS_ACCESS_KEY_ID =', !!process.env.AWS_ACCESS_KEY_ID);
+    console.log(
+      '[ENV] AWS_SECRET_ACCESS_KEY =',
+      !!process.env.AWS_SECRET_ACCESS_KEY
+    );
+    console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
+    console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
+    console.log('[ENV] DUELS_TABLE =', process.env.DUELS_TABLE || 'Duels');
+  }
 } else {
   console.log('.env file does not exist');
   dotenv.config();
 }
 
-// Debug: Print environment variables (without sensitive values)
-console.log('Environment variables loaded:');
-console.log('LEETCODE_API_URL exists:', !!process.env.LEETCODE_API_URL);
-console.log('LEETCODE_API_KEY exists:', !!process.env.LEETCODE_API_KEY);
+// Debug: Print environment variables (without sensitive values) - dev only
+if (isDev) {
+  console.log('Environment variables loaded:');
+  console.log('LEETCODE_API_URL exists:', !!process.env.LEETCODE_API_URL);
+  console.log('LEETCODE_API_KEY exists:', !!process.env.LEETCODE_API_KEY);
+}
 
 // ========================================
 // MAGIC LINK AUTHENTICATION SYSTEM
@@ -214,18 +226,21 @@ const createWindow = () => {
     width: 1500,
     height: 900,
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
+      nodeIntegration: false, // ✅ Secure: Prevents Node.js access in renderer
+      contextIsolation: true, // ✅ Secure: Isolates contexts
+      sandbox: true, // ✅ Secure: Enable sandboxing for defense-in-depth
       preload: path.join(__dirname, 'preload.js'),
-      sandbox: false,
     },
   });
 
   // and load the index.html of the app.
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173/index-vite.html');
-    // Only open DevTools if not in test mode
-    if (process.env.NODE_ENV !== 'test') {
+    // Only open DevTools if explicitly requested in development
+    if (
+      process.env.NODE_ENV !== 'test' &&
+      process.env.OPEN_DEVTOOLS === 'true'
+    ) {
       mainWindow.webContents.openDevTools();
     }
   } else {
@@ -252,51 +267,54 @@ const createWindow = () => {
 };
 
 // Daily challenge notification system
-let lastCheckedDate = null;
+// Removed: lastCheckedDate is no longer needed with new notification system
 
 // Clean notification manager class
 class NotificationManager {
   constructor() {
-    this.trackingFile = path.join(
-      __dirname,
-      '..',
-      'notification-tracking.json'
-    );
     this.currentAppState = {
       step: 'welcome',
       userData: null,
       dailyData: null,
       lastUpdated: null,
     };
-  }
-
-  loadTracking() {
-    try {
-      if (fs.existsSync(this.trackingFile)) {
-        const data = fs.readFileSync(this.trackingFile, 'utf8');
-        return JSON.parse(data);
-      }
-    } catch (error) {
-      console.error('[ERROR][NotificationManager.loadTracking]', error);
-    }
-    return {};
-  }
-
-  saveTracking(tracking) {
-    try {
-      fs.writeFileSync(this.trackingFile, JSON.stringify(tracking, null, 2));
-    } catch (error) {
-      console.error('[ERROR][NotificationManager.saveTracking]', error);
-    }
+    this.lastDailyProblem = null;
+    this.lastAppOpenTime = null;
+    this.notificationSentToday = false;
+    this.dailyChangeNotificationSent = false;
   }
 
   updateAppState(step, userData, dailyData) {
+    const previousState = this.currentAppState;
     this.currentAppState = {
       step,
       userData,
       dailyData,
       lastUpdated: new Date().toISOString(),
     };
+
+    console.log('[DEBUG][NotificationManager.updateAppState]', {
+      step,
+      username: userData?.leetUsername,
+      dailyComplete: dailyData?.dailyComplete,
+      dailyProblem: dailyData?.todaysProblem?.title,
+    });
+
+    // Check if this is a new app open (user just opened the app)
+    const now = Date.now();
+    const isNewAppOpen =
+      !this.lastAppOpenTime || now - this.lastAppOpenTime > 30000; // 30 seconds threshold
+
+    if (isNewAppOpen) {
+      console.log(
+        '[DEBUG][NotificationManager.updateAppState] New app open detected'
+      );
+      this.lastAppOpenTime = now;
+      this.handleAppOpen();
+    }
+
+    // Check for daily problem changes
+    this.checkForDailyProblemChange(previousState, this.currentAppState);
   }
 
   clearAppState() {
@@ -308,94 +326,103 @@ class NotificationManager {
     };
   }
 
-  async checkForNewDailyChallenge() {
-    try {
-      const today = new Date().toISOString().split('T')[0];
+  async handleAppOpen() {
+    console.log('[DEBUG][NotificationManager.handleAppOpen] App opened');
 
-      // Load persistent notification tracking
-      const notificationTracking = this.loadTracking();
+    // Reset daily change notification flag on new day
+    const today = new Date().toISOString().split('T')[0];
+    if (this.lastDailyProblem?.date !== today) {
+      this.dailyChangeNotificationSent = false;
+    }
 
-      // Only check once per day and only send notification if not already sent today
-      if (lastCheckedDate === today && notificationTracking[today]) {
-        return;
-      }
+    // Check if user should get "haven't solved daily" notification
+    const shouldNotify =
+      this.currentAppState.step === 'leaderboard' &&
+      this.currentAppState.userData?.leetUsername &&
+      this.currentAppState.dailyData?.dailyComplete === false;
 
+    if (shouldNotify) {
       console.log(
-        '[DEBUG][NotificationManager.checkForNewDailyChallenge] Checking for new daily challenge...'
+        '[DEBUG][NotificationManager.handleAppOpen] Scheduling daily reminder notification'
       );
 
-      // Check if user is in the right state for notifications
-      const shouldNotify =
-        this.currentAppState.step === 'leaderboard' &&
-        this.currentAppState.userData?.leetUsername &&
-        this.currentAppState.dailyData?.dailyComplete === false;
+      // Schedule notification after 1 minute delay
+      setTimeout(() => {
+        this.sendDailyReminderNotification();
+      }, 60000); // 1 minute delay
+    }
+  }
 
-      if (!shouldNotify) {
-        console.log(
-          '[DEBUG][NotificationManager.checkForNewDailyChallenge] User not in leaderboard or already completed daily - skipping notification'
-        );
-        lastCheckedDate = today; // Still mark as checked to avoid repeated checks
-        return;
-      }
+  async checkForDailyProblemChange(previousState, currentState) {
+    // Only check if user is in leaderboard and has daily data
+    if (
+      currentState.step !== 'leaderboard' ||
+      !currentState.dailyData?.todaysProblem
+    ) {
+      return;
+    }
 
-      const dailyTableName = process.env.DAILY_TABLE || 'Daily';
+    const currentProblem = currentState.dailyData.todaysProblem;
+    const previousProblem = previousState.dailyData?.todaysProblem;
 
-      // Check if today's daily challenge exists
-      const scanParams = {
-        TableName: dailyTableName,
-        FilterExpression: '#date = :today',
-        ExpressionAttributeNames: {
-          '#date': 'date',
-        },
-        ExpressionAttributeValues: {
-          ':today': { S: today },
-        },
-      };
+    // Check if daily problem has changed (not first load)
+    if (
+      previousProblem &&
+      currentProblem.slug !== previousProblem.slug &&
+      !this.dailyChangeNotificationSent
+    ) {
+      console.log(
+        '[DEBUG][NotificationManager] Daily problem changed from',
+        previousProblem.title,
+        'to',
+        currentProblem.title
+      );
 
-      const scanResult = await dynamodb.scan(scanParams).promise();
-      const items = scanResult.Items || [];
+      this.sendDailyChangeNotification(currentProblem);
+      this.dailyChangeNotificationSent = true;
+    }
 
-      if (items.length > 0 && !notificationTracking[today]) {
-        // New daily challenge found and notification not yet sent for today!
-        const todaysProblem = items[0];
-        const title = todaysProblem.title?.S || 'New Problem';
+    // Update last known daily problem
+    this.lastDailyProblem = currentProblem;
+  }
 
-        console.log(
-          '[DEBUG][NotificationManager.checkForNewDailyChallenge] New daily challenge found for logged-in user:',
-          title
-        );
+  sendDailyReminderNotification() {
+    // Double-check conditions before sending
+    if (
+      this.currentAppState.step !== 'leaderboard' ||
+      !this.currentAppState.userData?.leetUsername ||
+      this.currentAppState.dailyData?.dailyComplete === true
+    ) {
+      return;
+    }
 
-        // Send notification only if not already sent today and user is eligible
-        if (Notification.isSupported()) {
-          new Notification({
-            title: '🎯 New Daily Challenge Available!',
-            body: `Today's problem: ${title}\nEarn 200 XP by solving it!`,
-            icon: path.join(__dirname, 'assets', 'icon.png'), // Optional: add app icon
-          }).show();
+    if (Notification.isSupported()) {
+      const problemTitle =
+        this.currentAppState.dailyData?.todaysProblem?.title ||
+        "today's problem";
 
-          // Mark notification as sent for today
-          notificationTracking[today] = true;
-          this.saveTracking(notificationTracking);
+      new Notification({
+        title: '🎯 Daily Challenge Reminder',
+        body: `You haven't solved ${problemTitle} yet!\nComplete it to earn 200 XP and maintain your streak!`,
+        icon: path.join(__dirname, 'assets', 'icon.png'),
+      }).show();
 
-          // Clean up old tracking data (keep only last 7 days)
-          const cutoffDate = new Date();
-          cutoffDate.setDate(cutoffDate.getDate() - 7);
-          const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+      console.log(
+        '[DEBUG][NotificationManager] Sent daily reminder notification'
+      );
+    }
+  }
 
-          Object.keys(notificationTracking).forEach(date => {
-            if (date < cutoffDateStr) {
-              delete notificationTracking[date];
-            }
-          });
-          this.saveTracking(notificationTracking);
-        }
+  sendDailyChangeNotification(newProblem) {
+    if (Notification.isSupported()) {
+      new Notification({
+        title: '🔄 New Daily Challenge Available!',
+        body: `Today's problem: ${newProblem.title}\nEarn 200 XP by solving it!`,
+        icon: path.join(__dirname, 'assets', 'icon.png'),
+      }).show();
 
-        lastCheckedDate = today;
-      }
-    } catch (error) {
-      console.error(
-        '[ERROR][NotificationManager.checkForNewDailyChallenge]',
-        error
+      console.log(
+        '[DEBUG][NotificationManager] Sent daily change notification'
       );
     }
   }
@@ -404,15 +431,14 @@ class NotificationManager {
     console.log(
       '[DEBUG][NotificationManager.testNotification] Manually triggered'
     );
-    lastCheckedDate = null; // Reset to force check
 
-    // Also reset notification tracking for today to allow testing
-    const today = new Date().toISOString().split('T')[0];
-    const notificationTracking = this.loadTracking();
-    delete notificationTracking[today];
-    this.saveTracking(notificationTracking);
+    if (
+      this.currentAppState.step === 'leaderboard' &&
+      this.currentAppState.userData?.leetUsername
+    ) {
+      this.sendDailyReminderNotification();
+    }
 
-    await this.checkForNewDailyChallenge();
     return { success: true };
   }
 }
@@ -420,16 +446,13 @@ class NotificationManager {
 // Create global notification manager instance
 const notificationManager = new NotificationManager();
 
-// Start daily challenge checker
+// Start daily challenge checker (simplified - notifications now handled by app state changes)
 const startDailyChallengeChecker = () => {
-  // Check immediately on startup
-  setTimeout(() => notificationManager.checkForNewDailyChallenge(), 5000); // Wait 5 seconds after startup
-
-  // Then check every hour
-  setInterval(
-    () => notificationManager.checkForNewDailyChallenge(),
-    60 * 60 * 1000
-  ); // 1 hour
+  console.log(
+    '[DEBUG][startDailyChallengeChecker] Notification system initialized'
+  );
+  // Notifications are now handled automatically when app state changes
+  // No need for periodic checks since we track state changes directly
 };
 
 // This method will be called when Electron has finished
@@ -1019,48 +1042,113 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
   );
 
   try {
-    // Use the low-level DynamoDB client for raw format instead of DocumentClient
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dailyTableName = process.env.DAILY_TABLE || null;
 
-    // Scan the Daily table to get all daily problems
-    const dailyTableName = process.env.DAILY_TABLE || 'Daily';
-    const scanParams = {
+    // First, try to get today's problem directly (assuming date is primary key)
+    console.log(
+      `[DEBUG][get-daily-problem] Querying for today's problem: ${today}`
+    );
+    const todaysParams = {
       TableName: dailyTableName,
+      Key: { date: { S: today } },
     };
 
-    console.log('[DEBUG][get-daily-problem] scanning Daily table...');
-    const scanResult = await dynamodb.scan(scanParams).promise();
-    const items = scanResult.Items || [];
-
-    console.log(
-      '[DEBUG][get-daily-problem] Raw DynamoDB items:',
-      JSON.stringify(items, null, 2)
-    );
-
-    if (items.length === 0) {
-      console.log('[DEBUG][get-daily-problem] No daily problems found');
-      return {
-        dailyComplete: false,
-        streak: 0,
-        todaysProblem: null,
-        error: 'No daily problems found',
-      };
+    let todaysProblem = null;
+    try {
+      const todaysResult = await dynamodb.getItem(todaysParams).promise();
+      if (todaysResult.Item) {
+        todaysProblem = {
+          date: todaysResult.Item.date?.S,
+          slug: todaysResult.Item.slug?.S,
+          title: todaysResult.Item.title?.S,
+          frontendId: todaysResult.Item.frontendId?.S,
+          tags: todaysResult.Item.tags?.SS || [],
+          users: todaysResult.Item.users?.M || {},
+        };
+        console.log(
+          "[DEBUG][get-daily-problem] Found today's problem via direct query"
+        );
+      }
+    } catch (queryError) {
+      console.log(
+        "[DEBUG][get-daily-problem] Direct query failed, will fall back to scan for today's problem"
+      );
     }
 
-    // Parse DynamoDB format and convert to usable objects
-    const dailyProblems = items
-      .map(item => {
-        const parsed = {
+    // If no today's problem found or if we need historical data for streak calculation,
+    // we need to scan for recent problems (limit to last 30 days for streak calculation)
+    let dailyProblems = [];
+    if (!todaysProblem) {
+      console.log(
+        '[DEBUG][get-daily-problem] Scanning Daily table for recent problems...'
+      );
+      const scanParams = {
+        TableName: dailyTableName,
+        FilterExpression: '#date >= :thirtyDaysAgo',
+        ExpressionAttributeNames: {
+          '#date': 'date',
+        },
+        ExpressionAttributeValues: {
+          ':thirtyDaysAgo': { S: getDateXDaysAgo(30) },
+        },
+      };
+
+      const scanResult = await dynamodb.scan(scanParams).promise();
+      const items = scanResult.Items || [];
+
+      if (items.length === 0) {
+        console.log('[DEBUG][get-daily-problem] No daily problems found');
+        return {
+          dailyComplete: false,
+          streak: 0,
+          todaysProblem: null,
+          error: 'No daily problems found',
+        };
+      }
+
+      dailyProblems = items
+        .map(item => ({
           date: item.date?.S,
           slug: item.slug?.S,
           title: item.title?.S,
           frontendId: item.frontendId?.S,
           tags: item.tags?.SS || [],
           users: item.users?.M || {},
-        };
-        console.log('[DEBUG][get-daily-problem] Parsed item:', parsed);
-        return parsed;
-      })
-      .filter(item => item.date); // Filter out items without date
+        }))
+        .filter(item => item.date);
+    } else {
+      // We have today's problem, now get recent problems for streak calculation
+      console.log(
+        '[DEBUG][get-daily-problem] Getting recent problems for streak calculation...'
+      );
+      const scanParams = {
+        TableName: dailyTableName,
+        FilterExpression: '#date >= :thirtyDaysAgo AND #date < :today',
+        ExpressionAttributeNames: {
+          '#date': 'date',
+        },
+        ExpressionAttributeValues: {
+          ':thirtyDaysAgo': { S: getDateXDaysAgo(30) },
+          ':today': { S: today },
+        },
+      };
+
+      const scanResult = await dynamodb.scan(scanParams).promise();
+      const items = scanResult.Items || [];
+
+      dailyProblems = [
+        todaysProblem,
+        ...items.map(item => ({
+          date: item.date?.S,
+          slug: item.slug?.S,
+          title: item.title?.S,
+          frontendId: item.frontendId?.S,
+          tags: item.tags?.SS || [],
+          users: item.users?.M || {},
+        })),
+      ].filter(item => item.date);
+    }
 
     // Sort by date (newest first)
     dailyProblems.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -1070,17 +1158,16 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
       'valid daily problems'
     );
 
-    const latestProblem = dailyProblems[0];
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
-
-    console.log(
-      '[DEBUG][get-daily-problem] latest problem date:',
-      latestProblem.date
-    );
-    console.log("[DEBUG][get-daily-problem] today's date:", today);
-
-    // Check if today's problem exists and if user completed it
-    const todaysProblem = latestProblem.date === today ? latestProblem : null;
+    // If we don't have today's problem yet, check if it's in the dailyProblems array
+    if (!todaysProblem && dailyProblems.length > 0) {
+      const latestProblem = dailyProblems[0];
+      if (latestProblem.date === today) {
+        todaysProblem = latestProblem;
+        console.log(
+          "[DEBUG][get-daily-problem] Found today's problem in recent problems list"
+        );
+      }
+    }
     const dailyComplete =
       todaysProblem &&
       todaysProblem.users &&
@@ -1225,7 +1312,7 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
 
   try {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    const dailyTableName = process.env.DAILY_TABLE || 'Daily';
+    const dailyTableName = process.env.DAILY_TABLE || null;
 
     // First, check if today's daily problem exists using low-level client
     const scanParams = {
@@ -1329,7 +1416,7 @@ ipcMain.handle(
     });
 
     try {
-      const bountiesTableName = process.env.BOUNTIES_TABLE || 'Bounties';
+      const bountiesTableName = process.env.BOUNTIES_TABLE || null;
 
       // First, get the current bounty to check previous progress and XP amount
       const getBountyParams = {
@@ -1439,7 +1526,7 @@ ipcMain.handle('get-bounties', async (event, username) => {
   console.log('[DEBUG][get-bounties] called for username:', username);
 
   try {
-    const bountiesTableName = process.env.BOUNTIES_TABLE || 'Bounties';
+    const bountiesTableName = process.env.BOUNTIES_TABLE || null;
     const scanResult = await dynamodb
       .scan({ TableName: bountiesTableName })
       .promise();
@@ -1654,7 +1741,7 @@ ipcMain.handle('get-user-duels', async (event, username) => {
   );
 
   try {
-    const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+    const duelsTableName = process.env.DUELS_TABLE || null;
 
     // Scan for duels where user is either challenger or challengee
     const scanParams = {
@@ -1691,9 +1778,81 @@ ipcMain.handle('get-user-duels', async (event, username) => {
     console.log(
       `[DEBUG][get-user-duels] Found ${duels.length} duels for user ${username}`
     );
-    return duels.filter(
-      duel => duel.status === 'PENDING' || duel.status === 'ACTIVE'
+    return duels; // Return all duels including completed ones
+  } catch (error) {
+    console.error('[ERROR][get-user-duels]', error);
+
+    if (error.code === 'ResourceNotFoundException') {
+      console.log(
+        '[DEBUG][get-user-duels] Duels table not found - returning empty array for development'
+      );
+      return [];
+    }
+
+    throw error;
+  }
+});
+
+// Get recent completed duels for a user
+ipcMain.handle('get-recent-duels', async (event, username) => {
+  console.log('[DEBUG][get-recent-duels] called for username:', username);
+
+  // Convert username to lowercase for case-insensitive operations
+  const normalizedUsername = username.toLowerCase();
+  console.log(
+    '[DEBUG][get-recent-duels] normalized username:',
+    normalizedUsername
+  );
+
+  try {
+    const duelsTableName = process.env.DUELS_TABLE || null;
+
+    // Scan for completed duels where user is either challenger or challengee
+    const scanParams = {
+      TableName: duelsTableName,
+      FilterExpression:
+        '(challenger = :username OR challengee = :username) AND #status = :status',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
+      ExpressionAttributeValues: {
+        ':username': { S: normalizedUsername },
+        ':status': { S: 'COMPLETED' },
+      },
+    };
+
+    const scanResult = await dynamodb.scan(scanParams).promise();
+    const items = scanResult.Items || [];
+
+    const duels = items.map(item => ({
+      duelId: item.duelId?.S,
+      challenger: item.challenger?.S,
+      challengee: item.challengee?.S,
+      difficulty: item.difficulty?.S,
+      status: item.status?.S,
+      problemSlug: item.problemSlug?.S,
+      problemTitle: item.problemTitle?.S,
+      createdAt: item.createdAt?.S,
+      startTime: item.startTime?.S,
+      challengerTime: item.challengerTime?.N
+        ? parseInt(item.challengerTime.N)
+        : null,
+      challengeeTime: item.challengeeTime?.N
+        ? parseInt(item.challengeeTime.N)
+        : null,
+      winner: item.winner?.S,
+      xpAwarded: item.xpAwarded?.N ? parseInt(item.xpAwarded.N) : null,
+    }));
+
+    // Sort by creation date (newest first) and limit to 10
+    const sortedDuels = duels
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10);
+
+    console.log(
+      `[DEBUG][get-recent-duels] Found ${sortedDuels.length} recent completed duels for user ${username}`
     );
+    return sortedDuels;
   } catch (error) {
     console.error('[ERROR][get-user-duels]', error);
 
@@ -1732,7 +1891,7 @@ ipcMain.handle(
     );
 
     try {
-      const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+      const duelsTableName = process.env.DUELS_TABLE || null;
       const duelId = `duel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // Get a random problem for the duel
@@ -1789,7 +1948,7 @@ ipcMain.handle('accept-duel', async (event, duelId) => {
   console.log('[DEBUG][accept-duel] called for duelId:', duelId);
 
   try {
-    const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+    const duelsTableName = process.env.DUELS_TABLE || null;
     const startTime = new Date().toISOString();
 
     const updateParams = {
@@ -1831,7 +1990,7 @@ ipcMain.handle('reject-duel', async (event, duelId) => {
   console.log('[DEBUG][reject-duel] called for duelId:', duelId);
 
   try {
-    const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+    const duelsTableName = process.env.DUELS_TABLE || null;
 
     const deleteParams = {
       TableName: duelsTableName,
@@ -1850,7 +2009,7 @@ ipcMain.handle('reject-duel', async (event, duelId) => {
 
 // Helper function to record duel submission logic
 const recordDuelSubmissionLogic = async (duelId, username, elapsedMs) => {
-  const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+  const duelsTableName = process.env.DUELS_TABLE || null;
 
   // First get the current duel
   const getParams = {
@@ -1973,7 +2132,7 @@ ipcMain.handle('get-duel', async (event, duelId) => {
   console.log('[DEBUG][get-duel] called for duelId:', duelId);
 
   try {
-    const duelsTableName = process.env.DUELS_TABLE || 'Duels';
+    const duelsTableName = process.env.DUELS_TABLE || null;
 
     const getParams = {
       TableName: duelsTableName,
@@ -2303,7 +2462,7 @@ const fetchLeetCodeProblemDetails = async slug => {
 exports.getDailyProblemStatus = async username => {
   // This is a simplified version of get-daily-problem for internal use
   try {
-    const dailyTableName = process.env.DAILY_TABLE || 'Daily';
+    const dailyTableName = process.env.DAILY_TABLE || null;
     const scanResult = await dynamodb
       .scan({ TableName: dailyTableName })
       .promise();
@@ -2380,3 +2539,104 @@ exports.getDailyProblemStatus = async username => {
     return { streak: 0 };
   }
 };
+
+// ========================================
+// SECURE ANALYTICS SYSTEM
+// ========================================
+
+let analyticsInitialized = false;
+let posthogClient = null;
+
+// Initialize analytics in main process (secure)
+const initializeAnalytics = () => {
+  if (analyticsInitialized) return;
+
+  const posthogKey =
+    process.env.VITE_PUBLIC_POSTHOG_KEY || process.env.POSTHOG_KEY;
+  const posthogHost =
+    process.env.VITE_PUBLIC_POSTHOG_HOST ||
+    process.env.POSTHOG_HOST ||
+    'https://app.posthog.com';
+
+  if (
+    posthogKey &&
+    posthogKey !== 'ph-test-key' &&
+    !posthogKey.includes('your-')
+  ) {
+    try {
+      // Note: We'll implement server-side PostHog later
+      // For now, we'll just track that analytics is available
+      analyticsInitialized = true;
+      console.log('[DEBUG] Analytics initialized in main process');
+    } catch (error) {
+      console.error('[ERROR] Failed to initialize analytics:', error);
+    }
+  } else {
+    console.log('[DEBUG] Analytics disabled: No valid PostHog key');
+  }
+};
+
+// Analytics IPC handlers
+ipcMain.handle('analytics-track', async (event, eventName, properties = {}) => {
+  if (!analyticsInitialized)
+    return { success: false, error: 'Analytics not initialized' };
+
+  try {
+    // Add timestamp and basic metadata
+    const enrichedProperties = {
+      ...properties,
+      timestamp: new Date().toISOString(),
+      app_version: '1.0.0',
+      platform: process.platform,
+    };
+
+    console.log(
+      '[DEBUG][Analytics] Event:',
+      eventName,
+      'Properties:',
+      enrichedProperties
+    );
+    // TODO: Implement actual PostHog server-side tracking here
+
+    return { success: true };
+  } catch (error) {
+    console.error('[ERROR][Analytics]', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('analytics-identify', async (event, userId, properties = {}) => {
+  if (!analyticsInitialized)
+    return { success: false, error: 'Analytics not initialized' };
+
+  try {
+    const enrichedProperties = {
+      ...properties,
+      app_version: '1.0.0',
+      platform: process.platform,
+    };
+
+    console.log(
+      '[DEBUG][Analytics] Identify:',
+      userId,
+      'Properties:',
+      enrichedProperties
+    );
+    // TODO: Implement actual PostHog server-side identification here
+
+    return { success: true };
+  } catch (error) {
+    console.error('[ERROR][Analytics]', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('analytics-get-config', async () => {
+  return {
+    enabled: analyticsInitialized,
+    nodeEnv: process.env.NODE_ENV,
+  };
+});
+
+// Initialize analytics when app starts
+initializeAnalytics();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   getUserDuels,
+  getRecentDuels,
   createDuel,
   acceptDuel,
   rejectDuel,
@@ -12,6 +13,7 @@ import { checkSubmissionAfterTime } from '../../services/leetcode';
 const DuelsSection = ({ leaderboard = [], userData }) => {
   // State management
   const [duels, setDuels] = useState([]);
+  const [recentDuels, setRecentDuels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedFriend, setSelectedFriend] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
@@ -19,9 +21,12 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
   const [actionLoading, setActionLoading] = useState({});
   const [duelStarts, setDuelStarts] = useState({}); // Track when duels started for timing
   const [notifications, setNotifications] = useState([]);
+  const [showWinMessage, setShowWinMessage] = useState(false);
+  const [lastWinData, setLastWinData] = useState(null);
 
-  // Refs for polling intervals
+  // Refs for polling intervals and backoff tracking
   const pollingIntervals = useRef({});
+  const pollingBackoff = useRef({}); // Track backoff intervals for each duel
 
   // Filter out current user from friends list (case-insensitive)
   const availableFriends = leaderboard.filter(
@@ -32,6 +37,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
   useEffect(() => {
     if (userData?.leetUsername) {
       loadDuels();
+      loadRecentDuels();
     }
   }, [userData?.leetUsername]);
 
@@ -41,6 +47,8 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
       Object.values(pollingIntervals.current).forEach(interval => {
         if (interval) clearInterval(interval);
       });
+      // Clear backoff tracking
+      pollingBackoff.current = {};
     };
   }, []);
 
@@ -70,6 +78,18 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
       setError('Failed to load duels');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load recent completed duels
+  const loadRecentDuels = async () => {
+    if (!userData?.leetUsername) return;
+
+    try {
+      const recentDuelsData = await getRecentDuels(userData.leetUsername);
+      setRecentDuels(recentDuelsData);
+    } catch (err) {
+      console.error('Error loading recent duels:', err);
     }
   };
 
@@ -180,7 +200,14 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
       clearInterval(pollingIntervals.current[duelId]);
     }
 
-    pollingIntervals.current[duelId] = setInterval(async () => {
+    // Initialize backoff for this duel
+    pollingBackoff.current[duelId] = {
+      interval: 1000, // Start with 1 second
+      maxInterval: 30000, // Max 30 seconds
+      attempts: 0,
+    };
+
+    const pollForSubmission = async () => {
       try {
         const submission = await checkSubmissionAfterTime(
           userData.leetUsername,
@@ -198,19 +225,81 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           // Stop polling
           clearInterval(pollingIntervals.current[duelId]);
           delete pollingIntervals.current[duelId];
+          delete pollingBackoff.current[duelId];
 
           // Reload duels to get updated state
           await loadDuels();
+          await loadRecentDuels();
+
+          // Check if this submission completed the duel
+          const updatedDuel = await getDuel(duelId);
+          if (updatedDuel && updatedDuel.status === 'COMPLETED') {
+            const isWinner = updatedDuel.winner === userData.leetUsername;
+            if (isWinner) {
+              setLastWinData({
+                duelId,
+                problemTitle: updatedDuel.problemTitle,
+                xpAwarded: updatedDuel.xpAwarded,
+                time: elapsedMs,
+              });
+              setShowWinMessage(true);
+              setTimeout(() => setShowWinMessage(false), 5000); // Hide after 5 seconds
+            }
+          }
 
           addNotification(
             'Submission detected and recorded! Waiting for opponent...',
             'success'
           );
+        } else {
+          // No submission found, increase backoff interval
+          const backoff = pollingBackoff.current[duelId];
+          if (backoff) {
+            backoff.attempts++;
+            // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
+            backoff.interval = Math.min(
+              1000 * Math.pow(2, Math.floor(backoff.attempts / 3)),
+              backoff.maxInterval
+            );
+
+            console.log(
+              `[DUEL] Polling backoff: ${backoff.interval}ms for duel ${duelId}`
+            );
+
+            // Schedule next poll with new interval
+            clearInterval(pollingIntervals.current[duelId]);
+            pollingIntervals.current[duelId] = setTimeout(
+              pollForSubmission,
+              backoff.interval
+            );
+          }
         }
       } catch (error) {
         console.error('Error checking submission:', error);
+        // On error, also increase backoff
+        const backoff = pollingBackoff.current[duelId];
+        if (backoff) {
+          backoff.attempts++;
+          backoff.interval = Math.min(
+            backoff.interval * 2,
+            backoff.maxInterval
+          );
+
+          // Schedule retry with backoff
+          clearInterval(pollingIntervals.current[duelId]);
+          pollingIntervals.current[duelId] = setTimeout(
+            pollForSubmission,
+            backoff.interval
+          );
+        }
       }
-    }, 1000); // Poll every 1 second
+    };
+
+    // Start initial poll
+    pollingIntervals.current[duelId] = setTimeout(
+      pollForSubmission,
+      pollingBackoff.current[duelId].interval
+    );
   };
 
   // Handle manual "Solve Now" click
@@ -485,6 +574,31 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     });
   }, [duels, userData.leetUsername]);
 
+  // Win message component
+  const WinMessage = () => {
+    if (!showWinMessage || !lastWinData) return null;
+
+    return (
+      <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+        <div className="bg-gradient-to-r from-yellow-400 to-orange-500 border-4 border-black rounded-xl p-8 shadow-2xl pointer-events-auto animate-bounce">
+          <div className="text-center">
+            <div className="text-6xl mb-4">🏆</div>
+            <h2 className="text-3xl font-bold text-white mb-2">VICTORY!</h2>
+            <p className="text-xl text-white mb-2">
+              You won the duel against {lastWinData.problemTitle}!
+            </p>
+            <p className="text-lg text-white mb-4">
+              Time: {formatTime(lastWinData.time)}
+            </p>
+            <div className="bg-white text-orange-600 px-4 py-2 rounded-lg font-bold text-xl">
+              +{lastWinData.xpAwarded} XP EARNED! 🎉
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
@@ -501,10 +615,15 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
 
   const pendingDuels = duels.filter(d => d.status === 'PENDING');
   const activeDuels = duels.filter(d => d.status === 'ACTIVE');
-  const completedDuels = duels.filter(d => d.completed).slice(0, 3); // Show last 3 completed
+  const completedDuels = duels
+    .filter(d => d.status === 'COMPLETED')
+    .slice(0, 5); // Show last 5 completed
 
   return (
     <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg h-[32rem] relative">
+      {/* Win message overlay */}
+      <WinMessage />
+
       {/* Notifications (fixed bar at the top) */}
       {notifications.length > 0 && (
         <div className="absolute left-0 right-0 top-0 z-20 flex flex-col items-center pointer-events-none">
@@ -601,8 +720,60 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
               className="overflow-y-auto custom-scrollbar"
               style={{ height: '190px' }}
             >
-              {/* Render all duels using the new branching logic */}
-              {duels.map(renderDuel)}
+              {/* Show active and pending duels first */}
+              {duels
+                .filter(d => d.status === 'PENDING' || d.status === 'ACTIVE')
+                .map(renderDuel)}
+
+              {/* Show completed duels if any */}
+              {completedDuels.length > 0 && (
+                <>
+                  <div className="text-xs font-bold text-gray-600 mt-3 mb-2 border-b border-gray-300 pb-1">
+                    RECENT COMPLETED DUELS
+                  </div>
+                  {completedDuels.map(duel => {
+                    const isWinner = duel.winner === userData.leetUsername;
+                    const otherUser =
+                      duel.challenger === userData.leetUsername
+                        ? duel.challengee
+                        : duel.challenger;
+                    const otherUserDisplay =
+                      leaderboard.find(u => u.username === otherUser)?.name ||
+                      otherUser;
+
+                    return (
+                      <div
+                        key={duel.duelId}
+                        className={`mb-2 p-2 rounded border-2 ${
+                          isWinner
+                            ? 'bg-green-100 border-green-400'
+                            : 'bg-gray-100 border-gray-400'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold">
+                              {isWinner ? '🏆 WIN' : '❌ LOSS'}
+                            </span>
+                            <span className="ml-2">vs {otherUserDisplay}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold">{duel.problemTitle}</div>
+                            <div className="text-gray-600">
+                              {duel.difficulty}
+                            </div>
+                            {isWinner && duel.xpAwarded && (
+                              <div className="text-green-600 font-bold">
+                                +{duel.xpAwarded} XP
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
 
               {duels.length === 0 && (
                 <div className="text-center text-gray-500 py-4">
@@ -616,6 +787,61 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             </div>
           </div>
         </div>
+
+        {/* Recent Duels Section */}
+        {recentDuels.length > 0 && (
+          <div className="mt-4 bg-white p-4 border-2 border-black rounded-lg shadow-md">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-bold text-lg">Recent Duels</h4>
+              <span className="text-lg">🏆</span>
+            </div>
+
+            <div
+              className="overflow-y-auto custom-scrollbar"
+              style={{ height: '120px' }}
+            >
+              {recentDuels.map(duel => {
+                const isWinner = duel.winner === userData.leetUsername;
+                const otherUser =
+                  duel.challenger === userData.leetUsername
+                    ? duel.challengee
+                    : duel.challenger;
+                const otherUserDisplay =
+                  leaderboard.find(u => u.username === otherUser)?.name ||
+                  otherUser;
+
+                return (
+                  <div
+                    key={duel.duelId}
+                    className={`mb-2 p-2 rounded border-2 ${
+                      isWinner
+                        ? 'bg-green-100 border-green-400'
+                        : 'bg-gray-100 border-gray-400'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center text-xs">
+                      <div>
+                        <span className="font-bold">
+                          {isWinner ? '🏆 WIN' : '❌ LOSS'}
+                        </span>
+                        <span className="ml-2">vs {otherUserDisplay}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold">{duel.problemTitle}</div>
+                        <div className="text-gray-600">{duel.difficulty}</div>
+                        {isWinner && duel.xpAwarded && (
+                          <div className="text-green-600 font-bold">
+                            +{duel.xpAwarded} XP
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

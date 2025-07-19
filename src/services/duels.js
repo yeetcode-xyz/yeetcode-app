@@ -14,6 +14,18 @@ export const getUserDuels = async username => {
 };
 
 /**
+ * Get recent completed duels for the current user
+ * @param {string} username - LeetCode username
+ * @returns {Promise<Array>} Array of completed duel objects (sorted by date, newest first)
+ */
+export const getRecentDuels = async username => {
+  if (!window.electronAPI?.getRecentDuels) {
+    throw new Error('getRecentDuels API not available');
+  }
+  return await window.electronAPI.getRecentDuels(username);
+};
+
+/**
  * Create a new duel challenge
  * @param {string} challengerUsername - Username of challenger
  * @param {string} challengeeUsername - Username of challengee
