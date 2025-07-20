@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
   if (!isOpen || !problem) return null;
@@ -29,8 +30,9 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  // Modal content
+  const modalContent = (
+    <div className="fixed inset-0 w-screen h-screen bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-yellow-100 border-4 border-black rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-blue-600 border-b-4 border-black px-6 py-4 flex items-center justify-between">
@@ -119,6 +121,8 @@ const RandomProblemModal = ({ isOpen, onClose, problem, onConfirm }) => {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default RandomProblemModal;
