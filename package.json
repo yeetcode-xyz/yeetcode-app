@@ -1,8 +1,8 @@
 {
   "name": "yeetcode-app",
-  "productName": "yeetcode-app",
+  "productName": "YeetCode",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "YeetCode - Competitive Programming Practice App",
   "main": "src/index.js",
   "config": {
     "forge": "./forge.config.cjs"
@@ -12,6 +12,8 @@
     "dev": "vite",
     "build": "vite build",
     "package": "npm run build && electron-forge package",
+    "package:builder": "npm run build && electron-builder build --publish never",
+    "package:mac-unsigned": "npm run build && electron-builder build -c.mac.identity=null --publish never",
     "make": "npm run build && electron-forge make",
     "publish": "npm run build && electron-forge publish",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
@@ -36,6 +38,81 @@
     "src/**/*.{js,jsx,ts,tsx,json,css,md}": [
       "prettier --write"
     ]
+  },
+  "build": {
+    "productName": "YeetCode",
+    "appId": "com.yeetcode.app",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "src/**/*",
+      "dist/**/*",
+      "node_modules/**/*",
+      "!node_modules/.cache",
+      "!src/test",
+      "!e2e",
+      "!scripts",
+      "!*.md"
+    ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env",
+        "filter": ["**/*"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "default",
+          "arch": ["universal"]
+        }
+      ],
+      "artifactName": "${productName}.${ext}",
+      "type": "distribution",
+      "hardenedRuntime": true,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist",
+      "gatekeeperAssess": false,
+      "notarize": true
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "artifactName": "${productName}.${ext}"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "${productName}.${ext}"
+    },
+    "linux": {
+      "artifactName": "${productName}-${arch}.${ext}",
+      "target": [
+        {
+          "target": "deb",
+          "arch": ["arm64", "x64"]
+        },
+        {
+          "target": "rpm",
+          "arch": ["arm64", "x64"]
+        }
+      ],
+      "category": "Development"
+    }
   },
   "keywords": [],
   "author": "akeen",

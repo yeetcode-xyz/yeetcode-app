@@ -35,6 +35,7 @@ build/Release
 # Dependency directories
 node_modules/
 dist/
+dist-electron/
 jspm_packages/
 
 # TypeScript v1 declaration files
@@ -97,3 +98,5 @@ playwright-report/
 test-results/
 
 YeetCode_Certificate.p12
+
+package-mac-signed.sh
