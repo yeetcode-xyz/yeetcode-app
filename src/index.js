@@ -211,6 +211,47 @@ const storeVerificationCode = async (email, code) => {
   }
 };
 
+// Clean up expired verification codes
+const cleanupExpiredVerificationCodes = async () => {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+
+    // Scan for verification records that have expired
+    const scanParams = {
+      TableName: process.env.USERS_TABLE,
+      FilterExpression: 'begins_with(username, :prefix) AND ttl < :now',
+      ExpressionAttributeValues: {
+        ':prefix': 'verification_',
+        ':now': now,
+      },
+    };
+
+    const scanResult = await ddb.scan(scanParams).promise();
+    const expiredRecords = scanResult.Items || [];
+
+    if (expiredRecords.length > 0) {
+      console.log(
+        `[DEBUG][cleanupExpiredVerificationCodes] Found ${expiredRecords.length} expired verification records`
+      );
+
+      // Delete expired records
+      for (const record of expiredRecords) {
+        const deleteParams = {
+          TableName: process.env.USERS_TABLE,
+          Key: { username: record.username },
+        };
+        await ddb.delete(deleteParams).promise();
+      }
+
+      console.log(
+        `[DEBUG][cleanupExpiredVerificationCodes] Cleaned up ${expiredRecords.length} expired verification records`
+      );
+    }
+  } catch (error) {
+    console.error('[ERROR][cleanupExpiredVerificationCodes]', error);
+  }
+};
+
 // Verify code and return user data
 const verifyCodeAndGetUser = async (email, code) => {
   const normalizedEmail = email.toLowerCase();
@@ -2694,5 +2735,89 @@ ipcMain.handle('analytics-get-config', async () => {
   };
 });
 
+// Clean up expired duels
+const cleanupExpiredDuels = async () => {
+  try {
+    const duelsTableName = process.env.DUELS_TABLE || null;
+    if (!duelsTableName) return;
+
+    const now = Date.now();
+    const threeHoursAgo = now - 3 * 60 * 60 * 1000; // 3 hours for pending duels
+    const twoHoursAgo = now - 2 * 60 * 60 * 1000; // 2 hours for active duels
+
+    // Scan for expired duels
+    const scanParams = {
+      TableName: duelsTableName,
+      FilterExpression:
+        '(#status = :pending AND createdAt < :threeHoursAgo) OR (#status = :active AND startTime < :twoHoursAgo)',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
+      ExpressionAttributeValues: {
+        ':pending': { S: 'PENDING' },
+        ':active': { S: 'ACTIVE' },
+        ':threeHoursAgo': { S: new Date(threeHoursAgo).toISOString() },
+        ':twoHoursAgo': { S: new Date(twoHoursAgo).toISOString() },
+      },
+    };
+
+    const scanResult = await dynamodb.scan(scanParams).promise();
+    const expiredDuels = scanResult.Items || [];
+
+    if (expiredDuels.length > 0) {
+      console.log(
+        `[DEBUG][cleanupExpiredDuels] Found ${expiredDuels.length} expired duels`
+      );
+
+      // Delete expired duels
+      for (const duel of expiredDuels) {
+        const deleteParams = {
+          TableName: duelsTableName,
+          Key: { duelId: { S: duel.duelId.S } },
+        };
+        await dynamodb.deleteItem(deleteParams).promise();
+        console.log(
+          `[DEBUG][cleanupExpiredDuels] Deleted expired duel: ${duel.duelId.S} (status: ${duel.status.S})`
+        );
+      }
+
+      console.log(
+        `[DEBUG][cleanupExpiredDuels] Cleaned up ${expiredDuels.length} expired duels`
+      );
+    }
+  } catch (error) {
+    console.error('[ERROR][cleanupExpiredDuels]', error);
+  }
+};
+
+// Set up periodic cleanup tasks
+const setupCleanupTasks = () => {
+  // Clean up expired verification codes every 5 minutes
+  setInterval(cleanupExpiredVerificationCodes, 5 * 60 * 1000);
+
+  // Clean up expired duels every 10 minutes
+  setInterval(cleanupExpiredDuels, 10 * 60 * 1000);
+
+  console.log('[DEBUG][setupCleanupTasks] Cleanup tasks scheduled');
+};
+
 // Initialize analytics when app starts
 initializeAnalytics();
+
+// Set up cleanup tasks
+setupCleanupTasks();
+
+// IPC handlers for manual cleanup (for testing)
+ipcMain.handle('cleanup-expired-verification-codes', async () => {
+  console.log(
+    '[DEBUG][cleanup-expired-verification-codes] Manual cleanup triggered'
+  );
+  await cleanupExpiredVerificationCodes();
+  return { success: true };
+});
+
+ipcMain.handle('cleanup-expired-duels', async () => {
+  console.log('[DEBUG][cleanup-expired-duels] Manual cleanup triggered');
+  await cleanupExpiredDuels();
+  return { success: true };
+});

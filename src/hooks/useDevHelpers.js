@@ -370,6 +370,94 @@ export const useDevHelpers = ({
           }
         },
 
+        // Test cleanup functions
+        testCleanup: async () => {
+          console.log('🧪 TESTING CLEANUP FUNCTIONS');
+          console.log('==============================');
+
+          try {
+            console.log('Cleaning up expired verification codes...');
+            await window.electronAPI?.cleanupExpiredVerificationCodes();
+            console.log('✅ Verification codes cleanup completed');
+
+            console.log('Cleaning up expired duels...');
+            await window.electronAPI?.cleanupExpiredDuels();
+            console.log('✅ Duels cleanup completed');
+
+            console.log('🎉 All cleanup functions completed successfully!');
+          } catch (error) {
+            console.error('❌ Cleanup test failed:', error);
+          }
+          console.log('');
+        },
+
+        // Create test verification code (for testing cleanup)
+        createTestVerificationCode: async (email = 'test@example.com') => {
+          console.log('🧪 CREATING TEST VERIFICATION CODE');
+          console.log('==================================');
+          console.log('Email:', email);
+          console.log(
+            'This will create a verification code that expires in 10 minutes'
+          );
+          console.log(
+            'Use devHelpers.testCleanup() to test cleanup after expiration'
+          );
+          console.log('');
+
+          try {
+            const result = await window.electronAPI?.sendMagicLink(email);
+            if (result.success) {
+              console.log('✅ Test verification code created successfully');
+              console.log('Check the database for verification record');
+            } else {
+              console.log(
+                '❌ Failed to create test verification code:',
+                result.error
+              );
+            }
+          } catch (error) {
+            console.error('❌ Error creating test verification code:', error);
+          }
+          console.log('');
+        },
+
+        // Create test duel (for testing cleanup)
+        createTestDuel: async () => {
+          console.log('🧪 CREATING TEST DUEL');
+          console.log('=====================');
+          console.log('This will create a test duel for cleanup testing');
+          console.log(
+            'Use devHelpers.testCleanup() to test cleanup after expiration'
+          );
+          console.log('');
+
+          if (!userData?.leetUsername) {
+            console.log('❌ Please log in first');
+            return;
+          }
+
+          try {
+            // Create a duel with yourself (for testing)
+            const result = await window.electronAPI?.createDuel(
+              userData.leetUsername,
+              userData.leetUsername,
+              'Easy'
+            );
+
+            if (result) {
+              console.log('✅ Test duel created successfully');
+              console.log('Duel ID:', result.duelId);
+              console.log('Status:', result.status);
+              console.log('Created at:', result.createdAt);
+            } else {
+              console.log('❌ Failed to create test duel');
+            }
+          } catch (error) {
+            console.error('❌ Error creating test duel:', error);
+          }
+          console.log('');
+        },
+
         // Test duel completion (simulate solving a problem)
         simulateDuelWin: async (timeInSeconds = null) => {
           if (!userData?.leetUsername) {

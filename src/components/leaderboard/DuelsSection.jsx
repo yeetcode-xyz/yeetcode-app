@@ -328,6 +328,19 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     const otherUserDisplay =
       leaderboard.find(u => u.username === otherUser)?.name || otherUser;
 
+    // Calculate time remaining for 3-hour timeout
+    const createdAt = new Date(duel.createdAt).getTime();
+    const threeHoursFromCreation = createdAt + 3 * 60 * 60 * 1000;
+    const timeRemaining = threeHoursFromCreation - Date.now();
+    const hoursRemaining = Math.max(
+      0,
+      Math.floor(timeRemaining / (60 * 60 * 1000))
+    );
+    const minutesRemaining = Math.max(
+      0,
+      Math.floor((timeRemaining % (60 * 60 * 1000)) / (60 * 1000))
+    );
+
     return (
       <div
         key={duel.duelId}
@@ -344,6 +357,11 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
               {isChallenger ? `${duel.difficulty} • All the best!` : ''}
             </p>
+            {timeRemaining > 0 && (
+              <p className="text-xs text-orange-600 font-bold">
+                ⏰ Expires in {hoursRemaining}h {minutesRemaining}m
+              </p>
+            )}
           </div>
           <span className="text-xs bg-yellow-200 px-2 py-1 rounded font-bold">
             PENDING
@@ -396,6 +414,27 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     const validOpponentTime =
       typeof opponentTime === 'number' && !isNaN(opponentTime);
 
+    // Calculate time remaining for 2-hour timeout (for active duels)
+    const startTime = duel.startTime
+      ? new Date(duel.startTime).getTime()
+      : null;
+    let timeRemaining = null;
+    let hoursRemaining = 0;
+    let minutesRemaining = 0;
+
+    if (startTime) {
+      const twoHoursFromStart = startTime + 2 * 60 * 60 * 1000;
+      timeRemaining = twoHoursFromStart - Date.now();
+      hoursRemaining = Math.max(
+        0,
+        Math.floor(timeRemaining / (60 * 60 * 1000))
+      );
+      minutesRemaining = Math.max(
+        0,
+        Math.floor((timeRemaining % (60 * 60 * 1000)) / (60 * 1000))
+      );
+    }
+
     return (
       <div
         key={duel.duelId}
@@ -407,6 +446,11 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
               {duel.difficulty} • Problem Hidden
             </p>
+            {timeRemaining > 0 && (
+              <p className="text-xs text-orange-600 font-bold">
+                ⏰ Expires in {hoursRemaining}h {minutesRemaining}m
+              </p>
+            )}
           </div>
           <span className="text-xs bg-blue-200 px-2 py-1 rounded font-bold">
             ACTIVE
@@ -647,10 +691,13 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           <h3 className="font-bold text-white text-lg">DUELS</h3>
         </div>
       </div>
-      <div className="p-6" style={{ height: '310px' }}>
+      <div className="p-6" style={{ height: '307px' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Challenge Friends */}
-          <div className="bg-white p-4 border-2 border-black rounded-lg shadow-md">
+          <div
+            className="bg-white p-4 border-2 border-black rounded-lg shadow-md"
+            style={{ height: '265px' }}
+          >
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-bold text-lg">Challenge Friend</h4>
               <span className="text-lg">🎯</span>
@@ -704,9 +751,6 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             >
               {actionLoading.createDuel ? '⏳ Sending...' : 'Send Challenge'}
             </button>
-            <div className="mt-2 text-xs text-gray-600 text-center">
-              💡 Win duels to earn +200 XP bonus on top of regular problem XP!
-            </div>
           </div>
 
           {/* Active Duels & History */}
@@ -787,61 +831,6 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             </div>
           </div>
         </div>
-
-        {/* Recent Duels Section */}
-        {recentDuels.length > 0 && (
-          <div className="mt-4 bg-white p-4 border-2 border-black rounded-lg shadow-md">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-bold text-lg">Recent Duels</h4>
-              <span className="text-lg">🏆</span>
-            </div>
-
-            <div
-              className="overflow-y-auto custom-scrollbar"
-              style={{ height: '120px' }}
-            >
-              {recentDuels.map(duel => {
-                const isWinner = duel.winner === userData.leetUsername;
-                const otherUser =
-                  duel.challenger === userData.leetUsername
-                    ? duel.challengee
-                    : duel.challenger;
-                const otherUserDisplay =
-                  leaderboard.find(u => u.username === otherUser)?.name ||
-                  otherUser;
-
-                return (
-                  <div
-                    key={duel.duelId}
-                    className={`mb-2 p-2 rounded border-2 ${
-                      isWinner
-                        ? 'bg-green-100 border-green-400'
-                        : 'bg-gray-100 border-gray-400'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center text-xs">
-                      <div>
-                        <span className="font-bold">
-                          {isWinner ? '🏆 WIN' : '❌ LOSS'}
-                        </span>
-                        <span className="ml-2">vs {otherUserDisplay}</span>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold">{duel.problemTitle}</div>
-                        <div className="text-gray-600">{duel.difficulty}</div>
-                        {isWinner && duel.xpAwarded && (
-                          <div className="text-green-600 font-bold">
-                            +{duel.xpAwarded} XP
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

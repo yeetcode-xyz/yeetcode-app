@@ -102,16 +102,23 @@ export const getDuel = async duelId => {
 };
 
 /**
- * Auto-reject expired duels (older than 2 hours)
+ * Auto-reject expired duels (3 hours for pending, 2 hours for active)
  * @param {string} username - Username to check duels for
  * @returns {Promise<Array>} Array of rejected duel IDs
  */
 export const autoRejectExpiredDuels = async username => {
   const duels = await getUserDuels(username);
+  const now = Date.now();
+  const threeHoursAgo = now - 3 * 60 * 60 * 1000; // 3 hours for pending duels
+  const twoHoursAgo = now - 2 * 60 * 60 * 1000; // 2 hours for active duels
+
   const expiredDuels = duels.filter(duel => {
-    if (duel.status !== 'PENDING') return false;
-    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-    return new Date(duel.createdAt).getTime() < twoHoursAgo;
+    if (duel.status === 'PENDING') {
+      return new Date(duel.createdAt).getTime() < threeHoursAgo;
+    } else if (duel.status === 'ACTIVE') {
+      return duel.startTime && new Date(duel.startTime).getTime() < twoHoursAgo;
+    }
+    return false;
   });
 
   const rejectedIds = [];
