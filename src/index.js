@@ -315,6 +315,7 @@ const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 1500,
     height: 900,
+    icon: path.join(__dirname, 'yeetcodeicon.icns'),
     webPreferences: {
       nodeIntegration: false, // ✅ Secure: Prevents Node.js access in renderer
       contextIsolation: true, // ✅ Secure: Isolates contexts

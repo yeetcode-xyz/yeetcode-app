@@ -16,6 +16,27 @@ module.exports = {
       name: '@electron-forge/maker-zip',
       platforms: ['darwin', 'win32'],
     },
+    {
+      name: '@electron-forge/maker-dmg',
+      config: {
+        format: 'ULFO',
+        icon: './yeetcodeicon.icns',
+        contents: [
+          {
+            x: 448,
+            y: 344,
+            type: 'link',
+            path: '/Applications',
+          },
+          {
+            x: 192,
+            y: 344,
+            type: 'file',
+            path: './out/YeetCode-darwin-arm64/YeetCode.app',
+          },
+        ],
+      },
+    },
   ],
   plugins: [
     {

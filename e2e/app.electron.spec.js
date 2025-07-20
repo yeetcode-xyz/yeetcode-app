@@ -100,7 +100,7 @@ test.describe('YeetCode Electron App', () => {
 
   test('should launch Electron app successfully', async () => {
     // Check if the app window is visible
-    expect(await page.title()).toBe('LeetCode Group Leaderboard');
+    expect(await page.title()).toBe('YeetCode');
 
     // Check if main elements are present
     await expect(page.locator('h1:has-text("YeetCode")')).toBeVisible();
@@ -267,7 +267,7 @@ test.describe('YeetCode Electron App', () => {
 
   test('should handle desktop app specific features', async () => {
     // Test window title
-    expect(await page.title()).toBe('LeetCode Group Leaderboard');
+    expect(await page.title()).toBe('YeetCode');
 
     // Test that we can access Electron main process features
     const isElectron = await page.evaluate(() => {

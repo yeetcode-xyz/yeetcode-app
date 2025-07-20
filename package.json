@@ -59,7 +59,9 @@
       {
         "from": ".env",
         "to": ".env",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "mac": {
@@ -67,7 +69,9 @@
       "target": [
         {
           "target": "default",
-          "arch": ["universal"]
+          "arch": [
+            "universal"
+          ]
         }
       ],
       "artifactName": "${productName}.${ext}",
@@ -104,11 +108,17 @@
       "target": [
         {
           "target": "deb",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         },
         {
           "target": "rpm",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "category": "Development"
@@ -131,6 +141,7 @@
   "devDependencies": {
     "@electron-forge/cli": "^7.8.1",
     "@electron-forge/maker-deb": "^7.8.1",
+    "@electron-forge/maker-dmg": "^7.8.1",
     "@electron-forge/maker-rpm": "^7.8.1",
     "@electron-forge/maker-squirrel": "^7.8.1",
     "@electron-forge/maker-zip": "^7.8.1",

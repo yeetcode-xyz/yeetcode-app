@@ -637,6 +637,21 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     );
   };
 
+  // Helper: filter out expired duels
+  const filterExpiredDuels = duel => {
+    const now = Date.now();
+    if (duel.status === 'PENDING') {
+      const createdAt = new Date(duel.createdAt).getTime();
+      return now < createdAt + 3 * 60 * 60 * 1000; // 3 hours
+    }
+    if (duel.status === 'ACTIVE') {
+      if (!duel.startTime) return true; // Defensive: if no startTime, don't filter
+      const startTime = new Date(duel.startTime).getTime();
+      return now < startTime + 2 * 60 * 60 * 1000; // 2 hours
+    }
+    return true; // Always show completed duels
+  };
+
   if (loading) {
     return (
       <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
@@ -651,9 +666,10 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     );
   }
 
-  const pendingDuels = duels.filter(d => d.status === 'PENDING');
-  const activeDuels = duels.filter(d => d.status === 'ACTIVE');
-  const completedDuels = duels
+  const filteredDuels = duels.filter(filterExpiredDuels);
+  const pendingDuels = filteredDuels.filter(d => d.status === 'PENDING');
+  const activeDuels = filteredDuels.filter(d => d.status === 'ACTIVE');
+  const completedDuels = filteredDuels
     .filter(d => d.status === 'COMPLETED')
     .slice(0, 5); // Show last 5 completed
 
@@ -759,7 +775,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
               style={{ height: '190px' }}
             >
               {/* Show active and pending duels first */}
-              {duels
+              {filteredDuels
                 .filter(d => d.status === 'PENDING' || d.status === 'ACTIVE')
                 .map(renderDuel)}
 
@@ -813,7 +829,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
                 </>
               )}
 
-              {duels.length === 0 && (
+              {filteredDuels.length === 0 && (
                 <div className="text-center text-gray-500 py-4">
                   <div className="text-2xl mb-2">⚔️</div>
                   <div className="text-sm">No duels yet!</div>

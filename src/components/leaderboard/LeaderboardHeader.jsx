@@ -9,13 +9,7 @@ const LeaderboardHeader = ({
   handleLeaveGroup,
 }) => {
   const handleCopyCode = () => {
-    const copyText = `🚀 Join my YeetCode group!
-
-Group ID: ${groupData.code}
-
-Download the app: https://yeetcode.xyz
-
-Let's compete! 💻⚡`;
+    const copyText = `${groupData.code}`;
     navigator.clipboard.writeText(copyText);
     setShowCopySuccess(true);
     setTimeout(() => setShowCopySuccess(false), 2000);

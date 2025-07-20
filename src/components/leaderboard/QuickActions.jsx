@@ -184,7 +184,7 @@ const QuickActions = ({ groupData, handleLogout }) => {
             <div className="space-y-3 flex flex-col">
               <button
                 onClick={() => setShowInviteOptions(false)}
-                className="w-full bg-red-200 hover:bg-red-300 text-black px-4 py-1 rounded border border-black font-bold text-xs"
+                className="w-full bg-red-200 hover:bg-red-300 text-black px-4 py-1 rounded border-2 border-black font-bold text-xs btn-3d"
               >
                 ← BACK
               </button>
@@ -223,13 +223,6 @@ const QuickActions = ({ groupData, handleLogout }) => {
                   📧 Email
                 </button>
               </div>
-
-              <button
-                onClick={handleCopyInvite}
-                className="w-full bg-gray-200 hover:bg-gray-300 text-black px-4 py-2 rounded-lg border-2 border-black font-bold text-xs btn-3d"
-              >
-                📋 COPY MESSAGE
-              </button>
             </div>
           )}
         </div>
