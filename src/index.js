@@ -1,3 +1,5 @@
+console.log('🚀 APP STARTING - Environment loading will begin...');
+
 const {
   app,
   BrowserWindow,
@@ -17,13 +19,8 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 dotenv.config();
 
-// Configure DynamoDB clients - single configuration for entire app
-AWS.config.update({ region: process.env.AWS_REGION });
-const ddb = new AWS.DynamoDB.DocumentClient(); // For high-level operations (easier to use)
-const dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION }); // For low-level operations (raw format)
-
-// Configure Resend client for magic link emails
-const resend = new Resend(process.env.RESEND_API_KEY);
+// AWS configuration will be done after environment variables are loaded
+let ddb, dynamodb;
 
 // Helper function to get date X days ago in YYYY-MM-DD format
 const getDateXDaysAgo = days => {
@@ -33,27 +30,65 @@ const getDateXDaysAgo = days => {
 };
 
 // Load environment variables
+console.log('🔧 ENVIRONMENT LOADING STARTED');
 console.log('Loading environment variables...');
-const envPath = path.join(__dirname, '..', '.env');
-console.log('Checking for .env file at:', envPath);
+console.log('__dirname:', __dirname);
+console.log('isDev:', isDev);
+console.log('app.isPackaged:', app.isPackaged);
+
+let envPath = path.join(__dirname, '..', '.env');
+
+// In packaged app, .env is in resources directory
+if (!isDev && !fs.existsSync(envPath)) {
+  envPath = path.join(__dirname, '..', '..', '.env');
+  console.log('Trying packaged app path:', envPath);
+}
+
+// Try additional paths for packaged app
+if (!isDev && !fs.existsSync(envPath)) {
+  const possiblePaths = [
+    path.join(__dirname, '..', '.env'),
+    path.join(__dirname, '..', '..', '.env'),
+    path.join(__dirname, '..', '..', '..', '.env'),
+    path.join(process.resourcesPath, '.env'),
+    path.join(process.resourcesPath, '..', '.env'),
+  ];
+
+  for (const testPath of possiblePaths) {
+    console.log('Checking path:', testPath);
+    if (fs.existsSync(testPath)) {
+      envPath = testPath;
+      console.log('Found .env at:', envPath);
+      break;
+    }
+  }
+}
+
+console.log('Final .env path:', envPath);
 if (fs.existsSync(envPath)) {
   console.log('.env file exists');
   dotenv.config({ path: envPath });
 
-  // Only log environment variables in development
-  if (isDev) {
-    console.log('[ENV] AWS_REGION =', process.env.AWS_REGION);
-    console.log('[ENV] AWS_ACCESS_KEY_ID =', !!process.env.AWS_ACCESS_KEY_ID);
-    console.log(
-      '[ENV] AWS_SECRET_ACCESS_KEY =',
-      !!process.env.AWS_SECRET_ACCESS_KEY
-    );
-    console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
-    console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
-    console.log('[ENV] DUELS_TABLE =', process.env.DUELS_TABLE || 'Duels');
-  }
+  // Log environment variables in both dev and prod for debugging
+  console.log('[ENV] AWS_REGION =', process.env.AWS_REGION);
+  console.log('[ENV] AWS_ACCESS_KEY_ID =', !!process.env.AWS_ACCESS_KEY_ID);
+  console.log(
+    '[ENV] AWS_SECRET_ACCESS_KEY =',
+    !!process.env.AWS_SECRET_ACCESS_KEY
+  );
+  console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
+  console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
+  console.log('[ENV] DUELS_TABLE =', process.env.DUELS_TABLE || 'Duels');
+  console.log('[ENV] RESEND_API_KEY =', !!process.env.RESEND_API_KEY);
+
+  // Configure AWS after environment variables are loaded
+  console.log('🔧 CONFIGURING AWS - Region:', process.env.AWS_REGION);
+  AWS.config.update({ region: process.env.AWS_REGION });
+  ddb = new AWS.DynamoDB.DocumentClient(); // For high-level operations (easier to use)
+  dynamodb = new AWS.DynamoDB({ region: process.env.AWS_REGION }); // For low-level operations (raw format)
+  console.log('✅ AWS configured successfully');
 } else {
-  console.log('.env file does not exist');
+  console.log('.env file does not exist at any location');
   dotenv.config();
 }
 
@@ -63,6 +98,20 @@ if (isDev) {
   console.log('LEETCODE_API_URL exists:', !!process.env.LEETCODE_API_URL);
   console.log('LEETCODE_API_KEY exists:', !!process.env.LEETCODE_API_KEY);
 }
+
+// Configure Resend client for magic link emails (after environment variables are loaded)
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Test handler for debugging
+ipcMain.handle('test-main-process', () => {
+  console.log('🧪 Main process test handler called');
+  return {
+    success: true,
+    envLoaded: !!process.env.AWS_REGION,
+    awsRegion: process.env.AWS_REGION,
+    timestamp: new Date().toISOString(),
+  };
+});
 
 // ========================================
 // MAGIC LINK AUTHENTICATION SYSTEM
@@ -244,7 +293,14 @@ const createWindow = () => {
       mainWindow.webContents.openDevTools();
     }
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'index.html'));
+    // In packaged app, built files are in resources/dist/
+    const builtHtmlPath = path.join(__dirname, '..', 'dist', 'index.html');
+    if (fs.existsSync(builtHtmlPath)) {
+      mainWindow.loadFile(builtHtmlPath);
+    } else {
+      // Fallback to src directory if dist not found
+      mainWindow.loadFile(path.join(__dirname, 'index.html'));
+    }
   }
 
   // Log when the window is ready

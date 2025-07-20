@@ -11,7 +11,7 @@ module.exports = defineConfig({
     outDir: '../dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'src/index-vite.html'),
+      input: resolve(__dirname, 'src/index.html'),
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
