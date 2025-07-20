@@ -386,12 +386,6 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             </button>
           </div>
         )}
-
-        {isChallenger && (
-          <div className="text-center">
-            <p className="text-xs text-gray-600">Waiting for response...</p>
-          </div>
-        )}
       </div>
     );
   };
