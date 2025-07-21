@@ -4,20 +4,7 @@
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 // src/preload.js
-console.log('🛠 preload.js is running');
 
-// Test if main process is responding
-setTimeout(() => {
-  console.log('🧪 Testing main process communication...');
-  ipcRenderer
-    .invoke('test-main-process')
-    .then(result => {
-      console.log('✅ Main process is responding:', result);
-    })
-    .catch(error => {
-      console.log('❌ Main process not responding:', error);
-    });
-}, 1000);
 const { contextBridge, ipcRenderer } = require('electron');
 
 // Input validation helpers

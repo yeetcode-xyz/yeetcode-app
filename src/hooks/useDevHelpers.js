@@ -32,14 +32,18 @@ export const useDevHelpers = ({
           const newUserData = { name, leetUsername: leetUser };
           setUserData(newUserData);
           saveToStorage(STORAGE_KEYS.USER_DATA, newUserData);
-          console.log(`🎯 Set test user: ${name} (${leetUser})`);
+          if (import.meta.env.DEV) {
+            console.log(`🎯 Set test user: ${name} (${leetUser})`);
+          }
         },
 
         setTestGroup: (code = 'TEST123') => {
           const newGroupData = { code, joined: true };
           setGroupData(newGroupData);
           saveAppState('leaderboard', newGroupData);
-          console.log(`🎯 Set test group: ${code}`);
+          if (import.meta.env.DEV) {
+            console.log(`🎯 Set test group: ${code}`);
+          }
         },
 
         // Skip group functionality (for AWS issues)
@@ -47,7 +51,9 @@ export const useDevHelpers = ({
           const newGroupData = { code: 'DEV-SKIP', joined: true };
           setGroupData(newGroupData);
           navigateToStep('leaderboard');
-          console.log('🎯 Skipped group setup - going to leaderboard');
+          if (import.meta.env.DEV) {
+            console.log('🎯 Skipped group setup - going to leaderboard');
+          }
         },
 
         // Quick test scenarios
@@ -66,9 +72,11 @@ export const useDevHelpers = ({
         breakdownXP: async username => {
           const user = username || userData?.leetUsername;
           if (!user) {
-            console.log(
-              '❌ No username provided. Usage: devHelpers.breakdownXP("username") or ensure you\'re logged in'
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                '❌ No username provided. Usage: devHelpers.breakdownXP("username") or ensure you\'re logged in'
+              );
+            }
             return;
           }
 
@@ -76,7 +84,9 @@ export const useDevHelpers = ({
             // Get user data from database
             const userDbData = await window.electronAPI?.getUserData(user);
             if (!userDbData || Object.keys(userDbData).length === 0) {
-              console.log(`❌ No data found for user: ${user}`);
+              if (import.meta.env.DEV) {
+                console.log(`❌ No data found for user: ${user}`);
+              }
               return;
             }
 
@@ -95,46 +105,49 @@ export const useDevHelpers = ({
             // Calculate estimated daily challenges completed
             const estimatedDailyChallenges = Math.floor(dailyXP / 200);
 
-            console.log(`\n🏆 XP BREAKDOWN for ${user}`);
-            console.log('================================');
-            console.log(`📈 Total XP: ${totalXP.toLocaleString()}`);
-            console.log('\n📊 Problem XP:');
-            console.log(
-              `  🟢 Easy (${easy} × 100):     ${easyXP.toLocaleString()} XP`
-            );
-            console.log(
-              `  🟡 Medium (${medium} × 300):   ${mediumXP.toLocaleString()} XP`
-            );
-            console.log(
-              `  🔴 Hard (${hard} × 500):     ${hardXP.toLocaleString()} XP`
-            );
-            console.log(
-              `  📊 Problem Subtotal:      ${totalProblemXP.toLocaleString()} XP\n`
-            );
-            console.log(
-              `🎯 Daily Challenge XP:      ${dailyXP.toLocaleString()} XP`
-            );
-            console.log(
-              `   (≈ ${estimatedDailyChallenges} daily challenges completed)\n`
-            );
-
-            // Show percentage breakdown
-            console.log('📊 XP Sources:');
-            if (totalXP > 0) {
-              const problemPercent = ((totalProblemXP / totalXP) * 100).toFixed(
-                1
+            if (import.meta.env.DEV) {
+              console.log(`\n🏆 XP BREAKDOWN for ${user}`);
+              console.log('================================');
+              console.log(`📈 Total XP: ${totalXP.toLocaleString()}`);
+              console.log('\n📊 Problem XP:');
+              console.log(
+                `  🟢 Easy (${easy} × 100):     ${easyXP.toLocaleString()} XP`
               );
-              const dailyPercent = ((dailyXP / totalXP) * 100).toFixed(1);
-              console.log(`  📊 Problems: ${problemPercent}%`);
-              console.log(`  🎯 Daily Challenges: ${dailyPercent}%`);
-            }
+              console.log(
+                `  🟡 Medium (${medium} × 300):   ${mediumXP.toLocaleString()} XP`
+              );
+              console.log(
+                `  🔴 Hard (${hard} × 500):     ${hardXP.toLocaleString()} XP`
+              );
+              console.log(
+                `  📊 Problem Subtotal:      ${totalProblemXP.toLocaleString()} XP\n`
+              );
+              console.log(
+                `🎯 Daily Challenge XP:      ${dailyXP.toLocaleString()} XP`
+              );
+              console.log(
+                `   (≈ ${estimatedDailyChallenges} daily challenges completed)\n`
+              );
 
-            // Show additional user data
-            console.log(`\n📊 Additional Data:`);
-            console.log(
-              `  Group ID: ${userDbData.group_id || 'Not in a group'}`
-            );
-            console.log(`  Today Problems: ${userDbData.today || 0}`);
+              // Show percentage breakdown
+              console.log('📊 XP Sources:');
+              if (totalXP > 0) {
+                const problemPercent = (
+                  (totalProblemXP / totalXP) *
+                  100
+                ).toFixed(1);
+                const dailyPercent = ((dailyXP / totalXP) * 100).toFixed(1);
+                console.log(`  📊 Problems: ${problemPercent}%`);
+                console.log(`  🎯 Daily Challenges: ${dailyPercent}%`);
+              }
+
+              // Show additional user data
+              console.log(`\n📊 Additional Data:`);
+              console.log(
+                `  Group ID: ${userDbData.group_id || 'Not in a group'}`
+              );
+              console.log(`  Today Problems: ${userDbData.today || 0}`);
+            }
 
             return {
               username: user,
@@ -148,7 +161,9 @@ export const useDevHelpers = ({
               },
             };
           } catch (error) {
-            console.error('❌ Error getting XP breakdown:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error getting XP breakdown:', error);
+            }
           }
         },
 
@@ -167,11 +182,17 @@ export const useDevHelpers = ({
         // Test notification system
         testNotification: async () => {
           if (window.electronAPI) {
-            console.log('🔔 Testing daily notification system...');
+            if (import.meta.env.DEV) {
+              console.log('🔔 Testing daily notification system...');
+            }
             await window.electronAPI.checkDailyNotification();
-            console.log('✅ Notification test triggered');
+            if (import.meta.env.DEV) {
+              console.log('✅ Notification test triggered');
+            }
           } else {
-            console.log('❌ electronAPI not available');
+            if (import.meta.env.DEV) {
+              console.log('❌ electronAPI not available');
+            }
           }
         },
 
@@ -184,7 +205,9 @@ export const useDevHelpers = ({
           Object.values(STORAGE_KEYS).forEach(key => {
             localStorage.removeItem(key);
           });
-          console.log('🧹 Reset all data');
+          if (import.meta.env.DEV) {
+            console.log('�� Reset all data');
+          }
         },
 
         clearStorage: () => {
@@ -193,37 +216,47 @@ export const useDevHelpers = ({
           setUserData({ name: '', leetUsername: '' });
           setGroupData({ code: '', joined: false });
           setStep('welcome');
-          console.log('🎯 Cleared all saved data');
+          if (import.meta.env.DEV) {
+            console.log('🎯 Cleared all saved data');
+          }
         },
 
         clearError: () => {
           setError('');
-          console.log('🎯 Cleared error state');
+          if (import.meta.env.DEV) {
+            console.log('🎯 Cleared error state');
+          }
         },
 
         // Compare leaderboard vs direct user data
         compareDataSources: async username => {
           const user = username || userData?.leetUsername;
           if (!user) {
-            console.log(
-              '❌ No username provided. Usage: devHelpers.compareDataSources("username") or ensure you\'re logged in'
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                '❌ No username provided. Usage: devHelpers.compareDataSources("username") or ensure you\'re logged in'
+              );
+            }
             return;
           }
 
           try {
-            console.log('🔍 COMPARING DATA SOURCES');
-            console.log('=========================');
-            console.log('Username:', user);
+            if (import.meta.env.DEV) {
+              console.log('🔍 COMPARING DATA SOURCES');
+              console.log('=========================');
+              console.log('Username:', user);
+            }
 
             // Get direct user data
             const directUserData = await window.electronAPI?.getUserData(user);
-            console.log('\n📊 Direct User Data (get-user-data):');
-            console.log('  XP:', directUserData?.xp || 0);
-            console.log('  Easy:', directUserData?.easy || 0);
-            console.log('  Medium:', directUserData?.medium || 0);
-            console.log('  Hard:', directUserData?.hard || 0);
-            console.log('  Group ID:', directUserData?.group_id);
+            if (import.meta.env.DEV) {
+              console.log('\n📊 Direct User Data (get-user-data):');
+              console.log('  XP:', directUserData?.xp || 0);
+              console.log('  Easy:', directUserData?.easy || 0);
+              console.log('  Medium:', directUserData?.medium || 0);
+              console.log('  Hard:', directUserData?.hard || 0);
+              console.log('  Group ID:', directUserData?.group_id);
+            }
 
             // Get leaderboard data (assuming current group)
             if (groupData?.code) {
@@ -233,66 +266,78 @@ export const useDevHelpers = ({
                 u => u.username === user
               );
 
-              console.log('\n🏆 Leaderboard Data (get-stats-for-group):');
-              if (userFromLeaderboard) {
-                console.log('  XP:', userFromLeaderboard?.xp || 0);
-                console.log('  Easy:', userFromLeaderboard?.easy || 0);
-                console.log('  Medium:', userFromLeaderboard?.medium || 0);
-                console.log('  Hard:', userFromLeaderboard?.hard || 0);
+              if (import.meta.env.DEV) {
+                console.log('\n�� Leaderboard Data (get-stats-for-group):');
+                if (userFromLeaderboard) {
+                  console.log('  XP:', userFromLeaderboard?.xp || 0);
+                  console.log('  Easy:', userFromLeaderboard?.easy || 0);
+                  console.log('  Medium:', userFromLeaderboard?.medium || 0);
+                  console.log('  Hard:', userFromLeaderboard?.hard || 0);
 
-                console.log('\n🚨 DIFFERENCES:');
-                const xpDiff =
-                  (directUserData?.xp || 0) - (userFromLeaderboard?.xp || 0);
-                const easyDiff =
-                  (directUserData?.easy || 0) -
-                  (userFromLeaderboard?.easy || 0);
-                const mediumDiff =
-                  (directUserData?.medium || 0) -
-                  (userFromLeaderboard?.medium || 0);
-                const hardDiff =
-                  (directUserData?.hard || 0) -
-                  (userFromLeaderboard?.hard || 0);
+                  console.log('\n🚨 DIFFERENCES:');
+                  const xpDiff =
+                    (directUserData?.xp || 0) - (userFromLeaderboard?.xp || 0);
+                  const easyDiff =
+                    (directUserData?.easy || 0) -
+                    (userFromLeaderboard?.easy || 0);
+                  const mediumDiff =
+                    (directUserData?.medium || 0) -
+                    (userFromLeaderboard?.medium || 0);
+                  const hardDiff =
+                    (directUserData?.hard || 0) -
+                    (userFromLeaderboard?.hard || 0);
 
-                console.log(
-                  `  XP: ${xpDiff} (${directUserData?.xp || 0} vs ${userFromLeaderboard?.xp || 0})`
-                );
-                console.log(
-                  `  Easy: ${easyDiff} (${directUserData?.easy || 0} vs ${userFromLeaderboard?.easy || 0})`
-                );
-                console.log(
-                  `  Medium: ${mediumDiff} (${directUserData?.medium || 0} vs ${userFromLeaderboard?.medium || 0})`
-                );
-                console.log(
-                  `  Hard: ${hardDiff} (${directUserData?.hard || 0} vs ${userFromLeaderboard?.hard || 0})`
-                );
+                  console.log(
+                    `  XP: ${xpDiff} (${directUserData?.xp || 0} vs ${userFromLeaderboard?.xp || 0})`
+                  );
+                  console.log(
+                    `  Easy: ${easyDiff} (${directUserData?.easy || 0} vs ${userFromLeaderboard?.easy || 0})`
+                  );
+                  console.log(
+                    `  Medium: ${mediumDiff} (${directUserData?.medium || 0} vs ${userFromLeaderboard?.medium || 0})`
+                  );
+                  console.log(
+                    `  Hard: ${hardDiff} (${directUserData?.hard || 0} vs ${userFromLeaderboard?.hard || 0})`
+                  );
 
-                if (
-                  xpDiff !== 0 ||
-                  easyDiff !== 0 ||
-                  mediumDiff !== 0 ||
-                  hardDiff !== 0
-                ) {
-                  console.log('⚠️  DATA MISMATCH DETECTED!');
+                  if (
+                    xpDiff !== 0 ||
+                    easyDiff !== 0 ||
+                    mediumDiff !== 0 ||
+                    hardDiff !== 0
+                  ) {
+                    if (import.meta.env.DEV) {
+                      console.log('⚠️  DATA MISMATCH DETECTED!');
+                    }
+                  } else {
+                    if (import.meta.env.DEV) {
+                      console.log('✅ Data sources match');
+                    }
+                  }
                 } else {
-                  console.log('✅ Data sources match');
+                  if (import.meta.env.DEV) {
+                    console.log('  ❌ User not found in leaderboard!');
+                    console.log('  Group code:', groupData.code);
+                    console.log(
+                      '  Available users:',
+                      leaderboardData?.map(u => u.username)
+                    );
+                  }
                 }
-              } else {
-                console.log('  ❌ User not found in leaderboard!');
-                console.log('  Group code:', groupData.code);
-                console.log(
-                  '  Available users:',
-                  leaderboardData?.map(u => u.username)
-                );
               }
             } else {
-              console.log(
-                '\n❌ No group code available for leaderboard comparison'
-              );
+              if (import.meta.env.DEV) {
+                console.log(
+                  '\n❌ No group code available for leaderboard comparison'
+                );
+              }
             }
 
             return { directUserData, groupData: groupData?.code };
           } catch (error) {
-            console.error('❌ Error comparing data sources:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error comparing data sources:', error);
+            }
           }
         },
 
@@ -300,36 +345,52 @@ export const useDevHelpers = ({
         testCompleteDailyProblem: async username => {
           const user = username || userData?.leetUsername;
           if (!user) {
-            console.log(
-              '❌ No username provided. Usage: devHelpers.testCompleteDailyProblem("username") or ensure you\'re logged in'
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                '❌ No username provided. Usage: devHelpers.testCompleteDailyProblem("username") or ensure you\'re logged in'
+              );
+            }
             return;
           }
 
           try {
-            console.log('🧪 TESTING COMPLETE DAILY PROBLEM');
-            console.log('==================================');
-            console.log('Username:', user);
+            if (import.meta.env.DEV) {
+              console.log('🧪 TESTING COMPLETE DAILY PROBLEM');
+              console.log('==================================');
+              console.log('Username:', user);
+            }
 
             // Get user data BEFORE
             const beforeData = await window.electronAPI?.getUserData(user);
-            console.log('XP before:', beforeData?.xp || 0);
+            if (import.meta.env.DEV) {
+              console.log('XP before:', beforeData?.xp || 0);
+            }
 
             // Call complete daily problem
-            console.log('Calling completeDailyProblem...');
+            if (import.meta.env.DEV) {
+              console.log('Calling completeDailyProblem...');
+            }
             const result = await window.electronAPI?.completeDailyProblem(user);
-            console.log('Complete daily result:', result);
+            if (import.meta.env.DEV) {
+              console.log('Complete daily result:', result);
+            }
 
             // Get user data AFTER
             const afterData = await window.electronAPI?.getUserData(user);
-            console.log('XP after:', afterData?.xp || 0);
+            if (import.meta.env.DEV) {
+              console.log('XP after:', afterData?.xp || 0);
+            }
 
             const xpDiff = (afterData?.xp || 0) - (beforeData?.xp || 0);
-            console.log('XP difference:', xpDiff);
+            if (import.meta.env.DEV) {
+              console.log('XP difference:', xpDiff);
+            }
 
             return { result, xpDiff, beforeData, afterData };
           } catch (error) {
-            console.error('❌ Error testing complete daily problem:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error testing complete daily problem:', error);
+            }
           }
         },
 
@@ -337,102 +398,148 @@ export const useDevHelpers = ({
         testXPRefresh: async username => {
           const user = username || userData?.leetUsername;
           if (!user) {
-            console.log(
-              '❌ No username provided. Usage: devHelpers.testXPRefresh("username") or ensure you\'re logged in'
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                '❌ No username provided. Usage: devHelpers.testXPRefresh("username") or ensure you\'re logged in'
+              );
+            }
             return;
           }
 
           try {
-            console.log('🧪 TESTING XP REFRESH');
-            console.log('=====================');
-            console.log('Username:', user);
+            if (import.meta.env.DEV) {
+              console.log('🧪 TESTING XP REFRESH');
+              console.log('=====================');
+              console.log('Username:', user);
+            }
 
             // Get user data BEFORE
             const beforeData = await window.electronAPI?.getUserData(user);
-            console.log('XP before:', beforeData?.xp || 0);
+            if (import.meta.env.DEV) {
+              console.log('XP before:', beforeData?.xp || 0);
+            }
 
             // Call refresh XP
-            console.log('Calling refreshUserXP...');
+            if (import.meta.env.DEV) {
+              console.log('Calling refreshUserXP...');
+            }
             const result = await window.electronAPI?.refreshUserXP(user);
-            console.log('Refresh XP result:', result);
+            if (import.meta.env.DEV) {
+              console.log('Refresh XP result:', result);
+            }
 
             // Get user data AFTER
             const afterData = await window.electronAPI?.getUserData(user);
-            console.log('XP after:', afterData?.xp || 0);
+            if (import.meta.env.DEV) {
+              console.log('XP after:', afterData?.xp || 0);
+            }
 
             const xpDiff = (afterData?.xp || 0) - (beforeData?.xp || 0);
-            console.log('XP difference:', xpDiff);
+            if (import.meta.env.DEV) {
+              console.log('XP difference:', xpDiff);
+            }
 
             return { result, xpDiff, beforeData, afterData };
           } catch (error) {
-            console.error('❌ Error testing XP refresh:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error testing XP refresh:', error);
+            }
           }
         },
 
         // Test cleanup functions
         testCleanup: async () => {
-          console.log('🧪 TESTING CLEANUP FUNCTIONS');
-          console.log('==============================');
+          if (import.meta.env.DEV) {
+            console.log('🧪 TESTING CLEANUP FUNCTIONS');
+            console.log('==============================');
+          }
 
           try {
-            console.log('Cleaning up expired verification codes...');
+            if (import.meta.env.DEV) {
+              console.log('Cleaning up expired verification codes...');
+            }
             await window.electronAPI?.cleanupExpiredVerificationCodes();
-            console.log('✅ Verification codes cleanup completed');
+            if (import.meta.env.DEV) {
+              console.log('✅ Verification codes cleanup completed');
+            }
 
-            console.log('Cleaning up expired duels...');
+            if (import.meta.env.DEV) {
+              console.log('Cleaning up expired duels...');
+            }
             await window.electronAPI?.cleanupExpiredDuels();
-            console.log('✅ Duels cleanup completed');
+            if (import.meta.env.DEV) {
+              console.log('✅ Duels cleanup completed');
+            }
 
-            console.log('🎉 All cleanup functions completed successfully!');
+            if (import.meta.env.DEV) {
+              console.log('🎉 All cleanup functions completed successfully!');
+            }
           } catch (error) {
-            console.error('❌ Cleanup test failed:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Cleanup test failed:', error);
+            }
           }
-          console.log('');
+          if (import.meta.env.DEV) {
+            console.log('');
+          }
         },
 
         // Create test verification code (for testing cleanup)
         createTestVerificationCode: async (email = 'test@example.com') => {
-          console.log('🧪 CREATING TEST VERIFICATION CODE');
-          console.log('==================================');
-          console.log('Email:', email);
-          console.log(
-            'This will create a verification code that expires in 10 minutes'
-          );
-          console.log(
-            'Use devHelpers.testCleanup() to test cleanup after expiration'
-          );
-          console.log('');
+          if (import.meta.env.DEV) {
+            console.log('🧪 CREATING TEST VERIFICATION CODE');
+            console.log('==================================');
+            console.log('Email:', email);
+            console.log(
+              'This will create a verification code that expires in 10 minutes'
+            );
+            console.log(
+              'Use devHelpers.testCleanup() to test cleanup after expiration'
+            );
+            console.log('');
+          }
 
           try {
             const result = await window.electronAPI?.sendMagicLink(email);
             if (result.success) {
-              console.log('✅ Test verification code created successfully');
-              console.log('Check the database for verification record');
+              if (import.meta.env.DEV) {
+                console.log('✅ Test verification code created successfully');
+                console.log('Check the database for verification record');
+              }
             } else {
-              console.log(
-                '❌ Failed to create test verification code:',
-                result.error
-              );
+              if (import.meta.env.DEV) {
+                console.log(
+                  '❌ Failed to create test verification code:',
+                  result.error
+                );
+              }
             }
           } catch (error) {
-            console.error('❌ Error creating test verification code:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error creating test verification code:', error);
+            }
           }
-          console.log('');
+          if (import.meta.env.DEV) {
+            console.log('');
+          }
         },
 
         // Create test duel (for testing cleanup)
         createTestDuel: async () => {
-          console.log('🧪 CREATING TEST DUEL');
-          console.log('=====================');
-          console.log('This will create a test duel for cleanup testing');
-          console.log(
-            'Use devHelpers.testCleanup() to test cleanup after expiration'
-          );
-          console.log('');
+          if (import.meta.env.DEV) {
+            console.log('🧪 CREATING TEST DUEL');
+            console.log('=====================');
+            console.log('This will create a test duel for cleanup testing');
+            console.log(
+              'Use devHelpers.testCleanup() to test cleanup after expiration'
+            );
+            console.log('');
+          }
 
           if (!userData?.leetUsername) {
-            console.log('❌ Please log in first');
+            if (import.meta.env.DEV) {
+              console.log('❌ Please log in first');
+            }
             return;
           }
 
@@ -445,23 +552,33 @@ export const useDevHelpers = ({
             );
 
             if (result) {
-              console.log('✅ Test duel created successfully');
-              console.log('Duel ID:', result.duelId);
-              console.log('Status:', result.status);
-              console.log('Created at:', result.createdAt);
+              if (import.meta.env.DEV) {
+                console.log('✅ Test duel created successfully');
+                console.log('Duel ID:', result.duelId);
+                console.log('Status:', result.status);
+                console.log('Created at:', result.createdAt);
+              }
             } else {
-              console.log('❌ Failed to create test duel');
+              if (import.meta.env.DEV) {
+                console.log('❌ Failed to create test duel');
+              }
             }
           } catch (error) {
-            console.error('❌ Error creating test duel:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error creating test duel:', error);
+            }
           }
-          console.log('');
+          if (import.meta.env.DEV) {
+            console.log('');
+          }
         },
 
         // Test duel completion (simulate solving a problem)
         simulateDuelWin: async (timeInSeconds = null) => {
           if (!userData?.leetUsername) {
-            console.log('❌ Please log in first');
+            if (import.meta.env.DEV) {
+              console.log('❌ Please log in first');
+            }
             return;
           }
 
@@ -473,35 +590,41 @@ export const useDevHelpers = ({
             const activeDuels = duels?.filter(d => d.status === 'ACTIVE');
 
             if (activeDuels?.length === 0) {
-              console.log(
-                '❌ No active duels found. Create and accept a duel first.'
-              );
-              console.log('');
-              console.log('💡 How to test duels with automatic detection:');
-              console.log('1. Challenge a friend or have them challenge you');
-              console.log('2. Accept the duel to make it ACTIVE');
-              console.log('3. Start the duel and click "Solve Now"');
-              console.log(
-                '4. Solve the problem on LeetCode (automatic detection) OR use devHelpers.simulateDuelWin()'
-              );
+              if (import.meta.env.DEV) {
+                console.log(
+                  '❌ No active duels found. Create and accept a duel first.'
+                );
+                console.log('');
+                console.log('💡 How to test duels with automatic detection:');
+                console.log('1. Challenge a friend or have them challenge you');
+                console.log('2. Accept the duel to make it ACTIVE');
+                console.log('3. Start the duel and click "Solve Now"');
+                console.log(
+                  '4. Solve the problem on LeetCode (automatic detection) OR use devHelpers.simulateDuelWin()'
+                );
+              }
               return;
             }
 
             const duel = activeDuels[0];
-            console.log('🧪 SIMULATING DUEL COMPLETION');
-            console.log('==============================');
-            console.log('Duel ID:', duel.duelId);
-            console.log('Problem:', duel.problemTitle);
-            console.log(
-              'Your time:',
-              timeInSeconds ? `${timeInSeconds} seconds` : 'Random (30s-10min)'
-            );
-            console.log(
-              'Opponent:',
-              duel.challenger === userData.leetUsername
-                ? duel.challengee
-                : duel.challenger
-            );
+            if (import.meta.env.DEV) {
+              console.log('🧪 SIMULATING DUEL COMPLETION');
+              console.log('==============================');
+              console.log('Duel ID:', duel.duelId);
+              console.log('Problem:', duel.problemTitle);
+              console.log(
+                'Your time:',
+                timeInSeconds
+                  ? `${timeInSeconds} seconds`
+                  : 'Random (30s-10min)'
+              );
+              console.log(
+                'Opponent:',
+                duel.challenger === userData.leetUsername
+                  ? duel.challengee
+                  : duel.challenger
+              );
+            }
 
             const result = await window.electronAPI?.simulateDuelCompletion(
               duel.duelId,
@@ -509,35 +632,45 @@ export const useDevHelpers = ({
               timeInSeconds
             );
 
-            console.log('✅ Duel completion simulated!');
-            console.log('Result:', result);
+            if (import.meta.env.DEV) {
+              console.log('✅ Duel completion simulated!');
+              console.log('Result:', result);
+            }
 
             if (result.completed) {
-              console.log(`🎉 Winner: ${result.winner}`);
-              console.log(`💰 XP Awarded: ${result.xpAwarded}`);
-              console.log('');
-              console.log(
-                '🔄 Refresh the duels section to see the completed state!'
-              );
+              if (import.meta.env.DEV) {
+                console.log(`🎉 Winner: ${result.winner}`);
+                console.log(`💰 XP Awarded: ${result.xpAwarded}`);
+                console.log('');
+                console.log(
+                  '🔄 Refresh the duels section to see the completed state!'
+                );
+              }
             } else {
-              console.log('⏳ Waiting for opponent to finish...');
-              console.log('');
-              console.log('💡 To simulate opponent completion too:');
-              console.log(
-                `devHelpers.simulateOpponentWin("${duel.duelId}", ${(timeInSeconds || 300) + 30})`
-              );
+              if (import.meta.env.DEV) {
+                console.log('⏳ Waiting for opponent to finish...');
+                console.log('');
+                console.log('💡 To simulate opponent completion too:');
+                console.log(
+                  `devHelpers.simulateOpponentWin("${duel.duelId}", ${(timeInSeconds || 300) + 30})`
+                );
+              }
             }
 
             return result;
           } catch (error) {
-            console.error('❌ Error simulating duel completion:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error simulating duel completion:', error);
+            }
           }
         },
 
         // Simulate opponent completing a duel (for full testing)
         simulateOpponentWin: async (duelId, timeInSeconds = null) => {
           if (!userData?.leetUsername) {
-            console.log('❌ Please log in first');
+            if (import.meta.env.DEV) {
+              console.log('❌ Please log in first');
+            }
             return;
           }
 
@@ -545,7 +678,9 @@ export const useDevHelpers = ({
             // Get the duel
             const duel = await window.electronAPI?.getDuel(duelId);
             if (!duel) {
-              console.log('❌ Duel not found');
+              if (import.meta.env.DEV) {
+                console.log('❌ Duel not found');
+              }
               return;
             }
 
@@ -555,14 +690,18 @@ export const useDevHelpers = ({
                 ? duel.challengee
                 : duel.challenger;
 
-            console.log('🧪 SIMULATING OPPONENT COMPLETION');
-            console.log('==================================');
-            console.log('Duel ID:', duelId);
-            console.log('Opponent:', opponent);
-            console.log(
-              'Opponent time:',
-              timeInSeconds ? `${timeInSeconds} seconds` : 'Random (30s-10min)'
-            );
+            if (import.meta.env.DEV) {
+              console.log('🧪 SIMULATING OPPONENT COMPLETION');
+              console.log('==================================');
+              console.log('Duel ID:', duelId);
+              console.log('Opponent:', opponent);
+              console.log(
+                'Opponent time:',
+                timeInSeconds
+                  ? `${timeInSeconds} seconds`
+                  : 'Random (30s-10min)'
+              );
+            }
 
             const result = await window.electronAPI?.simulateDuelCompletion(
               duelId,
@@ -570,35 +709,45 @@ export const useDevHelpers = ({
               timeInSeconds
             );
 
-            console.log('✅ Opponent completion simulated!');
-            console.log('Result:', result);
+            if (import.meta.env.DEV) {
+              console.log('✅ Opponent completion simulated!');
+              console.log('Result:', result);
+            }
 
             if (result.completed) {
-              console.log(`🎉 Winner: ${result.winner}`);
-              console.log(`💰 XP Awarded: ${result.xpAwarded} (to winner)`);
-              console.log('');
-              console.log(
-                '🔄 Check the duels section - should show completed state!'
-              );
+              if (import.meta.env.DEV) {
+                console.log(`🎉 Winner: ${result.winner}`);
+                console.log(`💰 XP Awarded: ${result.xpAwarded} (to winner)`);
+                console.log('');
+                console.log(
+                  '🔄 Check the duels section - should show completed state!'
+                );
+              }
             }
 
             return result;
           } catch (error) {
-            console.error('❌ Error simulating opponent completion:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error simulating opponent completion:', error);
+            }
           }
         },
 
         // Test automatic submission detection with real LeetCode API
         testSubmissionDetection: async () => {
           if (!userData?.leetUsername) {
-            console.log('❌ Please log in first');
+            if (import.meta.env.DEV) {
+              console.log('❌ Please log in first');
+            }
             return;
           }
 
           try {
-            console.log('🧪 TESTING REAL LEETCODE SUBMISSION DETECTION');
-            console.log('==============================================');
-            console.log('Username:', userData.leetUsername);
+            if (import.meta.env.DEV) {
+              console.log('🧪 TESTING REAL LEETCODE SUBMISSION DETECTION');
+              console.log('==============================================');
+              console.log('Username:', userData.leetUsername);
+            }
 
             const submissions =
               await window.electronAPI?.fetchLeetCodeSubmissions(
@@ -606,37 +755,43 @@ export const useDevHelpers = ({
                 10
               );
 
-            console.log(
-              '📥 Recent submissions from LeetCode API:',
-              submissions?.length || 0
-            );
-            if (submissions?.length > 0) {
-              console.log('Recent accepted submissions:');
-              submissions.forEach((sub, i) => {
-                console.log(
-                  `  ${i + 1}. ${sub.titleSlug} - ${sub.statusDisplay} - ${sub.timestamp}`
-                );
-              });
-            } else {
-              console.log('No recent submissions found');
+            if (import.meta.env.DEV) {
+              console.log(
+                '📥 Recent submissions from LeetCode API:',
+                submissions?.length || 0
+              );
+              if (submissions?.length > 0) {
+                console.log('Recent accepted submissions:');
+                submissions.forEach((sub, i) => {
+                  console.log(
+                    `  ${i + 1}. ${sub.titleSlug} - ${sub.statusDisplay} - ${sub.timestamp}`
+                  );
+                });
+              } else {
+                console.log('No recent submissions found');
+              }
             }
 
-            console.log('');
-            console.log('💡 The automatic detection system:');
-            console.log('• Polls every 10 seconds when a duel is started');
-            console.log(
-              '• Uses real LeetCode GraphQL API to get recent accepted submissions'
-            );
-            console.log(
-              '• Automatically detects when you solve the duel problem'
-            );
-            console.log(
-              '• For manual testing, use devHelpers.simulateDuelWin()'
-            );
+            if (import.meta.env.DEV) {
+              console.log('');
+              console.log('💡 The automatic detection system:');
+              console.log('• Polls every 10 seconds when a duel is started');
+              console.log(
+                '• Uses real LeetCode GraphQL API to get recent accepted submissions'
+              );
+              console.log(
+                '• Automatically detects when you solve the duel problem'
+              );
+              console.log(
+                '• For manual testing, use devHelpers.simulateDuelWin()'
+              );
+            }
 
             return submissions;
           } catch (error) {
-            console.error('❌ Error testing submission detection:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error testing submission detection:', error);
+            }
           }
         },
 
@@ -646,58 +801,74 @@ export const useDevHelpers = ({
           const name = displayName || userData?.name || 'Test Display Name';
 
           if (!user) {
-            console.log(
-              '❌ No username provided. Usage: devHelpers.testDisplayName("MyName", "username") or ensure you\'re logged in'
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                '❌ No username provided. Usage: devHelpers.testDisplayName("MyName", "username") or ensure you\'re logged in'
+              );
+            }
             return;
           }
 
           try {
-            console.log('🧪 TESTING DISPLAY NAME');
-            console.log('========================');
-            console.log('Username:', user);
-            console.log('Display Name:', name);
+            if (import.meta.env.DEV) {
+              console.log('🧪 TESTING DISPLAY NAME');
+              console.log('========================');
+              console.log('Username:', user);
+              console.log('Display Name:', name);
+            }
 
             // Get user data BEFORE
             const beforeData = await window.electronAPI?.getUserData(user);
-            console.log(
-              'Display name before:',
-              beforeData?.display_name || 'Not set'
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                'Display name before:',
+                beforeData?.display_name || 'Not set'
+              );
+            }
 
             // Call update display name
-            console.log('Calling updateDisplayName...');
+            if (import.meta.env.DEV) {
+              console.log('Calling updateDisplayName...');
+            }
             const result = await window.electronAPI?.updateDisplayName(
               user,
               name
             );
-            console.log('Update display name result:', result);
+            if (import.meta.env.DEV) {
+              console.log('Update display name result:', result);
+            }
 
             // Get user data AFTER
             const afterData = await window.electronAPI?.getUserData(user);
-            console.log(
-              'Display name after:',
-              afterData?.display_name || 'Not set'
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                'Display name after:',
+                afterData?.display_name || 'Not set'
+              );
+            }
 
             // Test leaderboard data
             if (groupData?.code) {
-              console.log('Testing leaderboard display...');
-              const leaderboardData =
-                await window.electronAPI?.getStatsForGroup(groupData.code);
-              const userInLeaderboard = leaderboardData?.find(
-                u => u.username === user
-              );
-              console.log('User in leaderboard:', userInLeaderboard);
-              console.log(
-                'Name shown in leaderboard:',
-                userInLeaderboard?.name
-              );
+              if (import.meta.env.DEV) {
+                console.log('Testing leaderboard display...');
+                const leaderboardData =
+                  await window.electronAPI?.getStatsForGroup(groupData.code);
+                const userInLeaderboard = leaderboardData?.find(
+                  u => u.username === user
+                );
+                console.log('User in leaderboard:', userInLeaderboard);
+                console.log(
+                  'Name shown in leaderboard:',
+                  userInLeaderboard?.name
+                );
+              }
             }
 
             return { result, beforeData, afterData };
           } catch (error) {
-            console.error('❌ Error testing display name:', error);
+            if (import.meta.env.DEV) {
+              console.error('❌ Error testing display name:', error);
+            }
           }
         },
 
@@ -725,9 +896,11 @@ export const useDevHelpers = ({
             }
           }
           if (!nextRank || !setUserData) {
-            console.log(
-              '❌ Could not find next rank or setUserData not available'
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                '❌ Could not find next rank or setUserData not available'
+              );
+            }
             return;
           }
           // Set XP to just below the next rank
@@ -736,10 +909,14 @@ export const useDevHelpers = ({
           const xpAfter =
             nextRank.min + Math.floor((nextRank.max - nextRank.min) / 3) + 10;
           setUserData({ ...userData, xp: xpBefore });
-          console.log(`🧪 Set XP to just below rank: ${xpBefore}`);
+          if (import.meta.env.DEV) {
+            console.log(`🧪 Set XP to just below rank: ${xpBefore}`);
+          }
           setTimeout(() => {
             setUserData({ ...userData, xp: xpAfter });
-            console.log(`🧪 Set XP to just above rank: ${xpAfter}`);
+            if (import.meta.env.DEV) {
+              console.log(`🧪 Set XP to just above rank: ${xpAfter}`);
+            }
           }, 1200);
         },
       };

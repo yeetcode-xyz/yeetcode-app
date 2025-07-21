@@ -691,9 +691,6 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
   }
 });
 
-// Optional: have AWS SDK emit its own debug
-AWS.config.logger = console;
-
 // CREATE GROUP
 ipcMain.handle('create-group', async (event, username, displayName) => {
   console.log(
