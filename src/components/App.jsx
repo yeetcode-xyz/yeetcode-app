@@ -60,18 +60,11 @@ function App() {
         leetUsername: savedUserData.leetUsername || '',
       };
       setUserData(updatedUserData);
-      console.log('Loaded saved user data:', updatedUserData);
-
-      // If it's an existing user with no email but has leetUsername, they can skip email verification
-      if (savedUserData.leetUsername && !savedUserData.email) {
-        console.log('Existing user without email - will update on next login');
-      }
     }
 
     if (savedAppState) {
       setStep(savedAppState.step || 'welcome');
       setGroupData(savedAppState.groupData || { code: '', joined: false });
-      console.log('Loaded saved app state:', savedAppState);
     }
   }, []);
 
@@ -167,13 +160,6 @@ function App() {
         fetchLeaderboard();
         fetchDailyProblem();
         lastRefreshTime = now;
-        console.log(
-          `[REFRESH] Data refreshed at ${new Date().toLocaleTimeString()}`
-        );
-      } else {
-        console.log(
-          `[REFRESH] Skipped - only ${Math.round(timeSinceLastRefresh / 1000)}s since last refresh`
-        );
       }
     };
 
@@ -199,14 +185,12 @@ function App() {
 
     // Handle focus/blur events
     const handleFocus = () => {
-      console.log('[FOCUS] App gained focus');
       isAppFocused = true;
       refreshData(); // Refresh immediately when app gains focus
       startRefreshTimer(); // Restart with focused interval
     };
 
     const handleBlur = () => {
-      console.log('[FOCUS] App lost focus');
       isAppFocused = false;
       startRefreshTimer(); // Restart with unfocused interval
     };
@@ -369,7 +353,6 @@ function App() {
           xp: item.xp ?? 0, // Include XP from daily challenges
         };
       });
-      console.log('🔍 [FRONTEND] Normalized leaderboard:', normalized);
 
       // 3) Sort by total problems solved (descending)
       normalized.sort((a, b) => {
@@ -392,7 +375,6 @@ function App() {
 
   const fetchDailyProblem = async () => {
     if (!userData?.leetUsername || !window.electronAPI) {
-      console.log('No username or electronAPI available for daily problem');
       setDailyData(prev => ({ ...prev, loading: false }));
       return;
     }
@@ -415,8 +397,6 @@ function App() {
   };
 
   const handleDailyComplete = async result => {
-    console.log('Daily challenge completed:', result);
-
     // Track daily problem completion
     if (dailyData.todaysProblem) {
       analytics.trackDailyProblemComplete(
@@ -484,14 +464,9 @@ function App() {
       // 1) Validate username via API or mock
       let result = { exists: true, error: null };
       if (window.electronAPI) {
-        console.log(
-          'Calling validateLeetCodeUsername with:',
-          userData.leetUsername
-        );
         result = await window.electronAPI.validateLeetCodeUsername(
           userData.leetUsername
         );
-        console.log('Validation result:', result);
       }
 
       // 2) Handle API Gateway format
@@ -524,7 +499,6 @@ function App() {
             userData.leetUsername,
             userData.name
           );
-          console.log('Display name update result:', displayNameResult);
 
           // Update user email in database
           if (userData.email && userData.verified) {
@@ -532,7 +506,6 @@ function App() {
               userData.leetUsername,
               userData.email
             );
-            console.log('Email update result:', emailUpdateResult);
 
             if (!emailUpdateResult.success) {
               console.warn('Email update failed:', emailUpdateResult.error);
@@ -556,7 +529,6 @@ function App() {
       const userRecord = await window.electronAPI.getUserData(
         userData.leetUsername
       );
-      console.log('🛠 getUserData returned:', userRecord);
 
       // After 2s, hide success and navigate appropriately
       setTimeout(() => {
@@ -600,7 +572,6 @@ function App() {
         );
       } else {
         // Mock join for development
-        console.log('Mock joining group:', groupData.code);
       }
 
       // Track successful group join
@@ -643,7 +614,6 @@ function App() {
         );
         groupId = result.groupId;
       } else {
-        console.log('Mock creating group:', groupId);
       }
 
       // Track group creation (treat as successful group join)

@@ -21,10 +21,6 @@ test.describe('YeetCode Electron App', () => {
         timeout: 30000,
       };
 
-      console.log(
-        'Launching Electron with options:',
-        JSON.stringify(launchOptions, null, 2)
-      );
       electronApp = await electron.launch(launchOptions);
 
       // Get the first window
@@ -34,7 +30,6 @@ test.describe('YeetCode Electron App', () => {
       await page.waitForLoadState('domcontentloaded');
       await page.waitForSelector('h1:has-text("YeetCode")', { timeout: 15000 });
 
-      console.log('✅ Electron app launched successfully');
     } catch (error) {
       console.error('❌ Failed to launch Electron app:', error);
 
