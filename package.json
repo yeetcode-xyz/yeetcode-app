@@ -53,10 +53,6 @@
       "!scripts",
       "!*.md"
     ],
-    "publish": {
-      "provider": "s3",
-      "bucket": "yeetcode-bucket"
-    },
     "extraResources": [],
     "publish": {
       "provider": "s3",
