@@ -10,6 +10,7 @@ import OnboardingStep from './OnboardingStep';
 import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
 
+const APP_VERSION = '0.1.1';
 function App() {
   const analytics = useAnalytics();
 
@@ -97,7 +98,7 @@ function App() {
         analytics.identifyUser(userData.leetUsername, {
           name: userData.name,
           leetcode_username: userData.leetUsername,
-          app_version: '1.0.0',
+          app_version: APP_VERSION,
         });
       }, 2000); // 2 second debounce for user identification
 

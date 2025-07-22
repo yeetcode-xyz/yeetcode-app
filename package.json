@@ -1,7 +1,7 @@
 {
   "name": "yeetcode-app",
   "productName": "YeetCode",
-  "version": "1.0.0",
+  "version": "0.1.1",
   "description": "YeetCode - Competitive Programming Practice App",
   "main": "src/index.js",
   "config": {
@@ -13,6 +13,7 @@
     "build": "vite build",
     "package": "npm run build && electron-forge package",
     "package:builder": "npm run build && electron-builder build --publish never",
+    "package:publish": "electron-builder build --publish always",
     "package:mac-unsigned": "npm run build && electron-builder build -c.mac.identity=null --publish never",
     "make": "npm run build && electron-forge make",
     "publish": "npm run build && electron-forge publish",
@@ -28,10 +29,6 @@
     "test:e2e:debug": "npx playwright test --project=electron --debug",
     "test:e2e:ui": "npx playwright test --project=electron --ui",
     "test:all": "npm run test:run && npm run test:e2e",
-    "release": "./scripts/release.sh",
-    "release:patch": "npm version patch && git push --follow-tags",
-    "release:minor": "npm version minor && git push --follow-tags",
-    "release:major": "npm version major && git push --follow-tags",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -55,6 +52,10 @@
       "!scripts",
       "!*.md"
     ],
+    "publish": {
+      "provider": "s3",
+      "bucket": "yeetcode-bucket"
+    },
     "extraResources": [
       {
         "from": ".env",
@@ -112,20 +113,13 @@
             "arm64",
             "x64"
           ]
-        },
-        {
-          "target": "rpm",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
         }
       ],
       "category": "Development"
     }
   },
   "keywords": [],
-  "author": "akeen",
+  "author": "yeetcode",
   "license": "MIT",
   "dependencies": {
     "aws-sdk": "^2.1692.0",
