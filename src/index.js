@@ -162,7 +162,7 @@ const sendMagicLinkEmail = async (email, code) => {
           
           <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
             <p>If you didn't request this verification code, you can safely ignore this email.</p>
-            <p>© 2024 YeetCode. Ready to compete?</p>
+            <p>© 2025 YeetCode. Ready to compete?</p>
           </div>
         </div>
       `,
