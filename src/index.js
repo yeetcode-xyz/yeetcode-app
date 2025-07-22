@@ -17,7 +17,7 @@ const { Resend } = require('resend');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
-const version = '0.1.2';
+const version = '0.1.11';
 dotenv.config();
 
 // AWS configuration will be done after environment variables are loaded

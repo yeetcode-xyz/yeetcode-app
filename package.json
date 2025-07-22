@@ -1,7 +1,7 @@
 {
   "name": "yeetcode-app",
   "productName": "YeetCode",
-  "version": "0.1.2",
+  "version": "0.1.11",
   "description": "YeetCode - Competitive Programming Practice App",
   "main": "src/index.js",
   "config": {
