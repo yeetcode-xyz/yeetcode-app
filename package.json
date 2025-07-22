@@ -95,20 +95,10 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "${productName}.${ext}"
-    },
-    "linux": {
-      "artifactName": "${productName}-${arch}.${ext}",
-      "target": [
-        {
-          "target": "deb",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
-      ],
-      "category": "Development"
+      "artifactName": "${productName}.${ext}",
+      "signingHashAlgorithms": [],
+      "certificateFile": null,
+      "certificatePassword": null
     }
   },
   "keywords": [],
