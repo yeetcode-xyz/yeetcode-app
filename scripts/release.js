@@ -64,13 +64,7 @@ replaceAllVersions(path.join(__dirname, '../src/index.js'), oldVersion, version)
 // 3. Update all version strings in src/components/App.jsx
 replaceAllVersions(path.join(__dirname, '../src/components/App.jsx'), oldVersion, version);
 
-// 4. Optionally update .github/workflows/release.yml (if version example present)
-const relYmlPath = path.join(__dirname, '../.github/workflows/release.yml');
-if (fs.existsSync(relYmlPath)) {
-  replaceAllVersions(relYmlPath, oldVersion, version);
-}
-
-// 5. Git branch, commit, push, PR automation
+// 4. Git branch, commit, push, PR automation
 try {
   // Check for changes
   const status = execSync('git status --porcelain').toString();
