@@ -2681,7 +2681,7 @@ ipcMain.handle('analytics-track', async (event, eventName, properties = {}) => {
     const enrichedProperties = {
       ...properties,
       timestamp: new Date().toISOString(),
-      app_version: '1.0.0',
+      app_version: version,
       platform: process.platform,
     };
 
