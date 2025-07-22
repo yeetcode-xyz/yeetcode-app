@@ -17,6 +17,7 @@ const { Resend } = require('resend');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
+const version = '0.1.0';
 dotenv.config();
 
 // AWS configuration will be done after environment variables are loaded
@@ -1985,12 +1986,80 @@ ipcMain.handle(
       normalizedChallengee
     );
 
+    // Map difficulty to LeetCode API values
+    const difficultyMap = {
+      Easy: 'EASY',
+      Medium: 'MEDIUM',
+      Hard: 'HARD',
+      Random: ['EASY', 'MEDIUM', 'HARD'][Math.floor(Math.random() * 3)],
+    };
+    const targetDifficulty = difficultyMap[difficulty] || 'MEDIUM';
+
     try {
       const duelsTableName = process.env.DUELS_TABLE || null;
       const duelId = `duel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Get a random problem for the duel
-      const problem = await fetchRandomProblemForDuel(difficulty);
+      // Fetch a real random problem from LeetCode API (same as fetch-random-problem handler)
+      const query = `
+        query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
+          problemsetQuestionList: questionList(
+            categorySlug: $categorySlug
+            limit: $limit
+            skip: $skip
+            filters: $filters
+          ) {
+            total: totalNum
+            questions: data {
+              title
+              titleSlug
+              difficulty
+              frontendQuestionId: questionFrontendId
+              paidOnly: isPaidOnly
+              topicTags {
+                name
+              }
+            }
+          }
+        }
+      `;
+      const variables = {
+        categorySlug: '',
+        limit: 1000,
+        skip: 0,
+        filters: {
+          difficulty: targetDifficulty,
+        },
+      };
+      const response = await axios.post(
+        'https://leetcode.com/graphql',
+        {
+          query: query,
+          variables: variables,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'YeetCode/1.0',
+          },
+        }
+      );
+      const data = response.data;
+      if (data.errors) {
+        console.error('[ERROR][create-duel] GraphQL errors:', data.errors);
+        throw new Error('GraphQL query failed: ' + JSON.stringify(data.errors));
+      }
+      const freeProblems = data.data.problemsetQuestionList.questions.filter(
+        problem => !problem.paidOnly
+      );
+      if (freeProblems.length === 0) {
+        throw new Error('No free problems found for this difficulty');
+      }
+      const randomProblem =
+        freeProblems[Math.floor(Math.random() * freeProblems.length)];
+      console.log(
+        '[DEBUG][create-duel] Selected problem:',
+        randomProblem.title
+      );
 
       const duelItem = {
         duelId: { S: duelId },
@@ -1998,8 +2067,8 @@ ipcMain.handle(
         challengee: { S: normalizedChallengee },
         difficulty: { S: difficulty },
         status: { S: 'PENDING' },
-        problemSlug: { S: problem.titleSlug },
-        problemTitle: { S: problem.title },
+        problemSlug: { S: randomProblem.titleSlug },
+        problemTitle: { S: randomProblem.title },
         createdAt: { S: new Date().toISOString() },
       };
 
@@ -2017,8 +2086,8 @@ ipcMain.handle(
         challengee: challengeeUsername,
         difficulty,
         status: 'PENDING',
-        problemSlug: problem.titleSlug,
-        problemTitle: problem.title,
+        problemSlug: randomProblem.titleSlug,
+        problemTitle: randomProblem.title,
         createdAt: new Date().toISOString(),
       };
     } catch (error) {
@@ -2391,75 +2460,6 @@ ipcMain.handle(
   }
 );
 
-// Helper function to fetch random problem for duel
-const fetchRandomProblemForDuel = async difficulty => {
-  try {
-    // Use the existing fetch-random-problem logic
-    const difficultyMap = {
-      Easy: 'EASY',
-      Medium: 'MEDIUM',
-      Hard: 'HARD',
-      Random: ['EASY', 'MEDIUM', 'HARD'][Math.floor(Math.random() * 3)],
-    };
-
-    const targetDifficulty = difficultyMap[difficulty] || 'MEDIUM';
-
-    // Mock problems for different difficulties
-    const mockProblems = {
-      EASY: [
-        { titleSlug: 'two-sum', title: 'Two Sum' },
-        { titleSlug: 'palindrome-number', title: 'Palindrome Number' },
-        { titleSlug: 'roman-to-integer', title: 'Roman to Integer' },
-        { titleSlug: 'valid-parentheses', title: 'Valid Parentheses' },
-      ],
-      MEDIUM: [
-        { titleSlug: 'add-two-numbers', title: 'Add Two Numbers' },
-        {
-          titleSlug: 'longest-substring-without-repeating-characters',
-          title: 'Longest Substring Without Repeating Characters',
-        },
-        {
-          titleSlug: 'container-with-most-water',
-          title: 'Container With Most Water',
-        },
-        { titleSlug: 'group-anagrams', title: 'Group Anagrams' },
-      ],
-      HARD: [
-        {
-          titleSlug: 'median-of-two-sorted-arrays',
-          title: 'Median of Two Sorted Arrays',
-        },
-        {
-          titleSlug: 'regular-expression-matching',
-          title: 'Regular Expression Matching',
-        },
-        { titleSlug: 'merge-k-sorted-lists', title: 'Merge k Sorted Lists' },
-        { titleSlug: 'trapping-rain-water', title: 'Trapping Rain Water' },
-      ],
-    };
-
-    const problemsForDifficulty =
-      mockProblems[targetDifficulty] || mockProblems['MEDIUM'];
-    const randomProblem =
-      problemsForDifficulty[
-        Math.floor(Math.random() * problemsForDifficulty.length)
-      ];
-
-    console.log(
-      `[DEBUG][fetchRandomProblemForDuel] Selected ${targetDifficulty} problem: ${randomProblem.title}`
-    );
-
-    return {
-      titleSlug: randomProblem.titleSlug,
-      title: randomProblem.title,
-      difficulty: targetDifficulty,
-    };
-  } catch (error) {
-    console.error('[ERROR][fetchRandomProblemForDuel]', error);
-    throw error;
-  }
-};
-
 // Helper function to award XP for duel victory
 const awardDuelXP = async (username, xpAmount) => {
   try {
@@ -2681,7 +2681,7 @@ ipcMain.handle('analytics-track', async (event, eventName, properties = {}) => {
     const enrichedProperties = {
       ...properties,
       timestamp: new Date().toISOString(),
-      app_version: '1.0.0',
+      app_version: version,
       platform: process.platform,
     };
 
