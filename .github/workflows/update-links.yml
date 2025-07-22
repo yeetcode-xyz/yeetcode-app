@@ -1,0 +1,65 @@
+name: Update Installer Links
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-links:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from release
+        id: version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION_NO_V="${VERSION#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_no_v=${VERSION_NO_V}" >> $GITHUB_OUTPUT
+
+      - name: Update installer links
+        run: |
+          echo "🔗 Updating installer links for ${{ steps.version.outputs.version }}"
+          echo ""
+          echo "📦 New download links:"
+          echo "• macOS: https://yeetcode-bucket.s3.amazonaws.com/YeetCode.dmg"
+          echo "• Windows: https://yeetcode-bucket.s3.amazonaws.com/YeetCode.exe"
+          echo ""
+          echo "🌐 You can now update these links in:"
+          echo "• Your website download page"
+          echo "• README.md download section"
+          echo "• Marketing materials"
+          echo "• Auto-update server configuration"
+
+      # Example: Update README.md (uncomment and modify as needed)
+      # - name: Update README download links
+      #   run: |
+      #     sed -i 's|https://yeetcode-bucket.s3.amazonaws.com/YeetCode.dmg|https://yeetcode-bucket.s3.amazonaws.com/YeetCode.dmg|g' README.md
+      #     sed -i 's|https://yeetcode-bucket.s3.amazonaws.com/YeetCode.exe|https://yeetcode-bucket.s3.amazonaws.com/YeetCode.exe|g' README.md
+
+      # Example: Update website (uncomment and modify as needed)
+      # - name: Trigger website update
+      #   run: |
+      #     curl -X POST "${{ secrets.WEBSITE_WEBHOOK_URL }}" \
+      #       -H "Content-Type: application/json" \
+      #       -d '{
+      #         "version": "${{ steps.version.outputs.version }}",
+      #         "mac_url": "https://yeetcode-bucket.s3.amazonaws.com/YeetCode.dmg",
+      #         "windows_url": "https://yeetcode-bucket.s3.amazonaws.com/YeetCode.exe"
+      #       }'
+
+      # Example: Commit updated files (uncomment and modify as needed)
+      # - name: Commit updated links
+      #   run: |
+      #     git config --local user.email "action@github.com"
+      #     git config --local user.name "GitHub Action"
+      #     git add README.md
+      #     git commit -m "Update download links for ${{ steps.version.outputs.version }}" || exit 0
+      #     git push
+
+      - name: Notify completion
+        run: |
+          echo "✅ Link update process completed!"
+          echo "Release: ${{ github.event.release.html_url }}" 

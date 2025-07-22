@@ -10,7 +10,7 @@ import OnboardingStep from './OnboardingStep';
 import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
 
-const APP_VERSION = '0.1.1';
+const APP_VERSION = '0.1.2';
 function App() {
   const analytics = useAnalytics();
 

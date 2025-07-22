@@ -1,7 +1,7 @@
 {
   "name": "yeetcode-app",
   "productName": "YeetCode",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "YeetCode - Competitive Programming Practice App",
   "main": "src/index.js",
   "config": {
@@ -13,7 +13,7 @@
     "build": "vite build",
     "package": "npm run build && electron-forge package",
     "package:builder": "npm run build && electron-builder build --publish never",
-    "package:publish": "electron-builder build --publish always",
+    "package:publish": "npm run build && electron-builder build --publish always",
     "package:mac-unsigned": "npm run build && electron-builder build -c.mac.identity=null --publish never",
     "make": "npm run build && electron-forge make",
     "publish": "npm run build && electron-forge publish",
@@ -39,6 +39,7 @@
   "build": {
     "productName": "YeetCode",
     "appId": "com.yeetcode.app",
+    "icon": "yeetcodeicon.icns",
     "directories": {
       "output": "dist-electron"
     },
@@ -52,19 +53,11 @@
       "!scripts",
       "!*.md"
     ],
+    "extraResources": [],
     "publish": {
       "provider": "s3",
       "bucket": "yeetcode-bucket"
     },
-    "extraResources": [
-      {
-        "from": ".env",
-        "to": ".env",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
@@ -102,24 +95,15 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "${productName}.${ext}"
-    },
-    "linux": {
-      "artifactName": "${productName}-${arch}.${ext}",
-      "target": [
-        {
-          "target": "deb",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
-      ],
-      "category": "Development"
+      "artifactName": "${productName}.${ext}",
+      "forceCodeSigning": false
     }
   },
   "keywords": [],
-  "author": "yeetcode",
+  "author": {
+    "name": "YeetCode",
+    "email": "hello@yeetcode.xyz"
+  },
   "license": "MIT",
   "dependencies": {
     "aws-sdk": "^2.1692.0",
