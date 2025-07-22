@@ -39,7 +39,7 @@
   "build": {
     "productName": "YeetCode",
     "appId": "com.yeetcode.app",
-    "icon": "yeetcodeicon.icns",
+    "icon": "./yeetcodeicon.icns",
     "directories": {
       "output": "dist-electron"
     },
@@ -53,19 +53,11 @@
       "!scripts",
       "!*.md"
     ],
+    "extraResources": [],
     "publish": {
       "provider": "s3",
       "bucket": "yeetcode-bucket"
     },
-    "extraResources": [
-      {
-        "from": ".env",
-        "to": ".env",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
@@ -120,7 +112,10 @@
     }
   },
   "keywords": [],
-  "author": "yeetcode",
+  "author": {
+    "name": "YeetCode",
+    "email": "hello@yeetcode.xyz"
+  },
   "license": "MIT",
   "dependencies": {
     "aws-sdk": "^2.1692.0",
