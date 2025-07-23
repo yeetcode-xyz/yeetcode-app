@@ -345,7 +345,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
       <div
         key={duel.duelId}
         className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 mb-4"
-        style={{ height: '85px' }}
+        style={{ height: isChallenger ? '85px' : '95px' }}
       >
         <div className="flex justify-between items-start mb-2">
           <div>
@@ -701,7 +701,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           <h3 className="font-bold text-white text-lg">DUELS</h3>
         </div>
       </div>
-      <div className="p-6" style={{ height: '307px' }}>
+      <div className="p-6" style={{ height: '313px' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Challenge Friends */}
           <div
