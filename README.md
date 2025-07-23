@@ -1,6 +1,14 @@
 # YeetCode App
 
-A competitive programming practice application built with Electron.
+**YeetCode App** is a desktop application that makes competitive programming practice fun and social. Built with Electron and React, it lets you:
+
+- Connect your LeetCode account
+- Join or create study groups
+- Compete with friends on a real-time leaderboard
+- Track your progress (Easy/Medium/Hard problems, daily challenges, XP)
+- Get daily problem recommendations and group notifications
+
+It’s designed for anyone who wants to improve their coding skills with friends, track progress, and stay motivated through friendly competition.
 
 ## Development
 
@@ -16,6 +24,7 @@ npm install
 ### Running the app
 ```bash
 npm run dev
+npm run start
 ```
 
 ### Building the app
@@ -23,34 +32,6 @@ npm run dev
 npm run build
 ```
 
-## macOS Signing and Notarization
-
-### Prerequisites
-1. Apple Developer Account ($99/year)
-2. Developer ID Application Certificate
-3. App Specific Password
-
-### Setup
-1. Place your `YeetCode_Certificate.p12` file in the project root
-2. Update credentials in `package-mac-signed.sh` (already configured)
-3. Ensure you have the required entitlements file (`assets/entitlements.mac.plist`)
-
-### Building Signed App
-For signed and notarized build:
-```bash
-bash package-mac-signed.sh
-```
-
-For unsigned build (testing):
-```bash
-npm run package:mac-unsigned
-```
-
-### Notes
-- First-time notarization can take 8-12 hours
-- Subsequent notarizations typically complete in 10 minutes
-- The signed app will be available in `dist-electron/` directory
-- Universal build supports both Intel and Apple Silicon Macs
 
 ## Testing
 ```bash
@@ -58,5 +39,3 @@ npm test
 npm run test:e2e
 ```
 
-## Distribution
-The signed `.dmg` file can be distributed without security warnings on macOS.
