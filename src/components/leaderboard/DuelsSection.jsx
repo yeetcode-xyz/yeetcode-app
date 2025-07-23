@@ -27,6 +27,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
   // Refs for polling intervals and backoff tracking
   const pollingIntervals = useRef({});
   const pollingBackoff = useRef({}); // Track backoff intervals for each duel
+  const previousDuelsRef = useRef([]);
 
   // Filter out current user from friends list (case-insensitive)
   const availableFriends = leaderboard.filter(
@@ -130,6 +131,12 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
       setSelectedDifficulty('');
 
       addNotification(`Challenge sent to ${selectedFriend}!`, 'success');
+      if (window.electronAPI?.notifyDuelEvent) {
+        window.electronAPI.notifyDuelEvent({
+          type: 'sent',
+          opponent: selectedFriend,
+        });
+      }
     } catch (err) {
       console.error('Error creating duel:', err);
       setError('Failed to send challenge');
@@ -235,6 +242,10 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           const updatedDuel = await getDuel(duelId);
           if (updatedDuel && updatedDuel.status === 'COMPLETED') {
             const isWinner = updatedDuel.winner === userData.leetUsername;
+            const opponent =
+              updatedDuel.challenger === userData.leetUsername
+                ? updatedDuel.challengee
+                : updatedDuel.challenger;
             if (isWinner) {
               setLastWinData({
                 duelId,
@@ -244,6 +255,21 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
               });
               setShowWinMessage(true);
               setTimeout(() => setShowWinMessage(false), 5000); // Hide after 5 seconds
+              if (window.electronAPI?.notifyDuelEvent) {
+                window.electronAPI.notifyDuelEvent({
+                  type: 'won',
+                  opponent,
+                  problemTitle: updatedDuel.problemTitle,
+                });
+              }
+            } else {
+              if (window.electronAPI?.notifyDuelEvent) {
+                window.electronAPI.notifyDuelEvent({
+                  type: 'lost',
+                  opponent,
+                  problemTitle: updatedDuel.problemTitle,
+                });
+              }
             }
           }
 
@@ -611,6 +637,28 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
       return newStarts;
     });
   }, [duels, userData.leetUsername]);
+
+  // Detect new incoming duels and send system notification
+  useEffect(() => {
+    if (!userData?.leetUsername) return;
+    const prevDuels = previousDuelsRef.current;
+    const newDuels = duels.filter(
+      duel =>
+        duel.status === 'PENDING' &&
+        duel.challengee === userData.leetUsername &&
+        !prevDuels.some(prev => prev.duelId === duel.duelId)
+    );
+    if (newDuels.length > 0 && window.electronAPI?.notifyDuelEvent) {
+      newDuels.forEach(duel => {
+        window.electronAPI.notifyDuelEvent({
+          type: 'received',
+          opponent: duel.challenger,
+          problemTitle: duel.problemTitle,
+        });
+      });
+    }
+    previousDuelsRef.current = duels;
+  }, [duels, userData?.leetUsername]);
 
   // Win message component
   const WinMessage = () => {

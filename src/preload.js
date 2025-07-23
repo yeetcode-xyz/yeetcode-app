@@ -102,6 +102,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('get-stats-for-group', validatedGroupId);
   },
 
+  // System notification for duel events
+  notifyDuelEvent: ({ type, opponent, problemTitle }) => {
+    return ipcRenderer.invoke('notify-duel-event', {
+      type,
+      opponent,
+      problemTitle,
+    });
+  },
+
   getUserData: username => {
     const validatedUsername = validateInput.username(username);
     return ipcRenderer.invoke('get-user-data', validatedUsername);

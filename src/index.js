@@ -2819,3 +2819,38 @@ ipcMain.handle('cleanup-expired-duels', async () => {
   await cleanupExpiredDuels();
   return { success: true };
 });
+
+// System notification for duel events
+ipcMain.handle(
+  'notify-duel-event',
+  (event, { type, opponent, problemTitle }) => {
+    if (!Notification.isSupported()) return;
+    let title = '';
+    let body = '';
+    switch (type) {
+      case 'sent':
+        title = '⚔️ Duel Challenge Sent!';
+        body = `You challenged ${opponent} to a duel!`;
+        break;
+      case 'won':
+        title = '🏆 Duel Won!';
+        body = `You defeated ${opponent} in a duel${problemTitle ? ` on "${problemTitle}"` : ''}!`;
+        break;
+      case 'lost':
+        title = '💀 Duel Lost';
+        body = `You lost to ${opponent} in a duel${problemTitle ? ` on "${problemTitle}"` : ''}. Try again!`;
+        break;
+      case 'received':
+        title = '⚔️ New Duel Challenge!';
+        body = `${opponent} challenged you to a duel${problemTitle ? ` on "${problemTitle}"` : ''}!`;
+        break;
+      default:
+        return;
+    }
+    new Notification({
+      title,
+      body,
+      icon: path.join(__dirname, 'assets', 'icon.png'),
+    }).show();
+  }
+);
