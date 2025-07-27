@@ -717,7 +717,7 @@ function App() {
   // UI
   return (
     <div
-      className={`w-full ${step === 'leaderboard' ? 'max-w-7xl' : 'max-w-md'} mx-auto p-6 rounded-2xl shadow-2xl bg-white border-4 border-black ${step === 'leaderboard' ? 'min-h-[700px]' : 'min-h-[400px]'} flex flex-col gap-6`}
+      className={`w-full ${step === 'leaderboard' || step === 'welcome' ? 'max-w-7xl' : 'max-w-md'} mx-auto p-6 rounded-2xl shadow-2xl bg-white border-4 border-black ${step === 'leaderboard' ? 'min-h-[700px]' : 'min-h-[400px]'} flex flex-col gap-6`}
       style={{ fontFamily: 'Space Grotesk, sans-serif' }}
     >
       <div className="flex justify-between items-center border-b-4 border-black pb-2">
