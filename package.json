@@ -68,7 +68,7 @@
           ]
         }
       ],
-      "artifactName": "${productName}.${ext}",
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
       "type": "distribution",
       "hardenedRuntime": true,
       "entitlements": "assets/entitlements.mac.plist",
