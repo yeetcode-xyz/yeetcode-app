@@ -36,6 +36,9 @@ jobs:
           echo "NODE_ENV=production" >> .env
           echo "CI=true" >> .env
 
+      - name: Decode code signing certificate
+        run: echo "${{ secrets.CSC_LINK }}" | base64 --decode > certificate.p12
+        
       - name: Package and Upload to S3 (macOS)
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
