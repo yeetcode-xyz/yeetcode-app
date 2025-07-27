@@ -1,0 +1,40 @@
+name: Debug Secrets Visibility
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    environment: env  # IMPORTANT: must match your environment name
+    steps:
+      - name: Check visibility of secrets
+        run: |
+          echo "Checking if secrets are available..."
+          
+          # Only print ✅ or ❌, not actual values
+          for secret in APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID \
+                        AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION \
+                        CSC_LINK CSC_KEY_PASSWORD GROUPS_TABLE USERS_TABLE \
+                        NODE_ENV LEETCODE_API_KEY LEETCODE_API_URL
+          do
+            if [[ -z "${!secret}" ]]; then
+              echo "❌ $secret is NOT set"
+            else
+              echo "✅ $secret is set"
+            fi
+          done
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          GROUPS_TABLE: ${{ secrets.GROUPS_TABLE }}
+          USERS_TABLE: ${{ secrets.USERS_TABLE }}
+          NODE_ENV: ${{ secrets.NODE_ENV }}
+          LEETCODE_API_KEY: ${{ secrets.LEETCODE_API_KEY }}
+          LEETCODE_API_URL: ${{ secrets.LEETCODE_API_URL }}
