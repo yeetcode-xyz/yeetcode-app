@@ -908,6 +908,7 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
       return {
         username: normalizedUsername,
         name: displayName,
+        university: userData.university ?? 'Unknown',
         easy: userData.easy ?? 0,
         medium: userData.medium ?? 0,
         hard: userData.hard ?? 0,
@@ -1820,6 +1821,51 @@ ipcMain.handle('update-user-email', async (event, leetUsername, email) => {
     };
   }
 });
+
+// Update user record with university info
+ipcMain.handle(
+  'update-user-university',
+  async (event, leetUsername, university, universityEmail) => {
+    console.log(
+      '[DEBUG][update-user-university] called for:',
+      leetUsername,
+      'university:',
+      university,
+      'email:',
+      universityEmail
+    );
+
+    const normalizedUsername = leetUsername.toLowerCase();
+
+    try {
+      const updateParams = {
+        TableName: process.env.USERS_TABLE,
+        Key: { username: normalizedUsername },
+        UpdateExpression:
+          'SET university = :uni, university_email = :email, updated_at = :updated_at',
+        ExpressionAttributeValues: {
+          ':uni': university,
+          ':email': universityEmail || '',
+          ':updated_at': new Date().toISOString(),
+        },
+      };
+
+      await ddb.update(updateParams).promise();
+      console.log(
+        '[DEBUG][update-user-university] updated for user:',
+        normalizedUsername
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('[ERROR][update-user-university]', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to update university',
+      };
+    }
+  }
+);
 
 // ========================================
 // DUEL SYSTEM HANDLERS

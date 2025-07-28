@@ -21,6 +21,8 @@ function App() {
     verified: false,
     name: '',
     leetUsername: '',
+    university: 'No university',
+    universityEmail: '',
   });
   const [groupData, setGroupData] = useState({ code: '', joined: false });
   const [leaderboard, setLeaderboard] = useState([]);
@@ -59,6 +61,8 @@ function App() {
           savedUserData.verified || (savedUserData.leetUsername ? true : false), // Existing users are considered verified
         name: savedUserData.name || '',
         leetUsername: savedUserData.leetUsername || '',
+        university: savedUserData.university || 'No university',
+        universityEmail: savedUserData.universityEmail || '',
       };
       setUserData(updatedUserData);
     }
@@ -347,6 +351,7 @@ function App() {
         return {
           username: item.username,
           name: item.name, // Now using the proper display name from backend
+          university: item.university || 'Unknown',
           easy: item.easy ?? 0,
           medium: item.medium ?? 0,
           hard: item.hard ?? 0,
@@ -460,6 +465,22 @@ function App() {
       return;
     }
 
+    if (
+      userData.university &&
+      userData.university !== 'No university' &&
+      userData.university !== 'My University not listed'
+    ) {
+      if (!userData.universityEmail.trim()) {
+        setError('Please enter your university email');
+        return;
+      }
+      const uniEmailRegex = /^[^\s@]+@[^\s@]+\.edu$/i;
+      if (!uniEmailRegex.test(userData.universityEmail)) {
+        setError('Please enter a valid .edu email address');
+        return;
+      }
+    }
+
     setValidating(true);
     try {
       // 1) Validate username via API or mock
@@ -508,14 +529,24 @@ function App() {
               userData.email
             );
 
-            if (!emailUpdateResult.success) {
-              console.warn('Email update failed:', emailUpdateResult.error);
-            }
+          if (!emailUpdateResult.success) {
+            console.warn('Email update failed:', emailUpdateResult.error);
           }
+        }
 
-          // Also ensure the display name is set when we get user data
-          if (!displayNameResult.success) {
-            console.warn(
+        // Update university info in database
+        const uniResult = await window.electronAPI.updateUserUniversity(
+          userData.leetUsername,
+          userData.university,
+          userData.universityEmail
+        );
+        if (!uniResult.success) {
+          console.warn('University update failed:', uniResult.error);
+        }
+
+        // Also ensure the display name is set when we get user data
+        if (!displayNameResult.success) {
+          console.warn(
               'Display name update failed:',
               displayNameResult.error
             );

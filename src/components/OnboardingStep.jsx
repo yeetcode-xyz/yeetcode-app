@@ -71,6 +71,40 @@ const OnboardingStep = ({
             We'll verify this username exists on LeetCode
           </p>
         </div>
+
+        <div>
+          <label className="block text-sm font-bold mb-1">University</label>
+          <select
+            className="border-2 border-black rounded-lg px-3 py-2 w-full focus:border-blue-500 focus:outline-none transition-colors"
+            value={userData.university}
+            onChange={e =>
+              setUserData({ ...userData, university: e.target.value })
+            }
+          >
+            <option>No university</option>
+            <option>Stony Brook University</option>
+            <option>Purdue University</option>
+            <option>My University not listed</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold mb-1">
+            University Email
+          </label>
+          <input
+            type="email"
+            className="border-2 border-black rounded-lg px-3 py-2 w-full focus:border-blue-500 focus:outline-none transition-colors"
+            placeholder="your@university.edu"
+            value={userData.universityEmail}
+            onChange={e =>
+              setUserData({ ...userData, universityEmail: e.target.value })
+            }
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Use your .edu email for verification
+          </p>
+        </div>
       </div>
 
       {error && (
