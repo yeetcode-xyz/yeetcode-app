@@ -41,6 +41,19 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
     return baseXP + bonusXP;
   };
 
+  // Aggregate XP by university
+  const universityRanks = React.useMemo(() => {
+    const totals = {};
+    leaderboard.forEach(user => {
+      const uni = user.university || 'Unknown';
+      const xp = calculateXP(user);
+      totals[uni] = (totals[uni] || 0) + xp;
+    });
+    return Object.entries(totals)
+      .map(([university, xp]) => ({ university, xp }))
+      .sort((a, b) => b.xp - a.xp);
+  }, [leaderboard]);
+
   // Check if any notification is a 'left' type for this cycle
   const hasLeftNotification = notifications.some(n => n.type === 'left');
   // Filter out overtake notifications if someone left
@@ -117,9 +130,29 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
       </div>
       <div className="flex-1 overflow-hidden">
         {activeTab === 'university' ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500 text-lg font-bold">
-            <span>🏫 University Leaderboard</span>
-            <span className="mt-2">Coming soon!</span>
+          <div className="h-full overflow-y-auto custom-scrollbar">
+            <table className="min-w-full table-fixed">
+              <thead className="bg-yellow-100 sticky top-0 z-10">
+                <tr className="border-b-2 border-black">
+                  <th className="font-bold text-left px-4 py-2 w-16">RANK</th>
+                  <th className="font-bold text-left px-4 py-2">UNIVERSITY</th>
+                  <th className="font-bold text-center px-4 py-2 w-32">
+                    TOTAL XP
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {universityRanks.map((uni, index) => (
+                  <tr key={uni.university} className="border-b border-gray-200">
+                    <td className="px-4 py-3 w-16 font-bold">#{index + 1}</td>
+                    <td className="px-4 py-3">{uni.university}</td>
+                    <td className="px-4 py-3 text-center font-bold">
+                      {uni.xp.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : leaderboard.length === 0 ? (
           <div className="text-center text-gray-500 py-8">

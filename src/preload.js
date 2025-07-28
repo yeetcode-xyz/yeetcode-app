@@ -192,6 +192,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateUserEmail: (leetUsername, email) =>
     ipcRenderer.invoke('update-user-email', leetUsername, email),
 
+  updateUserUniversity: (leetUsername, university, email) =>
+    ipcRenderer.invoke('update-user-university', leetUsername, university, email),
+
   // Duel system methods with validation
   getUserDuels: username => {
     const validatedUsername = validateInput.username(username);
