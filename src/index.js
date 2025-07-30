@@ -13,7 +13,6 @@ const dotenv = require('dotenv');
 const axios = require('axios');
 const fs = require('fs');
 const AWS = require('aws-sdk');
-const { Resend } = require('resend');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -80,7 +79,6 @@ if (fs.existsSync(envPath)) {
   console.log('[ENV] USERS_TABLE =', process.env.USERS_TABLE);
   console.log('[ENV] DAILY_TABLE =', process.env.DAILY_TABLE || 'Daily');
   console.log('[ENV] DUELS_TABLE =', process.env.DUELS_TABLE || 'Duels');
-  console.log('[ENV] RESEND_API_KEY =', !!process.env.RESEND_API_KEY);
 
   // Configure AWS after environment variables are loaded
   console.log('🔧 CONFIGURING AWS - Region:', process.env.AWS_REGION);
@@ -100,9 +98,6 @@ if (isDev) {
   console.log('LEETCODE_API_KEY exists:', !!process.env.LEETCODE_API_KEY);
 }
 
-// Configure Resend client for magic link emails (after environment variables are loaded)
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 // Test handler for debugging
 ipcMain.handle('test-main-process', () => {
   console.log('🧪 Main process test handler called');
@@ -121,67 +116,6 @@ ipcMain.handle('test-main-process', () => {
 // Generate a 6-digit verification code
 const generateVerificationCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
-// Send magic link email with verification code
-const sendMagicLinkEmail = async (email, code) => {
-  console.log('[DEBUG][sendMagicLinkEmail] Sending to:', email, 'Code:', code);
-
-  if (!process.env.RESEND_API_KEY) {
-    console.log('[DEBUG] No Resend API key, using mock email for development');
-    return { success: true, messageId: 'mock-id-' + Date.now() };
-  }
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'YeetCode <auth@yeetcode.xyz>',
-      to: [email],
-      subject: 'Your YeetCode Verification Code',
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #1a1a1a; font-size: 28px; margin: 0;">🚀 YeetCode</h1>
-            <p style="color: #666; font-size: 16px; margin: 10px 0 0 0;">Competitive LeetCode Platform</p>
-          </div>
-          
-          <div style="background: #f8f9fa; border: 2px solid #000; border-radius: 12px; padding: 30px; text-align: center;">
-            <h2 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0;">Your Verification Code</h2>
-            
-            <div style="background: #fff; border: 3px solid #000; border-radius: 8px; padding: 20px; margin: 20px 0; font-family: 'Courier New', monospace;">
-              <div style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px;">${code}</div>
-            </div>
-            
-            <p style="color: #374151; font-size: 16px; margin: 20px 0 10px 0;">
-              Enter this code in your YeetCode app to continue setting up your account.
-            </p>
-            
-            <p style="color: #6b7280; font-size: 14px; margin: 10px 0;">
-              This code will expire in 10 minutes.
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
-            <p>If you didn't request this verification code, you can safely ignore this email.</p>
-            <p>© 2025 YeetCode. Ready to compete?</p>
-          </div>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error('[ERROR][sendMagicLinkEmail] Resend error:', error);
-      throw new Error(`Email sending failed: ${error.message}`);
-    }
-
-    console.log(
-      '[DEBUG][sendMagicLinkEmail] Email sent successfully:',
-      data?.id
-    );
-    return { success: true, messageId: data?.id };
-  } catch (error) {
-    console.error('[ERROR][sendMagicLinkEmail] Failed to send email:', error);
-    throw error;
-  }
 };
 
 // Store verification code in DynamoDB with TTL
@@ -584,59 +518,85 @@ app.on('window-all-closed', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
 
-// LeetCode username validation using the API
+// LeetCode username validation using GraphQL API
 const validateLeetCodeUsername = async username => {
-  const API_KEY = process.env.LEETCODE_API_KEY;
-  const API_URL = process.env.LEETCODE_API_URL;
-
   // Convert username to lowercase for case-insensitive validation
   const normalizedUsername = username.toLowerCase();
   console.log('Validating LeetCode username with:', {
     original: username,
     normalized: normalizedUsername,
   });
-  console.log('Using API URL:', API_URL);
-  console.log('API key exists:', !!API_KEY);
-
-  // For development purposes, allow validation without API keys
-  if (!API_KEY || !API_URL) {
-    console.log(
-      'API key or URL not configured. Using mock validation for development.'
-    );
-    // Simple mock validation - accept any non-empty username
-    return {
-      exists: normalizedUsername && normalizedUsername.trim().length > 0,
-      error:
-        normalizedUsername && normalizedUsername.trim().length > 0
-          ? null
-          : 'Username cannot be empty',
-    };
-  }
 
   try {
-    // Use axios instead of https for consistency
-    const config = {
-      method: 'get',
-      url: API_URL,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
-      },
-      data: {
-        username: normalizedUsername,
-      },
+    const query = `
+      query getUserProfile($username: String!) {
+        matchedUser(username: $username) {
+          username
+        }
+      }
+    `;
+
+    const variables = {
+      username: normalizedUsername,
     };
 
-    console.log('Making API request with config:', {
-      method: config.method,
-      url: config.url,
-      data: config.data,
-      headers: '(headers with auth)',
-    });
+    const response = await axios.post(
+      'https://leetcode.com/graphql',
+      {
+        query: query,
+        variables: variables,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        },
+        timeout: 10000, // 10 second timeout
+      }
+    );
 
-    const response = await axios(config);
-    console.log('API response status:', response.status);
-    return response.data;
+    console.log('GraphQL response status:', response.status);
+    console.log(
+      'GraphQL response data:',
+      JSON.stringify(response.data, null, 2)
+    );
+
+    // Check for GraphQL errors
+    if (response.data.errors) {
+      console.error('GraphQL errors:', response.data.errors);
+
+      // Handle the specific case where user doesn't exist
+      const userNotFoundError = response.data.errors.find(
+        error => error.message === 'That user does not exist.'
+      );
+
+      if (userNotFoundError) {
+        console.log(
+          'User not found on LeetCode - this is expected for invalid usernames'
+        );
+        return {
+          exists: false,
+          error: 'Username not found on LeetCode',
+        };
+      }
+
+      // For other GraphQL errors, return failure
+      return {
+        exists: false,
+        error: 'GraphQL query failed',
+      };
+    }
+
+    const matchedUser = response.data.data?.matchedUser;
+    console.log('Matched user:', matchedUser);
+    const exists = !!matchedUser && !!matchedUser.username;
+    console.log('Username exists:', exists);
+
+    return {
+      exists: exists,
+      error: exists ? null : 'Username not found on LeetCode',
+    };
   } catch (error) {
     console.error('Error validating username:', error.message);
     console.error('Error details:', error.response?.data || 'No response data');
@@ -651,40 +611,8 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
     const result = await validateLeetCodeUsername(username);
     console.log('Validation result:', result);
 
-    // Handle API Gateway response format (contains statusCode and body)
-    if (result.statusCode && result.body) {
-      console.log('API Gateway response:', result);
-
-      // Check if body is already an object or needs parsing
-      let parsedBody;
-      if (typeof result.body === 'string') {
-        try {
-          parsedBody = JSON.parse(result.body);
-        } catch (parseError) {
-          console.error('Error parsing API response body:', parseError);
-          return {
-            exists: false,
-            error: 'Error parsing API response',
-          };
-        }
-      } else {
-        // Body is already an object
-        parsedBody = result.body;
-      }
-
-      console.log('Parsed API Gateway response:', parsedBody);
-      return parsedBody;
-    }
-
-    // Handle unexpected response format
-    if (result && typeof result.exists === 'undefined') {
-      console.log('Unexpected response format, using fallback validation');
-      return {
-        exists: true, // For development, assume username exists
-        error: null,
-      };
-    }
-
+    // Return the result directly - the validateLeetCodeUsername function
+    // now handles the GraphQL response properly
     return result;
   } catch (error) {
     console.error('Error validating LeetCode username:', error);
@@ -1730,15 +1658,41 @@ ipcMain.handle('send-magic-link', async (event, email) => {
     // Store code in database
     await storeVerificationCode(email, code);
 
-    // Send email
-    await sendMagicLinkEmail(email, code);
+    // Send email via FastAPI server
+    const axios = require('axios');
+    const fastApiUrl = process.env.FASTAPI_URL;
+    const apiKey = process.env.YETCODE_API_KEY;
 
-    console.log('[DEBUG][send-magic-link] Success for:', email);
-    return {
-      success: true,
-      message: 'Verification code sent to your email',
-      email: email.toLowerCase(),
-    };
+    try {
+      const response = await axios.post(
+        `${fastApiUrl}/send-otp`,
+        {
+          email: email,
+          code: code,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000, // 10 second timeout
+        }
+      );
+
+      if (response.data.success) {
+        console.log('[DEBUG][send-magic-link] FastAPI success for:', email);
+        return {
+          success: true,
+          message: 'Verification code sent to your email',
+          email: email.toLowerCase(),
+        };
+      } else {
+        throw new Error(response.data.error || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('[ERROR][send-magic-link] FastAPI error:', error);
+      throw error;
+    }
   } catch (error) {
     console.error('[ERROR][send-magic-link]', error);
     return {

@@ -462,23 +462,15 @@ function App() {
 
     setValidating(true);
     try {
-      // 1) Validate username via API or mock
-      let result = { exists: true, error: null };
-      if (window.electronAPI) {
-        result = await window.electronAPI.validateLeetCodeUsername(
-          userData.leetUsername
-        );
+      // 1) Validate username via API
+      if (!window.electronAPI) {
+        setError('Electron API not available');
+        return;
       }
 
-      // 2) Handle API Gateway format
-      if (result.statusCode && result.body) {
-        try {
-          result = JSON.parse(result.body);
-        } catch (parseError) {
-          console.error('Error parsing API response:', parseError);
-          result = { exists: false, error: 'Error parsing API response' };
-        }
-      }
+      const result = await window.electronAPI.validateLeetCodeUsername(
+        userData.leetUsername
+      );
 
       if (!result.exists) {
         // Validation failed

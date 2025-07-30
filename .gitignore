@@ -100,3 +100,5 @@ test-results/
 YeetCode_Certificate.p12
 
 package-mac-signed.sh
+
+scripts/fastapi/venv/

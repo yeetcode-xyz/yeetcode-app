@@ -1,0 +1,6 @@
+fastapi==0.116.1
+uvicorn==0.35.0
+python-multipart==0.0.20
+python-dotenv==1.1.1
+resend==2.11.0
+email-validator==2.1.0 
