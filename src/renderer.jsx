@@ -6,5 +6,5 @@ import App from './components/App';
 // Update to use createRoot (React 18)
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
-// Render without PostHog dependency - analytics now handled securely via IPC
+// Render the app
 root.render(<App />);

@@ -30,15 +30,21 @@ function getRankAndSubdivision(xp) {
 }
 
 const UserStats = ({ userData, leaderboard, dailyData }) => {
+  const [showRankUp, setShowRankUp] = useState(false);
+
   // Find current user's stats from leaderboard (case-insensitive)
   const currentUserStats = leaderboard?.find(
     user => user.username === userData?.leetUsername?.toLowerCase()
   ) || { easy: 0, medium: 0, hard: 0 };
 
-  // Always define calculateXP at the top level
+  // Always define calculateXP at the top level - ensure all values are numbers
   const calculateXP = stats => {
-    const problemXP = stats.easy * 100 + stats.medium * 300 + stats.hard * 500;
-    const bonusXP = stats.xp ?? 0; // Daily challenges and other bonus XP
+    const easy = Number(stats.easy) || 0;
+    const medium = Number(stats.medium) || 0;
+    const hard = Number(stats.hard) || 0;
+    const bonusXP = Number(stats.xp) || 0; // Daily challenges and other bonus XP
+
+    const problemXP = easy * 100 + medium * 300 + hard * 500;
     return problemXP + bonusXP;
   };
 
@@ -92,17 +98,43 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
     return 100;
   };
 
-  // Rank-up animation
-  const [showRankUp, setShowRankUp] = useState(false);
   const prevRank = useRef('');
+  const prevXP = useRef(0);
+  const hasMounted = useRef(false);
+  const initialLoadComplete = useRef(false);
+
   useEffect(() => {
     const currentRank = `${rankName} ${rankSub}`;
-    if (prevRank.current && prevRank.current !== currentRank) {
+
+    // Set initial values on first render
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      prevRank.current = currentRank;
+      prevXP.current = userXP;
+      // Add delay before allowing rank up animations
+      setTimeout(() => {
+        initialLoadComplete.current = true;
+      }, 1000); // 1 second delay
+      return;
+    }
+
+    // Only show rank up if:
+    // 1. Initial load is complete (1 second delay)
+    // 2. XP actually increased
+    // 3. Rank actually changed
+    if (
+      initialLoadComplete.current &&
+      prevXP.current < userXP &&
+      prevRank.current &&
+      prevRank.current !== currentRank
+    ) {
       setShowRankUp(true);
       setTimeout(() => setShowRankUp(false), 2000);
     }
+
     prevRank.current = currentRank;
-  }, [rankName, rankSub]);
+    prevXP.current = userXP;
+  }, [rankName, rankSub, userXP]);
 
   return (
     <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-80 relative">

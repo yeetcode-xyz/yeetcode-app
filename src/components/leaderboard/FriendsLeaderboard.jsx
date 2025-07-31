@@ -34,10 +34,14 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
   // Tooltip state
   const [hoveredUser, setHoveredUser] = useState(null);
 
-  // XP calculation function
+  // XP calculation function - ensure all values are numbers
   const calculateXP = user => {
-    const baseXP = user.easy * 100 + user.medium * 300 + user.hard * 500;
-    const bonusXP = user.xp || 0;
+    const easy = Number(user.easy) || 0;
+    const medium = Number(user.medium) || 0;
+    const hard = Number(user.hard) || 0;
+    const bonusXP = Number(user.xp) || 0;
+
+    const baseXP = easy * 100 + medium * 300 + hard * 500;
     return baseXP + bonusXP;
   };
 

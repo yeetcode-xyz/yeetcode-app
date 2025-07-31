@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAnalytics } from '../utils/analytics';
 
 const VerificationStep = ({
   animationClass,
@@ -12,7 +11,6 @@ const VerificationStep = ({
   handleResendCode,
   handleBackToEmail,
 }) => {
-  const analytics = useAnalytics();
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
   const inputRefs = useRef([]);
@@ -99,9 +97,6 @@ const VerificationStep = ({
           inputRefs.current[0]?.focus();
           return;
         }
-
-        // Track successful verification
-        analytics.trackFeatureUsed('magic_link_verified', { email });
 
         // Navigate to onboarding
         handleVerificationSuccess(result);

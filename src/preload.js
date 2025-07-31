@@ -297,20 +297,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       timeInSeconds
     );
   },
-
-  // Secure analytics methods (no key exposure)
-  analyticsTrack: (eventName, properties) =>
-    ipcRenderer.invoke('analytics-track', eventName, properties),
-
-  analyticsIdentify: (userId, properties) =>
-    ipcRenderer.invoke('analytics-identify', userId, properties),
-
-  analyticsGetConfig: () => ipcRenderer.invoke('analytics-get-config'),
 });
 
 // Expose secure configuration (no sensitive data)
 contextBridge.exposeInMainWorld('envVars', {
   nodeEnv: process.env.NODE_ENV,
-  // Removed: posthogKey and posthogHost for security
-  // Analytics now handled securely through IPC
 });

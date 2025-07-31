@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAnalytics } from '../utils/analytics';
 
 const OnboardingStep = ({
   animationClass,
@@ -10,15 +9,6 @@ const OnboardingStep = ({
   showSuccess,
   handleValidateLeet,
 }) => {
-  const analytics = useAnalytics();
-
-  // Track user registration when validation is successful
-  useEffect(() => {
-    if (showSuccess && userData.name && userData.leetUsername) {
-      analytics.trackUserRegistration(userData.name, userData.leetUsername);
-    }
-  }, [showSuccess, userData.name, userData.leetUsername, analytics]);
-
   return (
     <div className={`flex flex-col gap-4 ${animationClass}`}>
       <div className="text-center mb-2">

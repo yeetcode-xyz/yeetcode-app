@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useAnalytics } from '../utils/analytics';
 
 const EmailStep = ({
   animationClass,
@@ -9,7 +8,6 @@ const EmailStep = ({
   setValidating,
   handleEmailSent,
 }) => {
-  const analytics = useAnalytics();
   const [email, setEmail] = useState('');
 
   const handleSendMagicLink = async () => {
@@ -38,9 +36,6 @@ const EmailStep = ({
           setError(result.error || 'Failed to send verification code');
           return;
         }
-
-        // Track magic link sent
-        analytics.trackFeatureUsed('magic_link_sent', { email });
 
         // Navigate to verification step
         handleEmailSent(email);

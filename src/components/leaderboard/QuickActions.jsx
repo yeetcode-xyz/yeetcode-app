@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { useAnalytics } from '../../utils/analytics';
 import RandomProblemModal from './RandomProblemModal';
 
 const QuickActions = ({ groupData, handleLogout }) => {
-  const analytics = useAnalytics();
   const [showInviteOptions, setShowInviteOptions] = useState(false);
   const [loadingProblem, setLoadingProblem] = useState(false);
   const [showProblemModal, setShowProblemModal] = useState(false);
@@ -16,7 +14,6 @@ const QuickActions = ({ groupData, handleLogout }) => {
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(getInviteMessage());
     alert('Invite message copied to clipboard! 📋');
-    analytics.trackInviteShared('clipboard', groupData?.code);
     setShowInviteOptions(false);
   };
 
@@ -29,7 +26,6 @@ const QuickActions = ({ groupData, handleLogout }) => {
     } else {
       window.open(`https://wa.me/?text=${message}`, '_blank');
     }
-    analytics.trackInviteShared('whatsapp', groupData?.code);
     setShowInviteOptions(false);
   };
 
@@ -42,14 +38,12 @@ const QuickActions = ({ groupData, handleLogout }) => {
     } else {
       window.open(`https://t.me/share/url?text=${message}`, '_blank');
     }
-    analytics.trackInviteShared('telegram', groupData?.code);
     setShowInviteOptions(false);
   };
 
   const handleShareDiscord = () => {
     navigator.clipboard.writeText(getInviteMessage());
     alert('Message copied! Paste it in your Discord channel 🎮');
-    analytics.trackInviteShared('discord', groupData?.code);
     setShowInviteOptions(false);
   };
 
@@ -63,7 +57,6 @@ const QuickActions = ({ groupData, handleLogout }) => {
     } else {
       window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
     }
-    analytics.trackInviteShared('email', groupData?.code);
     setShowInviteOptions(false);
   };
 
@@ -91,12 +84,6 @@ const QuickActions = ({ groupData, handleLogout }) => {
     try {
       const randomProblem = await fetchRandomProblem();
 
-      // Track random problem generation
-      analytics.trackRandomProblemGenerated(
-        randomProblem.difficulty,
-        randomProblem.topicTags?.[0]?.name || 'Unknown'
-      );
-
       setSelectedProblem(randomProblem);
       setShowProblemModal(true);
     } catch (error) {
@@ -111,12 +98,6 @@ const QuickActions = ({ groupData, handleLogout }) => {
 
   const handleConfirmProblem = async () => {
     if (selectedProblem) {
-      // Track when user opens random problem
-      analytics.trackFeatureUsed('random_problem_opened', {
-        problem_title: selectedProblem.title,
-        difficulty: selectedProblem.difficulty,
-      });
-
       const leetcodeUrl = `https://leetcode.com/problems/${selectedProblem.titleSlug}/`;
       if (window.electronAPI?.openExternalUrl) {
         await window.electronAPI.openExternalUrl(leetcodeUrl);

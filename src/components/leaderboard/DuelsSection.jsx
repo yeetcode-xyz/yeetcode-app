@@ -6,7 +6,6 @@ import {
   acceptDuel,
   rejectDuel,
   recordDuelSubmission,
-  autoRejectExpiredDuels,
 } from '../../services/duels';
 import { checkSubmissionAfterTime } from '../../services/leetcode';
 
@@ -60,11 +59,9 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     try {
       setLoading(true);
 
-      // Auto-reject expired duels first
-      await autoRejectExpiredDuels(userData.leetUsername);
-
       // Load current duels
       const userDuels = await getUserDuels(userData.leetUsername);
+      console.log('Loaded current duels:', userDuels);
 
       // Add completed property to each duel
       const duelsWithCompletedFlag = userDuels.map(duel => ({
@@ -88,6 +85,8 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
 
     try {
       const recentDuelsData = await getRecentDuels(userData.leetUsername);
+      console.log('Loaded recent duels:', recentDuelsData);
+      console.log('Sample duel structure:', recentDuelsData[0]);
       setRecentDuels(recentDuelsData);
     } catch (err) {
       console.error('Error loading recent duels:', err);
@@ -187,6 +186,42 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     }
   };
 
+  // Clean up expired duels manually (only when needed)
+  const cleanupExpiredDuels = async () => {
+    try {
+      const expiredDuels = duels.filter(duel => {
+        if (duel.status === 'PENDING') {
+          const threeHoursAgo = Date.now() - 3 * 60 * 60 * 1000;
+          return new Date(duel.createdAt).getTime() < threeHoursAgo;
+        } else if (duel.status === 'ACTIVE') {
+          const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+          return (
+            duel.startTime && new Date(duel.startTime).getTime() < twoHoursAgo
+          );
+        }
+        return false;
+      });
+
+      for (const duel of expiredDuels) {
+        try {
+          await rejectDuel(duel.duelId);
+          console.log(`[DUEL] Cleaned up expired duel: ${duel.duelId}`);
+        } catch (error) {
+          console.error(
+            `[DUEL] Failed to cleanup expired duel ${duel.duelId}:`,
+            error
+          );
+        }
+      }
+
+      if (expiredDuels.length > 0) {
+        await loadDuels(); // Reload to reflect changes
+      }
+    } catch (err) {
+      console.error('Error cleaning up expired duels:', err);
+    }
+  };
+
   // Handle starting a duel (revealing problem and starting timer)
   const handleStartDuel = (duelId, problemSlug) => {
     const startTime = Date.now();
@@ -201,8 +236,15 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     startSubmissionPolling(duelId, problemSlug, startTime);
   };
 
-  // Start polling for LeetCode submissions using real API
+  // Start polling for LeetCode submissions using real API (only for ACTIVE duels)
   const startSubmissionPolling = (duelId, problemSlug, startTime) => {
+    // Only poll for ACTIVE duels
+    const currentDuel = duels.find(d => d.duelId === duelId);
+    if (!currentDuel || currentDuel.status !== 'ACTIVE') {
+      console.log(`[DUEL] Skipping polling for duel ${duelId} - not active`);
+      return;
+    }
+
     if (pollingIntervals.current[duelId]) {
       clearInterval(pollingIntervals.current[duelId]);
     }
@@ -828,11 +870,53 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
                 .map(renderDuel)}
 
               {/* Show completed duels if any */}
-              {completedDuels.length > 0 && (
+              {(completedDuels.length > 0 || recentDuels.length > 0) && (
                 <>
                   <div className="text-xs font-bold text-gray-600 mt-3 mb-2 border-b border-gray-300 pb-1">
                     RECENT COMPLETED DUELS
                   </div>
+                  {/* Show recent duels first, then completed duels from current list */}
+                  {recentDuels.map(duel => {
+                    const isWinner = duel.winner === userData.leetUsername;
+                    const otherUser =
+                      duel.challenger === userData.leetUsername
+                        ? duel.challengee
+                        : duel.challenger;
+                    const otherUserDisplay =
+                      leaderboard.find(u => u.username === otherUser)?.name ||
+                      otherUser;
+
+                    return (
+                      <div
+                        key={duel.duelId}
+                        className={`mb-2 p-2 rounded border-2 ${
+                          isWinner
+                            ? 'bg-green-100 border-green-400'
+                            : 'bg-gray-100 border-gray-400'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold">
+                              {isWinner ? '🏆 WIN' : '❌ LOSS'}
+                            </span>
+                            <span className="ml-2">vs {otherUserDisplay}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold">{duel.problemTitle}</div>
+                            <div className="text-gray-600">
+                              {duel.difficulty}
+                            </div>
+                            {isWinner && duel.xpAwarded && (
+                              <div className="text-green-600 font-bold">
+                                +{duel.xpAwarded} XP
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                   {completedDuels.map(duel => {
                     const isWinner = duel.winner === userData.leetUsername;
                     const otherUser =

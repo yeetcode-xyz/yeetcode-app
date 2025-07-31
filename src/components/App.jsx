@@ -1,6 +1,5 @@
 import '../index.css';
 import React, { useState, useEffect, useRef } from 'react';
-import { useAnalytics } from '../utils/analytics';
 import { STORAGE_KEYS, saveToStorage, loadFromStorage } from '../utils/storage';
 import { useDevHelpers } from '../hooks/useDevHelpers';
 import WelcomeStep from './WelcomeStep';
@@ -12,8 +11,6 @@ import LeaderboardStep from './LeaderboardStep';
 
 const APP_VERSION = '0.1.2';
 function App() {
-  const analytics = useAnalytics();
-
   // Core state
   const [step, setStep] = useState('welcome');
   const [userData, setUserData] = useState({
@@ -69,43 +66,6 @@ function App() {
     }
   }, []);
 
-  // Track app initialization (only once)
-  useEffect(() => {
-    analytics.trackFeatureUsed('app_opened', {
-      step: step,
-      has_saved_data: !!loadFromStorage(STORAGE_KEYS.USER_DATA),
-    });
-  }, []); // Remove analytics dependency to prevent infinite loops
-
-  // Track step changes (debounced to prevent spam)
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      analytics.trackFeatureUsed('step_viewed', {
-        step: step,
-        user_name: userData.name || 'anonymous',
-        has_group: groupData.joined,
-      });
-    }, 1000); // 1 second debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [step, userData.name, groupData.joined]); // Remove analytics dependency
-
-  // Identify user when userData changes (debounced)
-  useEffect(() => {
-    if (userData.name && userData.leetUsername) {
-      const timeoutId = setTimeout(() => {
-        // Use secure analytics identification instead of direct PostHog access
-        analytics.identifyUser(userData.leetUsername, {
-          name: userData.name,
-          leetcode_username: userData.leetUsername,
-          app_version: APP_VERSION,
-        });
-      }, 2000); // 2 second debounce for user identification
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [userData.name, userData.leetUsername]); // Remove analytics dependency
-
   // Save user data when it changes
   useEffect(() => {
     if (userData.name || userData.leetUsername) {
@@ -120,10 +80,26 @@ function App() {
     }
   }, [step, groupData]);
 
-  // Track app state for smart notifications
+  // Track app state for smart notifications - prevent double calls
+  const prevAppState = useRef({ step: null, userData: null, dailyData: null });
+
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI.updateAppState(step, userData, dailyData);
+      // Only update if there's an actual change to prevent double calls
+      const currentState = { step, userData, dailyData };
+      const prevState = prevAppState.current;
+
+      const hasChanged =
+        prevState.step !== step ||
+        prevState.userData?.leetUsername !== userData?.leetUsername ||
+        prevState.dailyData?.dailyComplete !== dailyData?.dailyComplete ||
+        prevState.dailyData?.todaysProblem?.title !==
+          dailyData?.todaysProblem?.title;
+
+      if (hasChanged) {
+        window.electronAPI.updateAppState(step, userData, dailyData);
+        prevAppState.current = currentState;
+      }
     }
   }, [step, userData, dailyData]);
 
@@ -247,10 +223,15 @@ function App() {
   const detectLeaderboardChanges = (newLeaderboard, oldLeaderboard) => {
     if (!oldLeaderboard.length) return; // Skip first load
 
-    // Calculate XP for sorting
+    // Calculate XP for sorting - ensure all values are numbers
     const calculateXP = user => {
-      const baseXP = user.easy * 100 + user.medium * 300 + user.hard * 500;
-      return baseXP + (user.xp || 0);
+      const easy = Number(user.easy) || 0;
+      const medium = Number(user.medium) || 0;
+      const hard = Number(user.hard) || 0;
+      const bonusXP = Number(user.xp) || 0;
+
+      const baseXP = easy * 100 + medium * 300 + hard * 500;
+      return baseXP + bonusXP;
     };
 
     // Sort both leaderboards by XP
@@ -342,16 +323,16 @@ function App() {
     try {
       // 1) IPC into main, DynamoDB GSI or scan
       const items = await window.electronAPI.getStatsForGroup(groupData.code);
-      // 2) Normalize + compute totals
+      // 2) Normalize + compute totals - ensure all values are numbers
       const normalized = items.map(item => {
         return {
           username: item.username,
           name: item.name, // Now using the proper display name from backend
-          easy: item.easy ?? 0,
-          medium: item.medium ?? 0,
-          hard: item.hard ?? 0,
-          today: item.today ?? 0,
-          xp: item.xp ?? 0, // Include XP from daily challenges
+          easy: Number(item.easy) || 0,
+          medium: Number(item.medium) || 0,
+          hard: Number(item.hard) || 0,
+          today: Number(item.today) || 0,
+          xp: Number(item.xp) || 0, // Include XP from daily challenges - ensure it's a number
         };
       });
 
@@ -362,11 +343,10 @@ function App() {
         return totalB - totalA;
       });
 
-      // Track leaderboard view
+      // Calculate user rank
       const userRank =
         normalized.findIndex(user => user.username === userData.leetUsername) +
         1;
-      analytics.trackLeaderboardView(normalized.length, userRank || 0);
 
       setLeaderboard(normalized);
     } catch (err) {
@@ -398,15 +378,6 @@ function App() {
   };
 
   const handleDailyComplete = async result => {
-    // Track daily problem completion
-    if (dailyData.todaysProblem) {
-      analytics.trackDailyProblemComplete(
-        dailyData.todaysProblem.title,
-        0, // time spent - we don't track this currently
-        dailyData.streak + 1 // assuming streak increases by 1
-      );
-    }
-
     // Refresh both daily data and leaderboard
     await Promise.all([fetchDailyProblem(), fetchLeaderboard()]);
   };
@@ -567,17 +538,13 @@ function App() {
         // Mock join for development
       }
 
-      // Track successful group join
-      analytics.trackGroupJoin(groupData.code, true);
+      // Group join successful
 
       const newGroupData = { ...groupData, joined: true };
       setGroupData(newGroupData);
       navigateToStep('leaderboard');
     } catch (err) {
       console.error('Error joining group:', err);
-
-      // Track failed group join
-      analytics.trackGroupJoin(groupData.code, false);
 
       setError(
         err.message ||
@@ -608,10 +575,6 @@ function App() {
         groupId = result.groupId;
       } else {
       }
-
-      // Track group creation (treat as successful group join)
-      analytics.trackGroupJoin(groupId, true);
-      analytics.trackFeatureUsed('group_created', { group_code: groupId });
 
       const newGroupData = { code: groupId, joined: true };
       setGroupData(newGroupData);

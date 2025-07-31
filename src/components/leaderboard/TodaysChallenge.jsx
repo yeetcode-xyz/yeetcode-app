@@ -1,17 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAnalytics } from '../../utils/analytics';
 
 const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
-  const analytics = useAnalytics();
-
   const handleStartCoding = () => {
     if (dailyData.todaysProblem) {
-      // Track daily problem start
-      analytics.trackDailyProblemStart(
-        dailyData.todaysProblem.title,
-        dailyData.todaysProblem.difficulty
-      );
-
       const leetcodeUrl = `https://leetcode.com/problems/${dailyData.todaysProblem.titleSlug}/`;
       window.electronAPI.openExternalUrl(leetcodeUrl);
     }
