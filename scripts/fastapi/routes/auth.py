@@ -9,7 +9,7 @@ from ..auth import verify_api_key, check_rate_limit
 from ..email import send_email_otp
 from ..aws import VerificationOperations
 
-router = APIRouter(prefix="/api/v1", tags=["Authentication"])
+router = APIRouter(tags=["Authentication"])
 
 DEBUG_MODE = False
 

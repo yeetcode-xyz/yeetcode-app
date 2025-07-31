@@ -8,7 +8,7 @@ from ..models import DailyProblemRequest
 from ..auth import verify_api_key
 from ..aws import DailyProblemOperations
 
-router = APIRouter(prefix="/api/v1", tags=["Daily Problems"])
+router = APIRouter(tags=["Daily Problems"])
 
 DEBUG_MODE = False
 

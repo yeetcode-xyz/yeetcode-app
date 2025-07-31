@@ -9,7 +9,7 @@ from ..models import UserData
 from ..auth import verify_api_key
 from ..aws import UserOperations
 
-router = APIRouter(prefix="/api/v1", tags=["Users"])
+router = APIRouter(tags=["Users"])
 
 DEBUG_MODE = False
 

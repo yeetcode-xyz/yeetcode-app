@@ -102,3 +102,5 @@ YeetCode_Certificate.p12
 package-mac-signed.sh
 
 scripts/fastapi/venv/
+
+scripts/fastapi/__pycache__/

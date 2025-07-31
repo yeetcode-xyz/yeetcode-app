@@ -8,7 +8,7 @@ from ..models import DuelRequest
 from ..auth import verify_api_key
 from ..aws import DuelOperations
 
-router = APIRouter(prefix="/api/v1", tags=["Duels"])
+router = APIRouter(tags=["Duels"])
 
 DEBUG_MODE = False
 

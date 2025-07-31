@@ -932,45 +932,6 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
   }
 });
 
-// Update bounty progress and check for completion
-ipcMain.handle(
-  'update-bounty-progress',
-  async (event, username, bountyId, newProgress) => {
-    try {
-      const axios = require('axios');
-      const fastApiUrl = process.env.FASTAPI_URL;
-      const apiKey = process.env.YETCODE_API_KEY;
-
-      const response = await axios.post(
-        `${fastApiUrl}/update-bounty-progress`,
-        {
-          username: username,
-          bounty_id: bountyId,
-          progress: newProgress,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 10000,
-        }
-      );
-
-      if (response.data.success) {
-        return response.data;
-      } else {
-        throw new Error(
-          response.data.error || 'Failed to update bounty progress'
-        );
-      }
-    } catch (error) {
-      console.error('[ERROR][update-bounty-progress]', error);
-      return { success: false, error: error.message };
-    }
-  }
-);
-
 // Get all bounties
 ipcMain.handle('get-bounties', async (event, username) => {
   try {
@@ -1628,77 +1589,6 @@ ipcMain.handle(
     }
   }
 );
-
-// Manual duel completion for testing (when LeetCode API isn't available)
-ipcMain.handle(
-  'simulate-duel-completion',
-  async (event, duelId, username, timeInSeconds = null) => {
-    console.log(
-      '[DEBUG][simulate-duel-completion] duelId:',
-      duelId,
-      'username:',
-      username,
-      'timeInSeconds:',
-      timeInSeconds
-    );
-
-    try {
-      // Generate a realistic random time if not provided (30 seconds to 10 minutes)
-      const elapsedMs = timeInSeconds
-        ? timeInSeconds * 1000
-        : (30 + Math.random() * 570) * 1000;
-
-      // Use the existing record-duel-submission logic
-      const result = await recordDuelSubmissionLogic(
-        duelId,
-        username,
-        elapsedMs
-      );
-
-      console.log(
-        '[DEBUG][simulate-duel-completion] Simulated completion with time:',
-        elapsedMs + 'ms'
-      );
-      return result;
-    } catch (error) {
-      console.error('[ERROR][simulate-duel-completion]', error);
-      throw error;
-    }
-  }
-);
-
-// Helper function to award XP for duel victory
-const awardDuelXP = async (username, xpAmount) => {
-  try {
-    const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
-
-    const response = await axios.post(
-      `${fastApiUrl}/award-xp`,
-      {
-        username: username,
-        xp_amount: xpAmount,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      }
-    );
-
-    if (response.data.success) {
-      console.log(`[DEBUG][awardDuelXP] Awarded ${xpAmount} XP to ${username}`);
-    } else {
-      throw new Error(response.data.error || 'Failed to award XP');
-    }
-  } catch (error) {
-    console.error('[ERROR][awardDuelXP]', error);
-    throw error;
-  }
-};
 
 // Helper function to fetch problem details from LeetCode API
 const fetchLeetCodeProblemDetails = async slug => {

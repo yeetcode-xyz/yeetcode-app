@@ -156,22 +156,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('get-bounties', validatedUsername);
   },
 
-  updateBountyProgress: (username, bountyId, progress) => {
-    const validatedUsername = validateInput.username(username);
-    if (typeof bountyId !== 'string' || bountyId.length > 100) {
-      throw new Error('Invalid bounty ID');
-    }
-    if (typeof progress !== 'number' || progress < 0 || progress > 10000) {
-      throw new Error('Invalid progress value');
-    }
-    return ipcRenderer.invoke(
-      'update-bounty-progress',
-      validatedUsername,
-      bountyId,
-      progress
-    );
-  },
-
   checkDailyNotification: () => ipcRenderer.invoke('check-daily-notification'),
 
   // New methods for tracking app state
@@ -274,27 +258,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'fetch-leetcode-submissions',
       validatedUsername,
       limit
-    );
-  },
-
-  simulateDuelCompletion: (duelId, username, timeInSeconds) => {
-    if (typeof duelId !== 'string' || duelId.length > 100) {
-      throw new Error('Invalid duel ID');
-    }
-    const validatedUsername = validateInput.username(username);
-    if (
-      timeInSeconds !== null &&
-      (typeof timeInSeconds !== 'number' ||
-        timeInSeconds < 0 ||
-        timeInSeconds > 86400)
-    ) {
-      throw new Error('Invalid time value');
-    }
-    return ipcRenderer.invoke(
-      'simulate-duel-completion',
-      duelId,
-      validatedUsername,
-      timeInSeconds
     );
   },
 });

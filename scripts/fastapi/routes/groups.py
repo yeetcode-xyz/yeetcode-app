@@ -8,7 +8,7 @@ from ..models import GroupRequest, JoinGroupRequest
 from ..auth import verify_api_key
 from ..aws import GroupOperations, UserOperations
 
-router = APIRouter(prefix="/api/v1", tags=["Groups"])
+router = APIRouter(tags=["Groups"])
 
 DEBUG_MODE = False
 
