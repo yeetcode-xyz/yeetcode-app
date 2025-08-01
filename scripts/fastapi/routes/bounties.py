@@ -4,9 +4,9 @@ Bounty routes
 
 from fastapi import APIRouter, Depends
 
-from ..models import BountyRequest
-from ..auth import verify_api_key
-from ..aws import BountyOperations
+from models import BountyRequest
+from auth import verify_api_key
+from aws import BountyOperations
 
 router = APIRouter(tags=["Bounties"])
 

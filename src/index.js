@@ -849,7 +849,7 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
       if (data.todaysProblem) {
         try {
           problemDetails = await fetchLeetCodeProblemDetails(
-            data.todaysProblem.slug
+            data.todaysProblem.titleSlug || data.todaysProblem.slug
           );
         } catch (error) {
           console.error(
@@ -859,11 +859,15 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
           // Fallback to stored data
           problemDetails = {
             title: data.todaysProblem.title,
-            titleSlug: data.todaysProblem.slug,
+            titleSlug: data.todaysProblem.titleSlug || data.todaysProblem.slug,
             frontendQuestionId: data.todaysProblem.frontendId,
             difficulty: 'Unknown',
             content: 'Problem details unavailable',
-            topicTags: data.todaysProblem.tags.map(tag => ({ name: tag })),
+            topicTags: (
+              data.todaysProblem.topicTags ||
+              data.todaysProblem.tags ||
+              []
+            ).map(tag => ({ name: tag })),
           };
         }
       }

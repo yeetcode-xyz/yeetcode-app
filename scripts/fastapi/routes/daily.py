@@ -4,9 +4,9 @@ Daily problem routes
 
 from fastapi import APIRouter, Depends
 
-from ..models import DailyProblemRequest
-from ..auth import verify_api_key
-from ..aws import DailyProblemOperations
+from models import DailyProblemRequest
+from auth import verify_api_key
+from aws import DailyProblemOperations
 
 router = APIRouter(tags=["Daily Problems"])
 

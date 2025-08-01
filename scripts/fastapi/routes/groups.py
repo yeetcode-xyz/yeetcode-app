@@ -4,9 +4,9 @@ Group routes
 
 from fastapi import APIRouter, Depends
 
-from ..models import GroupRequest, JoinGroupRequest
-from ..auth import verify_api_key
-from ..aws import GroupOperations, UserOperations
+from models import GroupRequest, JoinGroupRequest
+from auth import verify_api_key
+from aws import GroupOperations, UserOperations
 
 router = APIRouter(tags=["Groups"])
 

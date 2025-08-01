@@ -8,10 +8,17 @@ from typing import Dict
 from collections import defaultdict
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configuration
-API_KEY = os.getenv("YETCODE_API_KEY")
 security = HTTPBearer()
+
+def get_api_key():
+    """Get API key after dotenv is loaded"""
+    return os.getenv("YETCODE_API_KEY")
 
 # Rate limiting storage (in-memory for simplicity)
 rate_limit_store: Dict[str, float] = defaultdict(lambda: 0)
@@ -19,7 +26,9 @@ rate_limit_store: Dict[str, float] = defaultdict(lambda: 0)
 
 def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Verify the API key from the Authorization header"""
-    if credentials.credentials != API_KEY:
+    api_key = get_api_key()
+    
+    if credentials.credentials != api_key:
         raise HTTPException(
             status_code=401,
             detail="Invalid API key"

@@ -68,8 +68,28 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
   }
 
   const problem = dailyData.todaysProblem;
+
+  // Safety check for problem
+  if (!problem) {
+    return (
+      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+        <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+          <div className="flex items-center gap-2">
+            <span className="text-white text-lg">🎯</span>
+            <h3 className="font-bold text-white text-lg">TODAY'S CHALLENGE</h3>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="text-center text-gray-600">
+            No problem data available
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const problemDescription =
-    stripHtmlTags(problem.content).substring(0, 200) + '...';
+    stripHtmlTags(problem.content || '').substring(0, 200) + '...';
 
   return (
     <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
@@ -98,20 +118,22 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
           {problemDescription}
         </p>
 
-        {problem.topicTags && problem.topicTags.length > 0 && (
-          <div className="mb-4">
-            <div className="flex flex-wrap gap-1">
-              {problem.topicTags.slice(0, 5).map((tag, index) => (
-                <span
-                  key={index}
-                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs border border-blue-300"
-                >
-                  {tag.name || tag}
-                </span>
-              ))}
+        {problem.topicTags &&
+          Array.isArray(problem.topicTags) &&
+          problem.topicTags.length > 0 && (
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-1">
+                {problem.topicTags.slice(0, 5).map((tag, index) => (
+                  <span
+                    key={index}
+                    className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs border border-blue-300"
+                  >
+                    {tag.name || tag}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         <div className="flex items-center justify-between gap-2">
           {/* Action button (left) */}

@@ -39,11 +39,24 @@ const ActiveBounties = ({ userData }) => {
 
   const getBountyIcon = (type, tags) => {
     if (type === 'leetcode') {
-      if (tags?.some(tag => tag.toLowerCase().includes('binary tree')))
+      // Handle tags that might be objects or strings
+      const tagStrings =
+        tags
+          ?.map(tag => {
+            if (typeof tag === 'string') return tag;
+            if (tag && typeof tag === 'object' && tag.S) return tag.S;
+            return '';
+          })
+          .filter(tag => tag) || [];
+
+      if (tagStrings.some(tag => tag.toLowerCase().includes('binary tree')))
         return '🌳';
-      if (tags?.some(tag => tag.toLowerCase().includes('graph'))) return '📊';
-      if (tags?.some(tag => tag.toLowerCase().includes('array'))) return '📋';
-      if (tags?.some(tag => tag.toLowerCase().includes('string'))) return '📝';
+      if (tagStrings.some(tag => tag.toLowerCase().includes('graph')))
+        return '📊';
+      if (tagStrings.some(tag => tag.toLowerCase().includes('array')))
+        return '📋';
+      if (tagStrings.some(tag => tag.toLowerCase().includes('string')))
+        return '📝';
       return '💻';
     }
     return '⭐';
@@ -189,14 +202,18 @@ const ActiveBounties = ({ userData }) => {
               </div>
               {bounty.tags && bounty.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {bounty.tags.map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium"
-                    >
-                      {tag}
-                    </span>
-                  ))}
+                  {bounty.tags.map((tag, idx) => {
+                    const tagText =
+                      typeof tag === 'string' ? tag : tag?.S || '';
+                    return (
+                      <span
+                        key={idx}
+                        className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium"
+                      >
+                        {tagText}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -5,9 +5,9 @@ User routes
 from fastapi import APIRouter, Depends
 from typing import Dict
 
-from ..models import UserData
-from ..auth import verify_api_key
-from ..aws import UserOperations
+from models import UserData
+from auth import verify_api_key
+from aws import UserOperations
 
 router = APIRouter(tags=["Users"])
 

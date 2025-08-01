@@ -104,3 +104,5 @@ package-mac-signed.sh
 scripts/fastapi/venv/
 
 scripts/fastapi/__pycache__/
+
+scripts/fastapi/routes/__pycache__

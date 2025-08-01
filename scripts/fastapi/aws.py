@@ -8,6 +8,10 @@ import boto3
 from datetime import datetime
 from typing import Dict, Optional, List, Any
 from botocore.exceptions import ClientError
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Initialize DynamoDB
 dynamodb = boto3.resource('dynamodb')
@@ -35,6 +39,9 @@ def normalize_dynamodb_item(item: Dict) -> Dict:
                 normalized[key] = value['BOOL']
             elif 'M' in value:
                 normalized[key] = normalize_dynamodb_item(value['M'])
+            elif 'L' in value:
+                # Handle DynamoDB List
+                normalized[key] = [normalize_dynamodb_item(item) if isinstance(item, dict) else item for item in value['L']]
             elif 'SS' in value:
                 normalized[key] = value['SS']
             else:
@@ -466,37 +473,43 @@ class DailyProblemOperations:
     
     @staticmethod
     def get_daily_problem_data(username: str) -> Dict:
-        """Get daily problem data for a user"""
+        """Get latest problem data for a user"""
         try:
             if not DAILY_TABLE:
                 raise Exception("DAILY_TABLE not configured")
             
             from datetime import datetime, timedelta
             
-            today = datetime.now().strftime('%Y-%m-%d')
-            
-            # Get today's problem
-            todays_params = {
-                'TableName': DAILY_TABLE,
-                'Key': {'date': {'S': today}}
+            # Get the latest problem from the database
+            scan_params = {
+                'TableName': DAILY_TABLE
             }
             
-            todays_problem = None
+            latest_problem = None
             try:
-                todays_result = ddb.get_item(**todays_params)
-                if 'Item' in todays_result:
-                    item = todays_result['Item']
-                    todays_problem = {
-                        'date': item.get('date', {}).get('S'),
-                        'slug': item.get('slug', {}).get('S'),
-                        'title': item.get('title', {}).get('S'),
-                        'frontendId': item.get('frontendId', {}).get('S'),
-                        'tags': item.get('tags', {}).get('SS', []),
-                        'users': item.get('users', {}).get('M', {})
+                scan_result = ddb.scan(**scan_params)
+                all_problems = scan_result.get('Items', [])
+                
+                if all_problems:
+                    # Sort by date to get the latest problem
+                    sorted_problems = sorted(all_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+                    latest_item = sorted_problems[0]
+                    
+                    # Normalize the item to get proper field names
+                    normalized_item = normalize_dynamodb_item(latest_item)
+                    latest_problem = {
+                        'date': normalized_item.get('date'),
+                        'titleSlug': normalized_item.get('slug'),  # For LeetCode URL
+                        'title': normalized_item.get('title'),
+                        'frontendId': normalized_item.get('frontendId'),
+                        'topicTags': normalized_item.get('tags', []),  # Frontend expects topicTags
+                        'difficulty': normalized_item.get('difficulty', 'Medium'),  # Default difficulty
+                        'content': normalized_item.get('content', ''),  # Problem description
+                        'users': normalized_item.get('users', {})
                     }
             except Exception as query_error:
                 if DEBUG_MODE:
-                    print(f"[DEBUG] Direct query failed: {query_error}")
+                    print(f"[DEBUG] Scan failed: {query_error}")
             
             # Get recent problems for streak calculation
             thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
@@ -515,11 +528,11 @@ class DailyProblemOperations:
                     print(f"[ERROR] Scan failed: {scan_error}")
                 daily_problems = []
             
-            # Check if user completed today's problem
+            # Check if user completed the latest problem
             daily_complete = False
-            if todays_problem and 'users' in todays_problem:
+            if latest_problem and 'users' in latest_problem:
                 normalized_username = username.lower()
-                daily_complete = normalized_username in todays_problem['users']
+                daily_complete = normalized_username in latest_problem['users']
             
             # Calculate streak
             streak = 0
@@ -539,7 +552,7 @@ class DailyProblemOperations:
                 "data": {
                     "dailyComplete": daily_complete,
                     "streak": streak,
-                    "todaysProblem": todays_problem
+                    "todaysProblem": latest_problem
                 }
             }
             
@@ -601,34 +614,45 @@ class BountyOperations:
     
     @staticmethod
     def get_user_bounties(username: str) -> Dict:
-        """Get bounties for a user"""
+        """Get all non-expired bounties with user's progress"""
         try:
             if not BOUNTIES_TABLE:
                 raise Exception("BOUNTIES_TABLE not configured")
             
             normalized_username = username.lower()
+            current_time = int(time.time())
             
-            # Get user's active bounties
+            # Get all bounties
             scan_params = {
-                'TableName': BOUNTIES_TABLE,
-                'FilterExpression': 'username = :username',
-                'ExpressionAttributeValues': {':username': {'S': normalized_username}}
+                'TableName': BOUNTIES_TABLE
             }
             
-            try:
-                scan_result = ddb.scan(**scan_params)
-                bounties = scan_result.get('Items', [])
-            except Exception as scan_error:
-                if DEBUG_MODE:
-                    print(f"[ERROR] Bounty scan failed: {scan_error}")
-                bounties = []
+            scan_result = ddb.scan(**scan_params)
+            all_bounties = scan_result.get('Items', [])
             
-            return {"success": True, "data": bounties}
+            # Filter non-expired bounties and add user progress
+            active_bounties = []
+            for bounty in all_bounties:
+                expiry_date = bounty.get('expirydate', {}).get('N', '0')
+                if int(expiry_date) > current_time:
+                    # Get user's progress (0 if not found)
+                    users_map = bounty.get('users', {})
+                    user_progress = users_map.get(normalized_username, {}).get('N', '0')
+                    
+                    # Add user progress to bounty data
+                    bounty_with_progress = dict(bounty)
+                    bounty_with_progress['userProgress'] = {'N': user_progress}
+                    active_bounties.append(bounty_with_progress)
+            
+            # Normalize DynamoDB data for bounties
+            normalized_bounties = [normalize_dynamodb_item(bounty) for bounty in active_bounties]
+            
+            return {"success": True, "data": normalized_bounties}
             
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to get bounties: {error}")
-            raise error
+            return {"success": False, "error": str(error)}
     
     
 

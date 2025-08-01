@@ -6,6 +6,10 @@ import os
 import time
 from typing import Dict
 import resend
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Initialize Resend
 resend.api_key = os.getenv("RESEND_API_KEY")

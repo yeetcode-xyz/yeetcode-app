@@ -4,9 +4,9 @@ Duel routes
 
 from fastapi import APIRouter, Depends
 
-from ..models import DuelRequest
-from ..auth import verify_api_key
-from ..aws import DuelOperations
+from models import DuelRequest
+from auth import verify_api_key
+from aws import DuelOperations
 
 router = APIRouter(tags=["Duels"])
 

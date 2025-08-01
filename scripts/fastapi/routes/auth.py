@@ -4,10 +4,10 @@ Authentication routes
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..models import EmailOTPRequest, EmailOTPResponse
-from ..auth import verify_api_key, check_rate_limit
-from ..email import send_email_otp
-from ..aws import VerificationOperations
+from models import EmailOTPRequest, EmailOTPResponse
+from auth import verify_api_key, check_rate_limit
+from email_service import send_email_otp
+from aws import VerificationOperations
 
 router = APIRouter(tags=["Authentication"])
 
