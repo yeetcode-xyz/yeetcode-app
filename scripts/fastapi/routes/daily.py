@@ -37,3 +37,15 @@ async def complete_daily_problem_endpoint(
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
+
+
+@router.get("/top-daily-problems")
+async def get_top_daily_problems_endpoint(
+    api_key: str = Depends(verify_api_key)
+):
+    """Get top 2 daily problems for caching"""
+    try:
+        result = DailyProblemOperations.get_top_daily_problems()
+        return result
+    except Exception as error:
+        return {"success": False, "error": str(error)}

@@ -14,8 +14,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Initialize DynamoDB
-dynamodb = boto3.resource('dynamodb')
-ddb = boto3.client('dynamodb')
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
+ddb = boto3.client('dynamodb', region_name=AWS_REGION)
 
 # DynamoDB Table Names
 USERS_TABLE = os.getenv("USERS_TABLE")
@@ -606,6 +607,56 @@ class DailyProblemOperations:
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to complete daily problem: {error}")
+            raise error
+    
+    @staticmethod
+    def get_top_daily_problems() -> Dict:
+        """Get top 2 most recent daily problems for caching"""
+        try:
+            if not DAILY_TABLE:
+                raise Exception("DAILY_TABLE not configured")
+            
+            # Scan daily table to get all problems
+            scan_params = {
+                'TableName': DAILY_TABLE
+            }
+            
+            scan_result = ddb.scan(**scan_params)
+            all_problems = scan_result.get('Items', [])
+            
+            if all_problems:
+                # Sort by date to get the most recent problems
+                sorted_problems = sorted(all_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+                
+                # Get top 2 problems
+                top_problems = sorted_problems[:2]
+                
+                # Normalize the data
+                normalized_problems = []
+                for item in top_problems:
+                    normalized_item = normalize_dynamodb_item(item)
+                    problem = {
+                        'date': normalized_item.get('date'),
+                        'titleSlug': normalized_item.get('slug'),
+                        'title': normalized_item.get('title'),
+                        'frontendId': normalized_item.get('frontendId'),
+                        'topicTags': normalized_item.get('tags', []),
+                        'difficulty': normalized_item.get('difficulty', 'Medium'),
+                        'content': normalized_item.get('content', ''),
+                        'users': normalized_item.get('users', {})
+                    }
+                    normalized_problems.append(problem)
+                
+                if DEBUG_MODE:
+                    print(f"[DEBUG] Retrieved top {len(normalized_problems)} daily problems")
+                
+                return {"success": True, "data": normalized_problems}
+            
+            return {"success": True, "data": []}
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get top daily problems: {error}")
             raise error
 
 

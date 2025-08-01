@@ -105,26 +105,46 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
 
   useEffect(() => {
     const currentRank = `${rankName} ${rankSub}`;
+    const storageKey = `yeetcode_${userData?.leetUsername}_lastKnownRank`;
 
     // Set initial values on first render
     if (!hasMounted.current) {
       hasMounted.current = true;
-      prevRank.current = currentRank;
-      prevXP.current = userXP;
+
+      // Load last known rank and XP from localStorage
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const { rank, xp } = JSON.parse(stored);
+          prevRank.current = rank;
+          prevXP.current = xp;
+        } else {
+          prevRank.current = currentRank;
+          prevXP.current = userXP;
+        }
+      } catch (e) {
+        prevRank.current = currentRank;
+        prevXP.current = userXP;
+      }
+
       // Add delay before allowing rank up animations
       setTimeout(() => {
         initialLoadComplete.current = true;
-      }, 1000); // 1 second delay
+      }, 2000); // 2 second delay to ensure data is stable
       return;
     }
 
     // Only show rank up if:
-    // 1. Initial load is complete (1 second delay)
+    // 1. Initial load is complete (2 second delay)
     // 2. XP actually increased
     // 3. Rank actually changed
+    // 4. Not just a page reload (XP increased significantly, not just data loading)
+    const xpIncreased =
+      prevXP.current < userXP && userXP - prevXP.current >= 100;
+
     if (
       initialLoadComplete.current &&
-      prevXP.current < userXP &&
+      xpIncreased &&
       prevRank.current &&
       prevRank.current !== currentRank
     ) {
@@ -132,9 +152,22 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
       setTimeout(() => setShowRankUp(false), 2000);
     }
 
+    // Save current state to localStorage
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          rank: currentRank,
+          xp: userXP,
+        })
+      );
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+
     prevRank.current = currentRank;
     prevXP.current = userXP;
-  }, [rankName, rankSub, userXP]);
+  }, [rankName, rankSub, userXP, userData?.leetUsername]);
 
   return (
     <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-80 relative">

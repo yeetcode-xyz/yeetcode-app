@@ -260,6 +260,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
       limit
     );
   },
+
+  // Cache-related methods
+  getCachedTopProblems: () => {
+    return ipcRenderer.invoke('get-cached-top-problems');
+  },
+
+  clearDailyProblemCache: () => {
+    return ipcRenderer.invoke('clear-daily-problem-cache');
+  },
+
+  testDiscordNotification: () => {
+    return ipcRenderer.invoke('test-discord-notification');
+  },
 });
 
 // Expose secure configuration (no sensitive data)
