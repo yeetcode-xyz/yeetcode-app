@@ -23,6 +23,7 @@ USERS_TABLE = os.getenv("USERS_TABLE")
 DAILY_TABLE = os.getenv("DAILY_TABLE")
 DUELS_TABLE = os.getenv("DUELS_TABLE")
 BOUNTIES_TABLE = os.getenv("BOUNTIES_TABLE")
+GROUPS_TABLE = os.getenv("GROUPS_TABLE")
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 
@@ -76,6 +77,41 @@ class UserOperations:
             raise error
     
     @staticmethod
+    def get_user_by_email(email: str) -> Optional[Dict]:
+        """Get user data by email from DynamoDB"""
+        try:
+            if not USERS_TABLE:
+                raise Exception("USERS_TABLE not configured")
+            
+            # Scan the table to find user by email
+            # Note: In production, you might want to create a GSI on email
+            response = ddb.scan(
+                TableName=USERS_TABLE,
+                FilterExpression='email = :email',
+                ExpressionAttributeValues={
+                    ':email': {'S': email.lower()}
+                }
+            )
+            
+            if 'Items' in response and response['Items']:
+                # If multiple users found, prefer the one that has completed onboarding (username !== email)
+                items = [normalize_dynamodb_item(item) for item in response['Items']]
+                
+                # Sort by completion status and group membership
+                # Priority: 1) Completed onboarding (username !== email), 2) Has group_id
+                items.sort(key=lambda x: (x.get('username') == x.get('email'), not x.get('group_id')))
+                
+                if DEBUG_MODE:
+                    print(f"[DEBUG] Found {len(items)} users for email {email}: {items}")
+                
+                return items[0]  # Return the most complete user record
+            return None
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get user by email: {error}")
+            raise error
+    
+    @staticmethod
     def update_user_data(username: str, updates: Dict) -> bool:
         """Update user data in DynamoDB"""
         try:
@@ -113,26 +149,38 @@ class UserOperations:
                 print(f"[ERROR] Failed to update user data: {error}")
             raise error
     
+
+    
     @staticmethod
-    def create_user(email: str) -> Dict:
-        """Create new user"""
+    def create_user_with_username(username: str, email: str, display_name: str = None) -> Dict:
+        """Create new user with specific username and email"""
         try:
             if not USERS_TABLE:
                 raise Exception("USERS_TABLE not configured")
             
+            # Ensure email is lowercase
+            normalized_email = email.lower()
+            normalized_username = username.lower()
+            
             user_params = {
                 'TableName': USERS_TABLE,
                 'Item': {
-                    'username': {'S': email.lower()},
-                    'email': {'S': email.lower()},
-                    'created_at': {'S': datetime.now().isoformat()}
+                    'username': {'S': normalized_username},
+                    'email': {'S': normalized_email},
+                    'display_name': {'S': display_name or username},
+                    'created_at': {'S': datetime.now().isoformat()},
+                    'updated_at': {'S': datetime.now().isoformat()}
                 }
             }
             ddb.put_item(**user_params)
-            return UserOperations.get_user_data(email.lower())
+            
+            if DEBUG_MODE:
+                print(f"[DEBUG] Created user with username {normalized_username} and email {normalized_email}")
+            
+            return UserOperations.get_user_data(normalized_username)
         except Exception as error:
             if DEBUG_MODE:
-                print(f"[ERROR] Failed to create user: {error}")
+                print(f"[ERROR] Failed to create user with username: {error}")
             raise error
     
     @staticmethod
@@ -174,13 +222,15 @@ class VerificationOperations:
             if not USERS_TABLE:
                 raise Exception("USERS_TABLE not configured")
                 
+            # Ensure email is lowercase
+            normalized_email = email.lower()
             ttl = int(time.time()) + 10 * 60  # 10 minutes from now
             
             params = {
                 'TableName': USERS_TABLE,
                 'Item': {
-                    'username': {'S': f"verification_{email.lower()}"},
-                    'email': {'S': email.lower()},
+                    'username': {'S': f"verification_{normalized_email}"},
+                    'email': {'S': normalized_email},
                     'verification_code': {'S': code},
                     'ttl': {'N': str(ttl)},
                     'created_at': {'S': datetime.now().isoformat()}
@@ -223,11 +273,9 @@ class VerificationOperations:
             if stored_code != code:
                 return {'success': False, 'error': 'Invalid verification code'}
                 
-            # Get or create user data
-            user_data = UserOperations.get_user_data(email.lower())
-            if not user_data:
-                user_data = UserOperations.create_user(email)
-                
+            # Get existing user data by email
+            user_data = UserOperations.get_user_by_email(email)
+            
             # Clean up verification record
             ddb.delete_item(**params)
             
@@ -252,7 +300,10 @@ class VerificationOperations:
             # Scan for verification records that have expired
             scan_params = {
                 'TableName': USERS_TABLE,
-                'FilterExpression': 'begins_with(username, :prefix) AND ttl < :now',
+                'FilterExpression': 'begins_with(username, :prefix) AND #ttl < :now',
+                'ExpressionAttributeNames': {
+                    '#ttl': 'ttl'
+                },
                 'ExpressionAttributeValues': {
                     ':prefix': {'S': 'verification_'},
                     ':now': {'N': str(now)},
@@ -966,12 +1017,12 @@ class DuelOperations:
                 for duel in expired_duels:
                     delete_params = {
                         'TableName': DUELS_TABLE,
-                        'Key': {'duel_id': duel['duel_id']},
+                        'Key': {'duelId': duel['duelId']},
                     }
                     ddb.delete_item(**delete_params)
                     
                     if DEBUG_MODE:
-                        print(f"[DEBUG] Deleted expired duel: {duel['duel_id']['S']} (status: {duel['status']['S']})")
+                        print(f"[DEBUG] Deleted expired duel: {duel['duelId']['S']} (status: {duel['status']['S']})")
                 
                 if DEBUG_MODE:
                     print(f"[DEBUG] Cleaned up {len(expired_duels)} expired duels")

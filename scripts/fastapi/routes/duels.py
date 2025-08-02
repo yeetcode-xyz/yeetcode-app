@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from models import DuelRequest
 from auth import verify_api_key
 from aws import DuelOperations
+from cache_manager import cache_manager, CacheType
 
 router = APIRouter(tags=["Duels"])
 
@@ -20,6 +21,22 @@ async def get_user_duels_endpoint(
 ):
     """Get duels for a user"""
     try:
+        # Check cache first for duels
+        cached_duels = cache_manager.get(CacheType.DUELS)
+        if cached_duels:
+            # Filter duels for this user
+            user_duels = []
+            for duel in cached_duels.get('data', []):
+                if (duel.get('username') == username or 
+                    duel.get('opponent') == username):
+                    user_duels.append(duel)
+            
+            return {
+                "success": True,
+                "data": user_duels
+            }
+        
+        # Fallback to database
         result = DuelOperations.get_user_duels(username)
         return result
     except Exception as error:
@@ -38,6 +55,10 @@ async def create_duel_endpoint(
             request.opponent, 
             request.problem_slug
         )
+        
+        # Invalidate cache to force refresh
+        cache_manager.invalidate_all(CacheType.DUELS)
+        
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -51,6 +72,10 @@ async def accept_duel_endpoint(
     """Accept a duel"""
     try:
         result = DuelOperations.accept_duel(request.username, request.duel_id)
+        
+        # Invalidate cache to force refresh
+        cache_manager.invalidate_all(CacheType.DUELS)
+        
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -65,6 +90,10 @@ async def complete_duel_endpoint(
     try:
         # Legacy endpoint - redirects to record submission
         result = DuelOperations.record_duel_submission(request.username, request.duel_id, 0)
+        
+        # Invalidate cache to force refresh
+        cache_manager.invalidate_all(CacheType.DUELS)
+        
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -82,6 +111,10 @@ async def reject_duel_endpoint(
             return {"success": False, "error": "Duel ID required"}
         
         result = DuelOperations.reject_duel(duel_id)
+        
+        # Invalidate cache to force refresh
+        cache_manager.invalidate_all(CacheType.DUELS)
+        
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -102,6 +135,10 @@ async def record_duel_submission_endpoint(
             return {"success": False, "error": "Duel ID and username required"}
         
         result = DuelOperations.record_duel_submission(username, duel_id, elapsed_ms)
+        
+        # Invalidate cache to force refresh
+        cache_manager.invalidate_all(CacheType.DUELS)
+        
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -114,6 +151,14 @@ async def get_duel_endpoint(
 ):
     """Get a specific duel by ID"""
     try:
+        # Check cache first for duels
+        cached_duels = cache_manager.get(CacheType.DUELS)
+        if cached_duels:
+            for duel in cached_duels.get('data', []):
+                if duel.get('id') == duel_id:
+                    return {"success": True, "data": duel}
+        
+        # Fallback to database
         result = DuelOperations.get_duel_by_id(duel_id)
         return result
     except Exception as error:
@@ -127,6 +172,10 @@ async def cleanup_expired_duels_endpoint(
     """Clean up expired duels"""
     try:
         result = DuelOperations.cleanup_expired_duels()
+        
+        # Invalidate cache to force refresh
+        cache_manager.invalidate_all(CacheType.DUELS)
+        
         return {"success": True, "message": f"Cleaned up {result.get('count', 0)} expired duels"}
     except Exception as error:
         return {"success": False, "error": str(error)}

@@ -2,6 +2,8 @@
 Authentication routes
 """
 
+import os
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 
 from models import EmailOTPRequest, EmailOTPResponse
@@ -9,9 +11,13 @@ from auth import verify_api_key, check_rate_limit
 from email_service import send_email_otp
 from aws import VerificationOperations
 
+# Load environment variables
+load_dotenv()
+
 router = APIRouter(tags=["Authentication"])
 
 DEBUG_MODE = False
+HOST = os.getenv("HOST", "0.0.0.0")
 
 
 @router.post("/send-otp", response_model=EmailOTPResponse)
@@ -35,6 +41,15 @@ async def send_otp(
         )
     
     try:
+        # Skip sending email if host is 0.0.0.0 (development mode)
+        if HOST == "0.0.0.0":
+            print(f"[DEV] Skipping email send to {email} with code {request.code} (development mode)")
+            return EmailOTPResponse(
+                success=True,
+                message="Verification code sent to your email (dev mode - no actual email sent)",
+                message_id="dev-mode-message-id"
+            )
+        
         # Send email with the code provided by frontend
         result = send_email_otp(email, request.code)
         

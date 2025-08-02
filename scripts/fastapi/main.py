@@ -17,6 +17,9 @@ from routes.daily import router as daily_router
 from routes.bounties import router as bounties_router
 from routes.duels import router as duels_router
 
+# Import cache manager
+from cache_manager import cache_manager
+
 # Load environment variables
 load_dotenv()
 
@@ -48,6 +51,12 @@ app.include_router(daily_router)
 app.include_router(bounties_router)
 app.include_router(duels_router)
 
+if DEBUG_MODE:
+    print("[DEBUG] Registered routes:")
+    for route in app.routes:
+        if hasattr(route, 'path'):
+            print(f"  {route.methods} {route.path}")
+
 
 @app.get("/")
 async def root():
@@ -66,8 +75,23 @@ async def health_check():
         "timestamp": datetime.now().isoformat(),
         "resend_configured": bool(resend.api_key),
         "dynamodb_configured": bool(USERS_TABLE),
-        "debug_mode": DEBUG_MODE
+        "debug_mode": DEBUG_MODE,
+        "cache_stats": cache_manager.get_cache_stats()
     }
+
+
+@app.get("/cache/stats")
+async def get_cache_stats():
+    """Get cache statistics"""
+    return cache_manager.get_cache_stats()
+
+
+@app.post("/cache/clear")
+async def clear_cache():
+    """Clear all cache (admin only)"""
+    # In a real app, you'd add authentication here
+    cache_manager._cache.clear()
+    return {"success": True, "message": "Cache cleared"}
 
 
 if __name__ == "__main__":
