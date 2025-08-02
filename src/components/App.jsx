@@ -759,7 +759,9 @@ function App() {
       style={{ fontFamily: 'Space Grotesk, sans-serif' }}
     >
       <div className="flex justify-between items-center border-b-4 border-black pb-2">
-        <h1 className="text-2xl font-bold">YeetCode</h1>
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          YeetCode
+        </h1>
         {step === 'leaderboard' && (
           <div className="flex items-center gap-2">
             <span
