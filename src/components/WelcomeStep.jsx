@@ -37,62 +37,37 @@ const WelcomeStep = ({
       </div>
 
       {/* Feature Tour Header */}
-      <div className="bg-blue-500 px-6 py-3 border-b-4 border-black mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-white text-xl">📚</span>
-            <span className="text-white font-bold text-lg">FEATURE TOUR</span>
+      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg mb-4">
+        <div className="bg-blue-500 px-6 py-3 border-b-4 border-black">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-white text-xl">📚</span>
+              <span className="text-white font-bold text-lg">FEATURE TOUR</span>
+            </div>
+            <span className="text-white font-bold">
+              {currentStep + 1} of {TUTORIAL_STEPS.length}
+            </span>
           </div>
-          <span className="text-white font-bold">
-            {currentStep + 1} of {TUTORIAL_STEPS.length}
-          </span>
         </div>
       </div>
 
       {/* Feature Carousel */}
-      <div className="relative">
-        {/* Arrow Buttons */}
+      <div className="flex items-center justify-center gap-8 mb-6">
+        {/* Left Arrow Button */}
         <button
           onClick={prevStep}
-          className="absolute left-8 top-1/2 -translate-y-1/2 z-10 bg-yellow-400 hover:bg-yellow-500 border-4 border-black rounded-full w-14 h-14 flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-2xl hover:shadow-3xl transform hover:-translate-x-1"
+          className="bg-yellow-400 hover:bg-yellow-500 border-4 border-black rounded-full w-14 h-14 flex items-center justify-center btn-3d flex-shrink-0 text-2xl font-bold"
         >
-          <div className="flex items-center justify-center w-full h-full">
-            <svg
-              className="w-6 h-6 text-black"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-        </button>
-        <button
-          onClick={nextStep}
-          className="absolute right-8 top-1/2 -translate-y-1/2 z-10 bg-yellow-400 hover:bg-yellow-500 border-4 border-black rounded-full w-14 h-14 flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-2xl hover:shadow-3xl transform hover:translate-x-1"
-        >
-          <div className="flex items-center justify-center w-full h-full">
-            <svg
-              className="w-6 h-6 text-black"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
+          &lt;
         </button>
 
         {/* Feature Content */}
-        <div className="bg-white border-4 border-black rounded-2xl p-8 max-w-6xl mx-auto">
-          <div className="text-center mb-6">
-            <div className="flex items-center justify-center gap-4 mb-4">
+        <div
+          className="bg-yellow-100 border-4 border-black rounded-xl shadow-lg p-8 flex flex-col"
+          style={{ width: '900px', height: '600px' }}
+        >
+          <div className="text-center mb-4">
+            <div className="flex items-center justify-center gap-4 mb-3">
               <span className="text-4xl">
                 {TUTORIAL_STEPS[currentStep].icon}
               </span>
@@ -100,18 +75,18 @@ const WelcomeStep = ({
                 {TUTORIAL_STEPS[currentStep].title}
               </h2>
             </div>
-            <p className="text-xl text-gray-700 mb-4">
+            <p className="text-xl text-gray-700 mb-3">
               {TUTORIAL_STEPS[currentStep].description}
             </p>
-            <div className="bg-yellow-100 border-2 border-yellow-300 rounded-lg p-3 max-w-2xl mx-auto">
-              <p className="text-sm font-semibold text-yellow-800">
+            <div className="bg-white border-2 border-black rounded-lg p-3 max-w-2xl mx-auto shadow-md">
+              <p className="text-sm font-bold text-gray-800">
                 {TUTORIAL_STEPS[currentStep].tip}
               </p>
             </div>
           </div>
 
           {/* Feature Preview */}
-          <div className="flex justify-center">
+          <div className="flex justify-center flex-1">
             <div className="w-full max-w-4xl">
               {TUTORIAL_STEPS[currentStep].preview({
                 leaderboardTab,
@@ -120,28 +95,36 @@ const WelcomeStep = ({
             </div>
           </div>
         </div>
+
+        {/* Right Arrow Button */}
+        <button
+          onClick={nextStep}
+          className="bg-yellow-400 hover:bg-yellow-500 border-4 border-black rounded-full w-14 h-14 flex items-center justify-center btn-3d flex-shrink-0 text-2xl font-bold"
+        >
+          &gt;
+        </button>
       </div>
 
       {/* Step Indicators */}
-      <div className="flex justify-center gap-2 mt-6">
+      <div className="flex justify-center gap-2">
         {TUTORIAL_STEPS.map((_, index) => (
           <button
             key={index}
             onClick={() => goToStep(index)}
             className={`w-3 h-3 rounded-full transition-all ${
               index === currentStep
-                ? 'bg-yellow-500 border-2 border-black'
-                : 'bg-gray-300 border-2 border-gray-400 hover:bg-gray-400'
+                ? 'bg-blue-500 border-2 border-black'
+                : 'bg-gray-300 border-2 border-black hover:bg-yellow-300'
             }`}
           />
         ))}
       </div>
 
       {/* Get Started Button */}
-      <div className="text-center mt-8">
+      <div className="text-center mt-6">
         <button
           onClick={handleStartOnboarding}
-          className="bg-green-500 hover:bg-green-600 text-white border-4 border-black rounded-lg px-8 py-3 text-xl font-bold transition-all duration-200 hover:scale-105 shadow-lg"
+          className="bg-green-500 hover:bg-green-600 text-white border-4 border-black rounded-lg px-8 py-3 text-xl font-bold btn-3d"
         >
           Get Started! 🚀
         </button>
