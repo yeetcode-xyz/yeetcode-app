@@ -1,76 +1,7 @@
 console.log('🚀 APP STARTING - Environment loading will begin...');
 
-// In-memory cache for daily problems and group stats
-const dailyProblemCache = {
-  // Cache for top 2 daily problems (refreshed at 5:30 AM IST)
-  topProblems: {
-    data: null,
-    lastRefreshed: null,
-  },
-  // Cache for latest daily problem with 2-minute TTL
-  latestProblem: {
-    data: {},
-    timestamp: {},
-  },
-};
-
-// Cache for group stats with 30-second TTL
-const groupStatsCache = {
-  data: {},
-  timestamp: {},
-};
-
-// Helper to check if cache should be refreshed (5:30 AM IST)
-const shouldRefreshTopProblemsCache = () => {
-  const now = new Date();
-  const lastRefreshed = dailyProblemCache.topProblems.lastRefreshed;
-
-  if (!lastRefreshed) return true;
-
-  // Convert to IST (UTC+5:30)
-  const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  const istLastRefreshed = new Date(
-    lastRefreshed.getTime() + 5.5 * 60 * 60 * 1000
-  );
-
-  // Check if we've passed 5:30 AM IST since last refresh
-  const todayRefreshTime = new Date(istNow);
-  todayRefreshTime.setHours(5, 30, 0, 0);
-
-  const lastRefreshDate = new Date(istLastRefreshed);
-  lastRefreshDate.setHours(0, 0, 0, 0);
-
-  const todayDate = new Date(istNow);
-  todayDate.setHours(0, 0, 0, 0);
-
-  // If last refresh was before today and it's past 5:30 AM IST
-  if (lastRefreshDate < todayDate && istNow >= todayRefreshTime) {
-    return true;
-  }
-
-  // If last refresh was today but before 5:30 AM and now it's past 5:30 AM
-  if (
-    lastRefreshDate.getTime() === todayDate.getTime() &&
-    istLastRefreshed < todayRefreshTime &&
-    istNow >= todayRefreshTime
-  ) {
-    return true;
-  }
-
-  return false;
-};
-
-// Helper to check if latest problem cache is expired (2-minute TTL)
-const isLatestProblemCacheExpired = username => {
-  const cached = dailyProblemCache.latestProblem;
-  if (!cached.data[username] || !cached.timestamp[username]) return true;
-
-  const now = Date.now();
-  const cacheAge = now - cached.timestamp[username];
-  const TWO_MINUTES = 2 * 60 * 1000;
-
-  return cacheAge > TWO_MINUTES;
-};
+// Server-side caching is now handled by FastAPI
+// Frontend caching removed in favor of server-side caching
 
 const {
   app,
@@ -673,28 +604,6 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
   console.log('[DEBUG][get-stats-for-group] Called with groupId:', groupId);
 
   try {
-    // Check if we have cached data for this group
-    const cached = groupStatsCache.data[groupId];
-    const cacheTimestamp = groupStatsCache.timestamp[groupId];
-
-    if (cached && cacheTimestamp) {
-      const now = Date.now();
-      const cacheAge = now - cacheTimestamp;
-      const THIRTY_SECONDS = 30 * 1000;
-
-      if (cacheAge < THIRTY_SECONDS) {
-        console.log(
-          '[DEBUG][get-stats-for-group] Returning cached data for group:',
-          groupId
-        );
-        return cached;
-      }
-    }
-
-    console.log(
-      '[DEBUG][get-stats-for-group] Cache miss, fetching from API for group:',
-      groupId
-    );
     const axios = require('axios');
     const fastApiUrl = process.env.FASTAPI_URL;
     const apiKey = process.env.YETCODE_API_KEY;
@@ -708,17 +617,7 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
     });
 
     if (response.data.success) {
-      const data = response.data.data || [];
-
-      // Cache the result
-      groupStatsCache.data[groupId] = data;
-      groupStatsCache.timestamp[groupId] = Date.now();
-      console.log(
-        '[DEBUG][get-stats-for-group] Cached data for group:',
-        groupId
-      );
-
-      return data;
+      return response.data.data || [];
     } else {
       throw new Error(response.data.error || 'Failed to get group stats');
     }
@@ -751,6 +650,32 @@ ipcMain.handle('get-user-data', async (event, username) => {
   } catch (error) {
     console.error('[ERROR][get-user-data]', error);
     return {};
+  }
+});
+
+ipcMain.handle('get-user-by-email', async (event, email) => {
+  try {
+    const axios = require('axios');
+    const fastApiUrl = process.env.FASTAPI_URL;
+    const apiKey = process.env.YETCODE_API_KEY;
+
+    const response = await axios.get(`${fastApiUrl}/user-by-email/${email}`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
+
+    if (response.data.success) {
+      return response.data;
+    } else {
+      console.error('[ERROR][get-user-by-email]', response.data.error);
+      return { success: false, error: response.data.error };
+    }
+  } catch (error) {
+    console.error('[ERROR][get-user-by-email]', error);
+    return null;
   }
 });
 
@@ -929,57 +854,13 @@ ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
   }
 });
 
-// Fetch daily problem data from FastAPI with caching
+// Fetch daily problem data from FastAPI
 ipcMain.handle('get-daily-problem', async (event, username) => {
   try {
     const axios = require('axios');
     const fastApiUrl = process.env.FASTAPI_URL;
     const apiKey = process.env.YETCODE_API_KEY;
 
-    // Check if we need to refresh top problems cache
-    if (shouldRefreshTopProblemsCache()) {
-      console.log('[DEBUG][get-daily-problem] Refreshing top problems cache');
-      try {
-        // Fetch top 2 problems from FastAPI
-        const topProblemsResponse = await axios.get(
-          `${fastApiUrl}/top-daily-problems`,
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            timeout: 10000,
-          }
-        );
-
-        if (topProblemsResponse.data.success) {
-          dailyProblemCache.topProblems.data = topProblemsResponse.data.data;
-          dailyProblemCache.topProblems.lastRefreshed = new Date();
-          console.log(
-            '[DEBUG][get-daily-problem] Top problems cache refreshed'
-          );
-        }
-      } catch (error) {
-        console.error(
-          '[ERROR][get-daily-problem] Failed to refresh top problems cache:',
-          error
-        );
-      }
-    }
-
-    // Check if we have cached data for this user
-    if (!isLatestProblemCacheExpired(username)) {
-      console.log(
-        '[DEBUG][get-daily-problem] Returning cached data for user:',
-        username
-      );
-      return dailyProblemCache.latestProblem.data[username];
-    }
-
-    console.log(
-      '[DEBUG][get-daily-problem] Cache miss, fetching from API for user:',
-      username
-    );
     const response = await axios.get(
       `${fastApiUrl}/daily-problem/${username}`,
       {
@@ -1022,19 +903,12 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
         }
       }
 
-      const result = {
+      return {
         dailyComplete: data.dailyComplete,
         streak: data.streak,
         todaysProblem: problemDetails,
         error: null,
       };
-
-      // Cache the result
-      dailyProblemCache.latestProblem.data[username] = result;
-      dailyProblemCache.latestProblem.timestamp[username] = Date.now();
-      console.log('[DEBUG][get-daily-problem] Cached data for user:', username);
-
-      return result;
     } else {
       throw new Error(response.data.error || 'Failed to get daily problem');
     }
@@ -1156,40 +1030,37 @@ ipcMain.handle('check-daily-notification', async () => {
   return await notificationManager.testNotification();
 });
 
-// Get cached top daily problems
+// Get top daily problems (server-side cached)
 ipcMain.handle('get-cached-top-problems', async () => {
   console.log(
-    '[DEBUG][get-cached-top-problems] Retrieving cached top problems'
+    '[DEBUG][get-cached-top-problems] Retrieving top problems from server'
   );
 
-  // If cache is empty or needs refresh, try to fetch it
-  if (!dailyProblemCache.topProblems.data || shouldRefreshTopProblemsCache()) {
-    try {
-      const axios = require('axios');
-      const fastApiUrl = process.env.FASTAPI_URL;
-      const apiKey = process.env.YETCODE_API_KEY;
+  try {
+    const axios = require('axios');
+    const fastApiUrl = process.env.FASTAPI_URL;
+    const apiKey = process.env.YETCODE_API_KEY;
 
-      const response = await axios.get(`${fastApiUrl}/top-daily-problems`, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      });
+    const response = await axios.get(`${fastApiUrl}/top-daily-problems`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
 
-      if (response.data.success) {
-        dailyProblemCache.topProblems.data = response.data.data;
-        dailyProblemCache.topProblems.lastRefreshed = new Date();
-      }
-    } catch (error) {
-      console.error(
-        '[ERROR][get-cached-top-problems] Failed to fetch top problems:',
-        error
-      );
+    if (response.data.success) {
+      return response.data.data || [];
+    } else {
+      return [];
     }
+  } catch (error) {
+    console.error(
+      '[ERROR][get-cached-top-problems] Failed to fetch top problems:',
+      error
+    );
+    return [];
   }
-
-  return dailyProblemCache.topProblems.data || [];
 });
 
 // App state tracking for smart notifications
@@ -1313,6 +1184,62 @@ ipcMain.handle('verify-magic-token', async (event, email, code) => {
     };
   }
 });
+
+// Create user with specific username and email
+ipcMain.handle(
+  'create-user-with-username',
+  async (event, username, email, displayName) => {
+    console.log(
+      '[DEBUG][create-user-with-username] called for:',
+      username,
+      'email:',
+      email,
+      'displayName:',
+      displayName
+    );
+
+    const normalizedUsername = username.toLowerCase();
+    const normalizedEmail = email.toLowerCase();
+
+    try {
+      const axios = require('axios');
+      const fastApiUrl = process.env.FASTAPI_URL;
+      const apiKey = process.env.YETCODE_API_KEY;
+
+      const response = await axios.post(
+        `${fastApiUrl}/create-user-with-username`,
+        {
+          username: normalizedUsername,
+          email: normalizedEmail,
+          display_name: displayName,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        }
+      );
+
+      if (response.data.success) {
+        console.log(
+          '[DEBUG][create-user-with-username] Created user:',
+          normalizedUsername
+        );
+        return { success: true, data: response.data.data };
+      } else {
+        throw new Error(response.data.error || 'Failed to create user');
+      }
+    } catch (error) {
+      console.error('[ERROR][create-user-with-username]', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to create user',
+      };
+    }
+  }
+);
 
 // Update user record with email after LeetCode verification
 ipcMain.handle('update-user-email', async (event, leetUsername, email) => {
@@ -1931,105 +1858,8 @@ const setupCleanupTasks = () => {
 // Set up cleanup tasks
 setupCleanupTasks();
 
-// Helper to send Discord webhook
-const sendDiscordNotification = async (message, color = 3447003) => {
-  const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  if (!discordWebhookUrl) {
-    console.log('[DEBUG][Discord] No webhook URL configured');
-    return;
-  }
-
-  try {
-    const axios = require('axios');
-    await axios.post(discordWebhookUrl, {
-      embeds: [
-        {
-          title: 'YeetCode Cache Notification',
-          description: message,
-          color: color,
-          timestamp: new Date().toISOString(),
-          footer: {
-            text: 'YeetCode Cache System',
-          },
-        },
-      ],
-    });
-    console.log('[DEBUG][Discord] Notification sent successfully');
-  } catch (error) {
-    console.error(
-      '[ERROR][Discord] Failed to send notification:',
-      error.message
-    );
-  }
-};
-
-// Schedule cache refresh at 5:30 AM IST daily
-const scheduleDailyCacheRefresh = () => {
-  const checkAndRefresh = async () => {
-    if (shouldRefreshTopProblemsCache()) {
-      console.log(
-        '[DEBUG][scheduleDailyCacheRefresh] Time to refresh cache at 5:30 AM IST'
-      );
-
-      try {
-        const axios = require('axios');
-        const fastApiUrl = process.env.FASTAPI_URL;
-        const apiKey = process.env.YETCODE_API_KEY;
-
-        const topProblemsResponse = await axios.get(
-          `${fastApiUrl}/top-daily-problems`,
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            timeout: 10000,
-          }
-        );
-
-        if (topProblemsResponse.data.success) {
-          dailyProblemCache.topProblems.data = topProblemsResponse.data.data;
-          dailyProblemCache.topProblems.lastRefreshed = new Date();
-          console.log(
-            '[DEBUG][scheduleDailyCacheRefresh] Cache refreshed successfully'
-          );
-
-          // Send Discord notification
-          const problemCount = topProblemsResponse.data.data.length;
-          const problems = topProblemsResponse.data.data
-            .map(p => `• ${p.title} (${p.date})`)
-            .join('\n');
-          await sendDiscordNotification(
-            `✅ Daily cache refreshed at 5:30 AM IST\n\nCached ${problemCount} problems:\n${problems}`,
-            5763719 // Green color
-          );
-        }
-      } catch (error) {
-        console.error(
-          '[ERROR][scheduleDailyCacheRefresh] Failed to refresh cache:',
-          error
-        );
-        await sendDiscordNotification(
-          `❌ Failed to refresh daily cache: ${error.message}`,
-          15158332 // Red color
-        );
-      }
-    }
-  };
-
-  // Check every minute if we need to refresh
-  setInterval(checkAndRefresh, 60 * 1000);
-
-  // Also check immediately on startup
-  checkAndRefresh();
-
-  console.log(
-    '[DEBUG][scheduleDailyCacheRefresh] Daily cache refresh scheduled'
-  );
-};
-
-// Start the daily cache refresh scheduler
-scheduleDailyCacheRefresh();
+// Server-side caching is now handled by FastAPI
+// Frontend cache refresh removed in favor of server-side caching
 
 // IPC handlers for manual cleanup (for testing)
 ipcMain.handle('cleanup-expired-verification-codes', async () => {
@@ -2046,38 +1876,45 @@ ipcMain.handle('cleanup-expired-duels', async () => {
   return { success: true };
 });
 
-// Clear daily problem cache (for testing)
+// Clear server cache (for testing)
 ipcMain.handle('clear-daily-problem-cache', async () => {
-  console.log('[DEBUG][clear-daily-problem-cache] Clearing all caches');
-  dailyProblemCache.topProblems = {
-    data: null,
-    lastRefreshed: null,
-  };
-  dailyProblemCache.latestProblem = {
-    data: {},
-    timestamp: {},
-  };
-  groupStatsCache.data = {};
-  groupStatsCache.timestamp = {};
-  return { success: true, message: 'All caches cleared' };
+  console.log(
+    '[DEBUG][clear-daily-problem-cache] Requesting server cache clear'
+  );
+
+  try {
+    const axios = require('axios');
+    const fastApiUrl = process.env.FASTAPI_URL;
+    const apiKey = process.env.YETCODE_API_KEY;
+
+    const response = await axios.post(
+      `${fastApiUrl}/cache/clear`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error('[ERROR][clear-daily-problem-cache]', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // Test Discord notification (for testing)
 ipcMain.handle('test-discord-notification', async () => {
   console.log('[DEBUG][test-discord-notification] Sending test notification');
 
-  const topProblems = dailyProblemCache.topProblems.data || [];
-  const cacheStatus =
-    topProblems.length > 0
-      ? `📊 Current cache contains ${topProblems.length} problems:\n${topProblems.map(p => `• ${p.title} (${p.date})`).join('\n')}`
-      : '📭 Cache is currently empty';
-
-  await sendDiscordNotification(
-    `🧪 Test Notification\n\n${cacheStatus}\n\nLast refreshed: ${dailyProblemCache.topProblems.lastRefreshed || 'Never'}`,
-    16776960 // Yellow color for test
-  );
-
-  return { success: true, message: 'Test notification sent' };
+  // Discord notifications are now handled server-side
+  return {
+    success: true,
+    message: 'Discord notifications handled server-side',
+  };
 });
 
 // System notification for duel events

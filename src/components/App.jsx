@@ -392,12 +392,103 @@ function App() {
     navigateToStep('verification');
   };
 
-  const handleVerificationSuccess = result => {
+  const handleVerificationSuccess = async result => {
     setUserData(prev => ({
       ...prev,
       email: result.email.toLowerCase(),
       verified: true,
     }));
+
+    // Check if user already exists and has complete profile
+    try {
+      if (window.electronAPI) {
+        // Get user data by email to see if they already exist
+        const userByEmail = await window.electronAPI.getUserByEmail(
+          result.email.toLowerCase()
+        );
+        console.log('getUserByEmail result:', userByEmail);
+        console.log('User data details:', {
+          username: userByEmail?.data?.username,
+          email: userByEmail?.data?.email,
+          group_id: userByEmail?.data?.group_id,
+          display_name: userByEmail?.data?.display_name,
+          hasCompletedOnboarding:
+            userByEmail?.data?.username !== userByEmail?.data?.email,
+        });
+
+        if (userByEmail && userByEmail.data) {
+          console.log('Existing user found:', userByEmail.data);
+
+          // Check if user has completed onboarding (username !== email)
+          if (userByEmail.data.username !== userByEmail.data.email) {
+            // User has completed onboarding
+            if (userByEmail.data.group_id) {
+              // User has joined a group - go to leaderboard
+              console.log(
+                'Existing user with complete profile found:',
+                userByEmail.data
+              );
+
+              // Update userData with existing info
+              setUserData(prev => ({
+                ...prev,
+                leetUsername: userByEmail.data.username, // username is the LeetCode username after onboarding
+                name:
+                  userByEmail.data.display_name || userByEmail.data.name || '',
+              }));
+
+              // Set group data
+              setGroupData({ code: userByEmail.data.group_id, joined: true });
+
+              // Show success message for existing user
+              setShowSuccess(true);
+
+              // Navigate directly to leaderboard after showing success
+              setTimeout(() => {
+                setShowSuccess(false);
+                navigateToStep('leaderboard');
+              }, 2000);
+              return;
+            } else {
+              // User has completed onboarding but hasn't joined a group - go to group selection
+              console.log(
+                'Existing user without group found:',
+                userByEmail.data
+              );
+
+              // Update userData with existing info
+              setUserData(prev => ({
+                ...prev,
+                leetUsername: userByEmail.data.username,
+                name:
+                  userByEmail.data.display_name || userByEmail.data.name || '',
+              }));
+
+              // Navigate to group selection
+              navigateToStep('group');
+              return;
+            }
+          } else {
+            // User exists but hasn't completed onboarding - go to onboarding
+            console.log(
+              'Existing user without onboarding found:',
+              userByEmail.data
+            );
+            // Continue to onboarding
+          }
+        } else {
+          // No existing user found - this is a new user
+          console.log(
+            'No existing user found - new user will go through onboarding'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing user:', error);
+      // Continue with normal flow if there's an error
+    }
+
+    // Normal flow - go to onboarding
     navigateToStep('onboarding');
   };
 
@@ -456,36 +547,28 @@ function App() {
       // 3) On success, show indicator and update display name
       setShowSuccess(true);
 
-      // Update display name and email in database
+      // Create new user record with LeetCode username and email
       if (window.electronAPI) {
         try {
-          const displayNameResult = await window.electronAPI.updateDisplayName(
-            userData.leetUsername,
-            userData.name
-          );
-
-          // Update user email in database
-          if (userData.email && userData.verified) {
-            const emailUpdateResult = await window.electronAPI.updateUserEmail(
+          // Create new user record with LeetCode username
+          const createUserResult =
+            await window.electronAPI.createUserWithUsername(
               userData.leetUsername,
-              userData.email
+              userData.email,
+              userData.name
             );
 
-            if (!emailUpdateResult.success) {
-              console.warn('Email update failed:', emailUpdateResult.error);
-            }
-          }
-
-          // Also ensure the display name is set when we get user data
-          if (!displayNameResult.success) {
-            console.warn(
-              'Display name update failed:',
-              displayNameResult.error
+          if (!createUserResult.success) {
+            console.warn('User creation failed:', createUserResult.error);
+          } else {
+            console.log(
+              'Created new user record with LeetCode username:',
+              userData.leetUsername
             );
           }
-        } catch (displayNameError) {
-          console.error('Error updating user data:', displayNameError);
-          // Don't fail the whole process if update fails
+        } catch (createUserError) {
+          console.error('Error creating user record:', createUserError);
+          // Don't fail the whole process if creation fails
         }
       }
 

@@ -74,11 +74,9 @@ const OnboardingStep = ({
           <div className="bg-orange-500 p-6 border-4 border-black rounded-xl text-center animate-pulse shadow-2xl">
             <div className="space-y-3">
               <div className="text-4xl animate-bounce">🎉</div>
-              <div className="text-white font-bold text-xl">
-                CODER VERIFIED!
-              </div>
+              <div className="text-white font-bold text-xl">WELCOME BACK!</div>
               <div className="text-black text-sm">
-                Welcome to the competition arena
+                Loading your dashboard...
               </div>
               <div className="flex justify-center items-center gap-2 text-black">
                 <span>⚡</span>

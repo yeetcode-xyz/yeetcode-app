@@ -67,6 +67,15 @@ const validateInput = {
     }
     return input.toUpperCase();
   },
+
+  email: input => {
+    if (typeof input !== 'string') throw new Error('Email must be a string');
+    if (input.length > 254)
+      throw new Error('Email too long (max 254 characters)');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(input)) throw new Error('Invalid email format');
+    return input.trim().toLowerCase();
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -114,6 +123,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUserData: username => {
     const validatedUsername = validateInput.username(username);
     return ipcRenderer.invoke('get-user-data', validatedUsername);
+  },
+
+  getUserByEmail: email => {
+    const validatedEmail = validateInput.email(email);
+    return ipcRenderer.invoke('get-user-by-email', validatedEmail);
   },
 
   leaveGroup: username => {
@@ -172,6 +186,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   verifyMagicToken: (email, code) =>
     ipcRenderer.invoke('verify-magic-token', email, code),
+
+  createUserWithUsername: (username, email, displayName) =>
+    ipcRenderer.invoke(
+      'create-user-with-username',
+      username,
+      email,
+      displayName
+    ),
 
   updateUserEmail: (leetUsername, email) =>
     ipcRenderer.invoke('update-user-email', leetUsername, email),
