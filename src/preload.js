@@ -221,11 +221,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     );
   },
 
-  acceptDuel: duelId => {
+  acceptDuel: (duelId, username) => {
     if (typeof duelId !== 'string' || duelId.length > 100) {
       throw new Error('Invalid duel ID');
     }
-    return ipcRenderer.invoke('accept-duel', duelId);
+    const validatedUsername = validateInput.username(username);
+    return ipcRenderer.invoke('accept-duel', duelId, validatedUsername);
   },
 
   rejectDuel: duelId => {
