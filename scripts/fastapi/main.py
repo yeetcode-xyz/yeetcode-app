@@ -64,21 +64,6 @@ async def root():
     return {"message": "YeetCode Email API is running", "timestamp": datetime.now().isoformat()}
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint with API status"""
-    import resend
-    from aws import USERS_TABLE
-    
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "resend_configured": bool(resend.api_key),
-        "dynamodb_configured": bool(USERS_TABLE),
-        "debug_mode": DEBUG_MODE,
-        "cache_stats": cache_manager.get_cache_stats()
-    }
-
 
 @app.get("/cache/stats")
 async def get_cache_stats():

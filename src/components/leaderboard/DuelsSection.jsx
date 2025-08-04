@@ -149,7 +149,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
     try {
       setActionLoading({ [`accept_${duelId}`]: true });
 
-      const updatedDuel = await acceptDuel(duelId);
+      const updatedDuel = await acceptDuel(duelId, userData.leetUsername);
 
       setDuels(prev =>
         prev.map(duel =>
@@ -414,10 +414,12 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             <h5 className="font-bold text-sm" style={{ fontSize: '12px' }}>
               {isChallenger
                 ? `Challenge sent to ${otherUserDisplay}`
-                : `Challenge from ${otherUserDisplay} • ${duel.difficulty}`}
+                : `Challenge from ${otherUserDisplay} • ${duel.difficulty || 'Unknown'}`}
             </h5>
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
-              {isChallenger ? `${duel.difficulty} • All the best!` : ''}
+              {isChallenger
+                ? `${duel.difficulty || 'Unknown'} • All the best!`
+                : ''}
             </p>
             {timeRemaining > 0 && (
               <p className="text-xs text-orange-600 font-bold">
@@ -500,7 +502,7 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
           <div>
             <h5 className="font-bold text-sm">Dueling {otherUserDisplay}</h5>
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
-              {duel.difficulty} • Problem Hidden
+              {duel.difficulty || 'Unknown'} • Problem Hidden
             </p>
             {timeRemaining > 0 && (
               <p className="text-xs text-orange-600 font-bold">
@@ -597,7 +599,8 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
             <div>
               <h5 className="font-bold text-sm">vs {otherUserDisplay}</h5>
               <p className="text-xs text-gray-600">
-                {duel.difficulty} • {duel.problemTitle}
+                {duel.difficulty || 'Unknown'} •{' '}
+                {duel.problemTitle || 'Unknown Problem'}
               </p>
             </div>
             <span

@@ -267,10 +267,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('cleanup-expired-verification-codes');
   },
 
-  cleanupExpiredDuels: () => {
-    return ipcRenderer.invoke('cleanup-expired-duels');
-  },
-
   fetchLeetCodeSubmissions: (username, limit) => {
     const validatedUsername = validateInput.username(username);
     if (typeof limit !== 'number' || limit < 1 || limit > 100) {

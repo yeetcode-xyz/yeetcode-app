@@ -50,13 +50,14 @@ export const createDuel = async (
 /**
  * Accept a pending duel
  * @param {string} duelId - ID of the duel to accept
+ * @param {string} username - Username of the user accepting the duel
  * @returns {Promise<Object>} Updated duel object with ACTIVE status and startTime
  */
-export const acceptDuel = async duelId => {
+export const acceptDuel = async (duelId, username) => {
   if (!window.electronAPI?.acceptDuel) {
     throw new Error('acceptDuel API not available');
   }
-  return await window.electronAPI.acceptDuel(duelId);
+  return await window.electronAPI.acceptDuel(duelId, username);
 };
 
 /**

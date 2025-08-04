@@ -1471,7 +1471,7 @@ ipcMain.handle(
 );
 
 // Accept a duel
-ipcMain.handle('accept-duel', async (event, duelId) => {
+ipcMain.handle('accept-duel', async (event, duelId, username) => {
   try {
     const axios = require('axios');
     const fastApiUrl = process.env.FASTAPI_URL;
@@ -1481,6 +1481,7 @@ ipcMain.handle('accept-duel', async (event, duelId) => {
       `${fastApiUrl}/accept-duel`,
       {
         duel_id: duelId,
+        username: username,
       },
       {
         headers: {
@@ -1817,40 +1818,10 @@ exports.getDailyProblemStatus = async username => {
   }
 };
 
-// Clean up expired duels
-const cleanupExpiredDuels = async () => {
-  try {
-    const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
-
-    const response = await axios.post(
-      `${fastApiUrl}/cleanup-expired-duels`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      }
-    );
-
-    if (response.data.success) {
-      console.log('[DEBUG][cleanupExpiredDuels] Cleanup completed');
-    }
-  } catch (error) {
-    console.error('[ERROR][cleanupExpiredDuels]', error);
-  }
-};
-
 // Set up periodic cleanup tasks
 const setupCleanupTasks = () => {
   // Clean up expired verification codes every 5 minutes
   setInterval(cleanupExpiredVerificationCodes, 5 * 60 * 1000);
-
-  // Clean up expired duels every 10 minutes
-  setInterval(cleanupExpiredDuels, 10 * 60 * 1000);
 
   console.log('[DEBUG][setupCleanupTasks] Cleanup tasks scheduled');
 };
@@ -1858,21 +1829,12 @@ const setupCleanupTasks = () => {
 // Set up cleanup tasks
 setupCleanupTasks();
 
-// Server-side caching is now handled by FastAPI
-// Frontend cache refresh removed in favor of server-side caching
-
 // IPC handlers for manual cleanup (for testing)
 ipcMain.handle('cleanup-expired-verification-codes', async () => {
   console.log(
     '[DEBUG][cleanup-expired-verification-codes] Manual cleanup triggered'
   );
   await cleanupExpiredVerificationCodes();
-  return { success: true };
-});
-
-ipcMain.handle('cleanup-expired-duels', async () => {
-  console.log('[DEBUG][cleanup-expired-duels] Manual cleanup triggered');
-  await cleanupExpiredDuels();
   return { success: true };
 });
 

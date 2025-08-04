@@ -19,8 +19,13 @@ async def get_user_duels_endpoint(
     username: str,
     api_key: str = Depends(verify_api_key)
 ):
-    """Get duels for a user"""
+    """Get duels for a user and automatically clean up expired duels"""
     try:
+        # First, clean up any expired duels automatically
+        cleanup_result = DuelOperations.cleanup_expired_duels()
+        if cleanup_result.get('count', 0) > 0:
+            print(f"[DEBUG] Cleaned up {cleanup_result.get('count', 0)} expired duels during get_user_duels")
+        
         # Check cache first for duels
         cached_duels = cache_manager.get(CacheType.DUELS)
         if cached_duels:
@@ -161,21 +166,5 @@ async def get_duel_endpoint(
         # Fallback to database
         result = DuelOperations.get_duel_by_id(duel_id)
         return result
-    except Exception as error:
-        return {"success": False, "error": str(error)}
-
-
-@router.post("/cleanup-expired-duels")
-async def cleanup_expired_duels_endpoint(
-    api_key: str = Depends(verify_api_key)
-):
-    """Clean up expired duels"""
-    try:
-        result = DuelOperations.cleanup_expired_duels()
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.DUELS)
-        
-        return {"success": True, "message": f"Cleaned up {result.get('count', 0)} expired duels"}
     except Exception as error:
         return {"success": False, "error": str(error)}
