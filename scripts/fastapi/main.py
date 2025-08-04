@@ -40,7 +40,7 @@ app.add_middleware(
 
 # Configuration
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
-PORT = int(os.getenv("PORT", 8000))
+PORT = int(os.getenv("PORT", 6969))
 HOST = os.getenv("HOST", "0.0.0.0")
 
 # Include routers
