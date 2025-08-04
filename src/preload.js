@@ -111,6 +111,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('get-stats-for-group', validatedGroupId);
   },
 
+  getUniversityLeaderboard: () => {
+    return ipcRenderer.invoke('get-university-leaderboard');
+  },
+
   // System notification for duel events
   notifyDuelEvent: ({ type, opponent, problemTitle }) => {
     return ipcRenderer.invoke('notify-duel-event', {
@@ -187,12 +191,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   verifyMagicToken: (email, code) =>
     ipcRenderer.invoke('verify-magic-token', email, code),
 
-  createUserWithUsername: (username, email, displayName) =>
+  createUserWithUsername: (username, email, displayName, university) =>
     ipcRenderer.invoke(
       'create-user-with-username',
       username,
       email,
-      displayName
+      displayName,
+      university
     ),
 
   updateUserEmail: (leetUsername, email) =>

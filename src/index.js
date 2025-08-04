@@ -389,7 +389,13 @@ ipcMain.handle('create-group', async (event, username, displayName) => {
       display_name: displayName,
     });
 
-    return { groupId: response.data.group_id };
+    console.log('[DEBUG] create-group response:', response);
+    // The response includes the entire data object with success field
+    if (response && response.group_id) {
+      return { groupId: response.group_id };
+    } else {
+      throw new Error('Invalid response: missing group_id');
+    }
   } catch (error) {
     logError('create-group', error);
     throw error;
@@ -407,7 +413,13 @@ ipcMain.handle(
         display_name: displayName,
       });
 
-      return { joined: true, groupId: response.data.group_id };
+      console.log('[DEBUG] join-group response:', response);
+      // The response includes the entire data object with success field
+      if (response && response.group_id) {
+        return { joined: true, groupId: response.group_id };
+      } else {
+        throw new Error('Invalid response: missing group_id');
+      }
     } catch (error) {
       logError('join-group', error);
       throw error;
@@ -925,14 +937,16 @@ ipcMain.handle('verify-magic-token', async (event, email, code) => {
 // Create user with specific username and email
 ipcMain.handle(
   'create-user-with-username',
-  async (event, username, email, displayName) => {
+  async (event, username, email, displayName, university) => {
     console.log(
       '[DEBUG][create-user-with-username] called for:',
       username,
       'email:',
       email,
       'displayName:',
-      displayName
+      displayName,
+      'university:',
+      university
     );
 
     const normalizedUsername = username.toLowerCase();
@@ -949,6 +963,7 @@ ipcMain.handle(
           username: normalizedUsername,
           email: normalizedEmail,
           display_name: displayName,
+          university: university,
         },
         {
           headers: {
@@ -1541,3 +1556,30 @@ ipcMain.handle(
     }).show();
   }
 );
+
+// GET UNIVERSITY LEADERBOARD
+ipcMain.handle('get-university-leaderboard', async event => {
+  console.log('[DEBUG][get-university-leaderboard] Called');
+  try {
+    const axios = require('axios');
+    const fastApiUrl = process.env.FASTAPI_URL;
+    const apiKey = process.env.YETCODE_API_KEY;
+    const response = await axios.get(`${fastApiUrl}/university-leaderboard`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
+    if (response.data.success) {
+      return response.data.data || [];
+    } else {
+      throw new Error(
+        response.data.error || 'Failed to get university leaderboard'
+      );
+    }
+  } catch (error) {
+    console.error('[ERROR][get-university-leaderboard]', error);
+    throw error;
+  }
+});

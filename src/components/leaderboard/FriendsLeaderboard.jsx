@@ -28,7 +28,12 @@ function getRankAndSubdivision(xp) {
   return { name: 'Unranked', sub: '' };
 }
 
-const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
+const FriendsLeaderboard = ({
+  leaderboard,
+  universityLeaderboard = [],
+  userData,
+  notifications = [],
+}) => {
   // Tab state
   const [activeTab, setActiveTab] = useState('friends');
   // Tooltip state
@@ -121,10 +126,129 @@ const FriendsLeaderboard = ({ leaderboard, userData, notifications = [] }) => {
       </div>
       <div className="flex-1 overflow-hidden">
         {activeTab === 'university' ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500 text-lg font-bold">
-            <span>🏫 University Leaderboard</span>
-            <span className="mt-2">Coming soon!</span>
-          </div>
+          universityLeaderboard.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-lg font-bold">
+              <span>🏫 University Leaderboard</span>
+              <span className="mt-2">No university data available yet!</span>
+            </div>
+          ) : (
+            <div className="h-full overflow-y-auto custom-scrollbar">
+              <table className="min-w-full table-fixed">
+                <thead className="bg-yellow-100 sticky top-0 z-10">
+                  <tr className="border-b-2 border-black text-sm">
+                    <th className="font-bold text-left px-4 py-2 w-16">RANK</th>
+                    <th className="font-bold text-left px-4 py-2 w-40">
+                      UNIVERSITY
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-20">
+                      STUDENTS
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-16">
+                      EASY
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-16">
+                      MED
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-16">
+                      HARD
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-20">
+                      TOTAL
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-24">
+                      TOTAL XP
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence mode="popLayout">
+                    {universityLeaderboard.map((uni, index) => {
+                      const bgColor =
+                        index === 0
+                          ? 'bg-red-100'
+                          : index === 1
+                            ? 'bg-blue-100'
+                            : index === 2
+                              ? 'bg-green-100'
+                              : '';
+
+                      return (
+                        <motion.tr
+                          key={uni.university}
+                          layout
+                          initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                          animate={{ opacity: 1, x: 0, scale: 1 }}
+                          exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                          transition={{
+                            layout: { duration: 0.4, ease: 'easeInOut' },
+                            default: { duration: 0.3 },
+                          }}
+                          className={`border-b border-gray-200 ${bgColor}`}
+                        >
+                          <motion.td
+                            className="px-4 py-3 w-16 font-bold"
+                            layout
+                          >
+                            #{index + 1}
+                          </motion.td>
+                          <motion.td className="px-4 py-3 w-40" layout>
+                            <div>
+                              <div className="font-semibold text-base">
+                                {uni.university}
+                              </div>
+                              {uni.top_student && (
+                                <div className="text-xs text-gray-500">
+                                  Top: {uni.top_student}
+                                </div>
+                              )}
+                            </div>
+                          </motion.td>
+                          <motion.td
+                            className="text-center px-4 py-3 w-20"
+                            layout
+                          >
+                            {uni.students}
+                          </motion.td>
+                          <motion.td
+                            className="text-center px-4 py-3 w-16"
+                            layout
+                          >
+                            {uni.easy.toLocaleString()}
+                          </motion.td>
+                          <motion.td
+                            className="text-center px-4 py-3 w-16"
+                            layout
+                          >
+                            {uni.medium.toLocaleString()}
+                          </motion.td>
+                          <motion.td
+                            className="text-center px-4 py-3 w-16"
+                            layout
+                          >
+                            {uni.hard.toLocaleString()}
+                          </motion.td>
+                          <motion.td
+                            className="text-center px-4 py-3 w-20 font-bold text-blue-600"
+                            layout
+                          >
+                            {uni.total.toLocaleString()}
+                          </motion.td>
+                          <motion.td
+                            className="text-center px-4 py-3 w-24 font-bold text-purple-600"
+                            layout
+                          >
+                            {uni.total_xp >= 10000
+                              ? `${(uni.total_xp / 1000).toFixed(1)}K`
+                              : uni.total_xp.toLocaleString()}
+                          </motion.td>
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          )
         ) : leaderboard.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
             No competitors yet! Invite friends to join.

@@ -35,6 +35,7 @@ class CacheType(Enum):
     USERS = "users"
     DUELS = "duels"
     GROUPS = "groups"
+    UNIVERSITY_LEADERBOARD = "university_leaderboard"
 
 
 @dataclass
@@ -61,6 +62,7 @@ class CacheManager:
             CacheType.USERS: {"ttl": 60, "refresh_interval": None},  # 1 minute, no auto-refresh
             CacheType.DUELS: {"ttl": 60, "refresh_interval": None},  # 1 minute, no auto-refresh
             CacheType.GROUPS: {"ttl": 60, "refresh_interval": None},  # 1 minute, no auto-refresh
+            CacheType.UNIVERSITY_LEADERBOARD: {"ttl": 60, "refresh_interval": None},  # 1 minute, no auto-refresh
         }
         
         # Start background refresh thread
@@ -89,11 +91,11 @@ class CacheManager:
                 print(f"[CACHE] Miss for {key}")
             return None
     
-    def set(self, cache_type: CacheType, data: Any, identifier: str = "") -> None:
+    def set(self, cache_type: CacheType, data: Any, identifier: str = "", ttl: Optional[int] = None) -> None:
         """Set cache data with TTL"""
         with self._lock:
             key = self._get_cache_key(cache_type, identifier)
-            ttl = self._cache_config[cache_type]["ttl"]
+            ttl = ttl if ttl is not None else self._cache_config[cache_type]["ttl"]
             entry = CacheEntry(data=data, timestamp=time.time(), ttl=ttl)
             self._cache[key] = entry
             

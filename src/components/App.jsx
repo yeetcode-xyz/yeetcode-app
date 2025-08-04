@@ -21,6 +21,7 @@ function App() {
   });
   const [groupData, setGroupData] = useState({ code: '', joined: false });
   const [leaderboard, setLeaderboard] = useState([]);
+  const [universityLeaderboard, setUniversityLeaderboard] = useState([]);
   const [notifications, setNotifications] = useState([]);
 
   // Fix: Declare previousLeaderboardRef here
@@ -112,6 +113,20 @@ function App() {
     };
   }, []);
 
+  // Fetch university leaderboard when on leaderboard step
+  useEffect(() => {
+    if (step === 'leaderboard') {
+      fetchUniversityLeaderboard();
+
+      // Set up refresh interval for university leaderboard
+      const interval = setInterval(() => {
+        fetchUniversityLeaderboard();
+      }, 60000); // Refresh every minute
+
+      return () => clearInterval(interval);
+    }
+  }, [step]);
+
   // Smart refresh system based on app focus
   useEffect(() => {
     if (step !== 'leaderboard' || !groupData.joined || !groupData.code) {
@@ -135,6 +150,7 @@ function App() {
 
       if (timeSinceLastRefresh >= minimumDelay) {
         fetchLeaderboard();
+        fetchUniversityLeaderboard();
         fetchDailyProblem();
         lastRefreshTime = now;
       }
@@ -354,6 +370,17 @@ function App() {
     }
   };
 
+  const fetchUniversityLeaderboard = async () => {
+    if (!window.electronAPI) return;
+    try {
+      const universityData =
+        await window.electronAPI.getUniversityLeaderboard();
+      setUniversityLeaderboard(universityData);
+    } catch (error) {
+      console.error('Error fetching university leaderboard:', error);
+    }
+  };
+
   const fetchDailyProblem = async () => {
     if (!userData?.leetUsername || !window.electronAPI) {
       setDailyData(prev => ({ ...prev, loading: false }));
@@ -379,7 +406,11 @@ function App() {
 
   const handleDailyComplete = async result => {
     // Refresh both daily data and leaderboard
-    await Promise.all([fetchDailyProblem(), fetchLeaderboard()]);
+    await Promise.all([
+      fetchDailyProblem(),
+      fetchLeaderboard(),
+      fetchUniversityLeaderboard(),
+    ]);
   };
 
   const handleStartOnboarding = () => {
@@ -555,7 +586,8 @@ function App() {
             await window.electronAPI.createUserWithUsername(
               userData.leetUsername,
               userData.email,
-              userData.name
+              userData.name,
+              userData.university
             );
 
           if (!createUserResult.success) {
@@ -710,6 +742,7 @@ function App() {
     groupData,
     setGroupData,
     leaderboard,
+    universityLeaderboard,
     dailyData,
     validating,
     setValidating,

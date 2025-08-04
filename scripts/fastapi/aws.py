@@ -152,7 +152,7 @@ class UserOperations:
 
     
     @staticmethod
-    def create_user_with_username(username: str, email: str, display_name: str = None) -> Dict:
+    def create_user_with_username(username: str, email: str, display_name: str = None, university: str = None) -> Dict:
         """Create new user with specific username and email"""
         try:
             if not USERS_TABLE:
@@ -172,10 +172,15 @@ class UserOperations:
                     'updated_at': {'S': datetime.now().isoformat()}
                 }
             }
+            
+            # Add university if provided
+            if university:
+                user_params['Item']['university'] = {'S': university}
+            
             ddb.put_item(**user_params)
             
             if DEBUG_MODE:
-                print(f"[DEBUG] Created user with username {normalized_username} and email {normalized_email}")
+                print(f"[DEBUG] Created user with username {normalized_username} and email {normalized_email}, university {university}")
             
             return UserOperations.get_user_data(normalized_username)
         except Exception as error:
@@ -210,6 +215,57 @@ class UserOperations:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to award XP: {error}")
             raise error
+    
+    @staticmethod
+    def get_all_users_for_university_leaderboard() -> Dict:
+        """Get all users with their university information for leaderboard"""
+        try:
+            if not USERS_TABLE:
+                raise Exception("USERS_TABLE not configured")
+            
+            # Scan all users from the table
+            items = []
+            last_evaluated_key = None
+            
+            while True:
+                scan_params = {
+                    'TableName': USERS_TABLE,
+                    'Select': 'ALL_ATTRIBUTES'
+                }
+                
+                if last_evaluated_key:
+                    scan_params['ExclusiveStartKey'] = last_evaluated_key
+                
+                response = ddb.scan(**scan_params)
+                items.extend(response.get('Items', []))
+                
+                last_evaluated_key = response.get('LastEvaluatedKey')
+                if not last_evaluated_key:
+                    break
+            
+            # Normalize the data
+            normalized_users = []
+            for item in items:
+                user = normalize_dynamodb_item(item)
+                # Only include users with university information
+                if user.get('university'):
+                    normalized_users.append({
+                        'username': user.get('username', ''),
+                        'university': user.get('university', ''),
+                        'easy': user.get('easy', 0),
+                        'medium': user.get('medium', 0),
+                        'hard': user.get('hard', 0),
+                        'xp': user.get('xp', 0)
+                    })
+            
+            if DEBUG_MODE:
+                print(f"[DEBUG] Found {len(normalized_users)} users with university information")
+            
+            return {"success": True, "data": normalized_users}
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get users for university leaderboard: {error}")
+            return {"success": False, "error": str(error)}
 
 
 class VerificationOperations:

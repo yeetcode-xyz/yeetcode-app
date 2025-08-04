@@ -154,3 +154,73 @@ async def update_display_name_endpoint(
         return {"success": success}
     except Exception as error:
         return {"success": False, "error": str(error)}
+
+
+@router.get("/university-leaderboard")
+async def get_university_leaderboard_endpoint(
+    api_key: str = Depends(verify_api_key)
+):
+    """Get university leaderboard with aggregated stats"""
+    try:
+        # Check cache first
+        cached_leaderboard = cache_manager.get(CacheType.UNIVERSITY_LEADERBOARD)
+        if cached_leaderboard:
+            return cached_leaderboard
+        
+        # Get all users to aggregate by university
+        result = UserOperations.get_all_users_for_university_leaderboard()
+        if not result.get("success"):
+            return result
+        
+        # Aggregate users by university
+        university_stats = {}
+        for user in result.get("data", []):
+            university = user.get("university")
+            if not university or university == "undefined" or university == "":
+                continue
+                
+            if university not in university_stats:
+                university_stats[university] = {
+                    "university": university,
+                    "students": 0,
+                    "easy": 0,
+                    "medium": 0,
+                    "hard": 0,
+                    "total": 0,
+                    "total_xp": 0,
+                    "top_student": None,
+                    "top_student_xp": 0
+                }
+            
+            stats = university_stats[university]
+            stats["students"] += 1
+            stats["easy"] += user.get("easy", 0)
+            stats["medium"] += user.get("medium", 0)
+            stats["hard"] += user.get("hard", 0)
+            stats["total"] += user.get("easy", 0) + user.get("medium", 0) + user.get("hard", 0)
+            
+            # Calculate XP for this user
+            user_xp = (user.get("easy", 0) * 100 + 
+                      user.get("medium", 0) * 300 + 
+                      user.get("hard", 0) * 500 + 
+                      user.get("xp", 0))
+            
+            stats["total_xp"] += user_xp
+            
+            # Track top student
+            if user_xp > stats["top_student_xp"]:
+                stats["top_student_xp"] = user_xp
+                stats["top_student"] = user.get("username", "Unknown")
+        
+        # Convert to list and sort by total XP
+        leaderboard = list(university_stats.values())
+        leaderboard.sort(key=lambda x: x["total_xp"], reverse=True)
+        
+        response = {"success": True, "data": leaderboard}
+        
+        # Cache the result for 1 minute
+        cache_manager.set(CacheType.UNIVERSITY_LEADERBOARD, response, ttl=60)
+        
+        return response
+    except Exception as error:
+        return {"success": False, "error": str(error)}

@@ -1,5 +1,29 @@
 import React, { useState, useEffect } from 'react';
 
+const UNIVERSITIES = [
+  'MIT',
+  'Stanford University',
+  'Harvard University',
+  'Carnegie Mellon University',
+  'UC Berkeley',
+  'University of Illinois Urbana-Champaign',
+  'Georgia Tech',
+  'University of Washington',
+  'University of Michigan',
+  'UCLA',
+  'Columbia University',
+  'Cornell University',
+  'University of Texas at Austin',
+  'Princeton University',
+  'Yale University',
+  'University of Pennsylvania',
+  'University of Southern California',
+  'Stony Brook University',
+  'New York University',
+  'University of California San Diego',
+  'Other',
+];
+
 const OnboardingStep = ({
   animationClass,
   error,
@@ -59,6 +83,27 @@ const OnboardingStep = ({
           </div>
           <p className="text-xs text-gray-500 mt-1">
             We'll verify this username exists on LeetCode
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold mb-1">University</label>
+          <select
+            className="border-2 border-black rounded-lg px-3 py-2 w-full focus:border-blue-500 focus:outline-none transition-colors"
+            value={userData.university || ''}
+            onChange={e =>
+              setUserData({ ...userData, university: e.target.value })
+            }
+          >
+            <option value="">Select your university</option>
+            {UNIVERSITIES.map(uni => (
+              <option key={uni} value={uni}>
+                {uni}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Join the university leaderboard!
           </p>
         </div>
       </div>

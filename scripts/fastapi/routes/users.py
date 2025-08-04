@@ -19,6 +19,7 @@ class CreateUserRequest(BaseModel):
     username: str
     email: str
     display_name: str = None
+    university: str = None
 
 
 @router.get("/user/{username}")
@@ -130,11 +131,12 @@ async def create_user_with_username_endpoint(
         username = request.username
         email = request.email
         display_name = request.display_name
+        university = request.university
         
         if DEBUG_MODE:
-            print(f"[DEBUG] Creating user with username: {username}, email: {email}, display_name: {display_name}")
+            print(f"[DEBUG] Creating user with username: {username}, email: {email}, display_name: {display_name}, university: {university}")
         
-        result = UserOperations.create_user_with_username(username, email, display_name)
+        result = UserOperations.create_user_with_username(username, email, display_name, university)
         
         # Invalidate cache to force refresh
         cache_manager.invalidate_all(CacheType.USERS)
@@ -187,27 +189,6 @@ async def get_leaderboard_endpoint(
         return {"success": False, "error": str(error)}
 
 
-@router.get("/university-leaderboard")
-async def get_university_leaderboard_endpoint(
-    api_key: str = Depends(verify_api_key)
-):
-    """Get university leaderboard data"""
-    try:
-        # Check cache first for users data
-        cached_users = cache_manager.get(CacheType.USERS)
-        if cached_users:
-            # Filter for university data
-            university_data = {
-                "success": True,
-                "data": [user for user in cached_users.get('data', []) if user.get('university')]
-            }
-            return university_data
-        
-        # Fallback to database
-        result = UserOperations.get_university_leaderboard()
-        return result
-    except Exception as error:
-        return {"success": False, "error": str(error)}
 
 
 @router.get("/user-by-email/{email}")

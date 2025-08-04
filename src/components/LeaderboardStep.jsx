@@ -12,6 +12,7 @@ const LeaderboardStep = ({
   userData,
   groupData,
   leaderboard,
+  universityLeaderboard,
   dailyData,
   refreshIn,
   showCopySuccess,
@@ -44,6 +45,7 @@ const LeaderboardStep = ({
           />
           <FriendsLeaderboard
             leaderboard={leaderboard}
+            universityLeaderboard={universityLeaderboard}
             userData={userData}
             notifications={notifications}
           />
