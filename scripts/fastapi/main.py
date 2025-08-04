@@ -9,6 +9,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
 # Import routers
 from routes.auth import router as auth_router
 from routes.users import router as users_router
@@ -19,9 +22,6 @@ from routes.duels import router as duels_router
 
 # Import cache manager
 from cache_manager import cache_manager
-
-# Load environment variables
-load_dotenv()
 
 app = FastAPI(
     title="YeetCode Email API",
@@ -38,10 +38,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configuration
+# Configuration with error handling
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
-PORT = int(os.getenv("PORT", 6969))
-HOST = os.getenv("HOST", "0.0.0.0")
+
+PORT_STR = os.getenv("PORT")
+if not PORT_STR:
+    raise ValueError("PORT environment variable is required")
+PORT = int(PORT_STR)
+
+HOST = os.getenv("HOST")
+if not HOST:
+    raise ValueError("HOST environment variable is required")
 
 # Include routers
 app.include_router(auth_router)
