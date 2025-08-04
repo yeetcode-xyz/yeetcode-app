@@ -12,61 +12,42 @@ const {
 } = require('electron');
 const path = require('path');
 const electronSquirrelStartup = require('electron-squirrel-startup');
-const dotenv = require('dotenv');
-const axios = require('axios');
 const fs = require('fs');
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+// Import utility modules
+const config = require('./utils/config');
+const { fastApiClient, leetCodeClient } = require('./utils/api');
+const {
+  normalizeEmail,
+  normalizeUsername,
+  generateVerificationCode,
+} = require('./utils/validation');
+const {
+  logError,
+  logDebug,
+  createErrorResponse,
+  createSuccessResponse,
+} = require('./utils/error-handler');
 
+const isDev = config.isDev || !app.isPackaged;
 const version = '0.1.2';
-
-// load env file from ../.env
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // ========================================
 // MAGIC LINK AUTHENTICATION SYSTEM
 // ========================================
 
-// Generate a 6-digit verification code
-const generateVerificationCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
 // Store verification code via FastAPI server
 const storeVerificationCode = async (email, code) => {
   try {
-    const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const response = await fastApiClient.post('/store-verification-code', {
+      email: email,
+      code: code,
+    });
 
-    const response = await axios.post(
-      `${fastApiUrl}/store-verification-code`,
-      {
-        email: email,
-        code: code,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      }
-    );
-
-    if (response.data.success) {
-      console.log('[DEBUG][storeVerificationCode] Stored code for:', email);
-      return { success: true };
-    } else {
-      throw new Error(
-        response.data.error || 'Failed to store verification code'
-      );
-    }
+    logDebug('storeVerificationCode', 'Stored code for:', email);
+    return { success: true };
   } catch (error) {
-    console.error(
-      '[ERROR][storeVerificationCode] Failed to store code:',
-      error
-    );
+    logError('storeVerificationCode', 'Failed to store code:', error);
     throw error;
   }
 };
@@ -74,73 +55,35 @@ const storeVerificationCode = async (email, code) => {
 // Clean up expired verification codes
 const cleanupExpiredVerificationCodes = async () => {
   try {
-    const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
-
-    const response = await axios.post(
-      `${fastApiUrl}/cleanup-expired-codes`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      }
-    );
-
-    if (response.data.success) {
-      console.log('[DEBUG][cleanupExpiredVerificationCodes] Cleanup completed');
-    }
+    await fastApiClient.post('/cleanup-expired-codes', {});
+    logDebug('cleanupExpiredVerificationCodes', 'Cleanup completed');
   } catch (error) {
-    console.error('[ERROR][cleanupExpiredVerificationCodes]', error);
+    logError('cleanupExpiredVerificationCodes', error);
   }
 };
 
 // Verify code and return user data via FastAPI server
 const verifyCodeAndGetUser = async (email, code) => {
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = normalizeEmail(email);
 
   try {
-    const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const response = await fastApiClient.post('/verify-code', {
+      email: normalizedEmail,
+      code: code,
+    });
 
-    const response = await axios.post(
-      `${fastApiUrl}/verify-code`,
-      {
-        email: normalizedEmail,
-        code: code,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      }
-    );
-
-    if (response.data.success) {
-      console.log('[DEBUG][verifyCodeAndGetUser] Code verified for:', email);
-      return {
-        success: true,
-        email: normalizedEmail,
-        verified: true,
-      };
-    } else {
-      return {
-        success: false,
-        error: response.data.error || 'Verification failed',
-      };
-    }
+    logDebug('verifyCodeAndGetUser', 'Code verified for:', email);
+    return {
+      success: true,
+      email: normalizedEmail,
+      verified: true,
+    };
   } catch (error) {
-    console.error(
-      '[ERROR][verifyCodeAndGetUser] Failed to verify code:',
-      error
-    );
-    throw error;
+    logError('verifyCodeAndGetUser', 'Failed to verify code:', error);
+    return {
+      success: false,
+      error: error.message || 'Verification failed',
+    };
   }
 };
 
@@ -152,10 +95,7 @@ if (electronSquirrelStartup) {
 let mainWindow;
 
 const createWindow = () => {
-  console.log(
-    'Creating window with preload script at:',
-    path.join(__dirname, 'preload.js')
-  );
+  console.log(path.join(__dirname, 'preload.js'));
 
   // Create the browser window.
   mainWindow = new BrowserWindow({
@@ -428,103 +368,15 @@ app.on('window-all-closed', () => {
 // code. You can also put them in separate files and import them here.
 
 // LeetCode username validation using GraphQL API
-const validateLeetCodeUsername = async username => {
-  // Convert username to lowercase for case-insensitive validation
-  const normalizedUsername = username.toLowerCase();
-  console.log('Validating LeetCode username with:', {
-    original: username,
-    normalized: normalizedUsername,
-  });
-
-  try {
-    const query = `
-      query getUserProfile($username: String!) {
-        matchedUser(username: $username) {
-          username
-        }
-      }
-    `;
-
-    const variables = {
-      username: normalizedUsername,
-    };
-
-    const response = await axios.post(
-      'https://leetcode.com/graphql',
-      {
-        query: query,
-        variables: variables,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        },
-        timeout: 10000, // 10 second timeout
-      }
-    );
-
-    console.log('GraphQL response status:', response.status);
-    console.log(
-      'GraphQL response data:',
-      JSON.stringify(response.data, null, 2)
-    );
-
-    // Check for GraphQL errors
-    if (response.data.errors) {
-      console.error('GraphQL errors:', response.data.errors);
-
-      // Handle the specific case where user doesn't exist
-      const userNotFoundError = response.data.errors.find(
-        error => error.message === 'That user does not exist.'
-      );
-
-      if (userNotFoundError) {
-        console.log(
-          'User not found on LeetCode - this is expected for invalid usernames'
-        );
-        return {
-          exists: false,
-          error: 'Username not found on LeetCode',
-        };
-      }
-
-      // For other GraphQL errors, return failure
-      return {
-        exists: false,
-        error: 'GraphQL query failed',
-      };
-    }
-
-    const matchedUser = response.data.data?.matchedUser;
-    console.log('Matched user:', matchedUser);
-    const exists = !!matchedUser && !!matchedUser.username;
-    console.log('Username exists:', exists);
-
-    return {
-      exists: exists,
-      error: exists ? null : 'Username not found on LeetCode',
-    };
-  } catch (error) {
-    console.error('Error validating username:', error.message);
-    console.error('Error details:', error.response?.data || 'No response data');
-    throw new Error(`API request error: ${error.message}`);
-  }
-};
-
 // Register IPC handler for LeetCode username validation
 ipcMain.handle('validate-leetcode-username', async (event, username) => {
   try {
-    console.log('Validating username:', username);
-    const result = await validateLeetCodeUsername(username);
-    console.log('Validation result:', result);
-
-    // Return the result directly - the validateLeetCodeUsername function
-    // now handles the GraphQL response properly
+    logDebug('validate-leetcode-username', 'Validating username:', username);
+    const result = await leetCodeClient.validateUsername(username);
+    logDebug('validate-leetcode-username', 'Validation result:', result);
     return result;
   } catch (error) {
-    console.error('Error validating LeetCode username:', error);
+    logError('validate-leetcode-username', error);
     return { exists: false, error: error.message };
   }
 });
@@ -532,32 +384,14 @@ ipcMain.handle('validate-leetcode-username', async (event, username) => {
 // CREATE GROUP
 ipcMain.handle('create-group', async (event, username, displayName) => {
   try {
-    const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const response = await fastApiClient.post('/create-group', {
+      username: username,
+      display_name: displayName,
+    });
 
-    const response = await axios.post(
-      `${fastApiUrl}/create-group`,
-      {
-        username: username,
-        display_name: displayName,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      }
-    );
-
-    if (response.data.success) {
-      return { groupId: response.data.group_id };
-    } else {
-      throw new Error(response.data.error || 'Failed to create group');
-    }
+    return { groupId: response.data.group_id };
   } catch (error) {
-    console.error('[ERROR][create-group]', error);
+    logError('create-group', error);
     throw error;
   }
 });
@@ -567,33 +401,15 @@ ipcMain.handle(
   'join-group',
   async (event, username, inviteCode, displayName) => {
     try {
-      const axios = require('axios');
-      const fastApiUrl = process.env.FASTAPI_URL;
-      const apiKey = process.env.YETCODE_API_KEY;
+      const response = await fastApiClient.post('/join-group', {
+        username: username,
+        invite_code: inviteCode,
+        display_name: displayName,
+      });
 
-      const response = await axios.post(
-        `${fastApiUrl}/join-group`,
-        {
-          username: username,
-          invite_code: inviteCode,
-          display_name: displayName,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 10000,
-        }
-      );
-
-      if (response.data.success) {
-        return { joined: true, groupId: response.data.group_id };
-      } else {
-        throw new Error(response.data.error || 'Failed to join group');
-      }
+      return { joined: true, groupId: response.data.group_id };
     } catch (error) {
-      console.error('[ERROR][join-group]', error);
+      logError('join-group', error);
       throw error;
     }
   }
@@ -764,93 +580,14 @@ ipcMain.handle('open-external-url', async (event, url) => {
 
 // Add handler to fetch random problems from LeetCode GraphQL
 ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
-  console.log('[DEBUG][fetch-random-problem] difficulty:', difficulty);
-
-  const query = `
-    query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
-      problemsetQuestionList: questionList(
-        categorySlug: $categorySlug
-        limit: $limit
-        skip: $skip
-        filters: $filters
-      ) {
-        total: totalNum
-        questions: data {
-          title
-          titleSlug
-          difficulty
-          frontendQuestionId: questionFrontendId
-          paidOnly: isPaidOnly
-          topicTags {
-            name
-          }
-        }
-      }
-    }
-  `;
-
-  const variables = {
-    categorySlug: '',
-    limit: 1000,
-    skip: 0,
-    filters: {
-      difficulty: difficulty,
-    },
-  };
-
   try {
-    const response = await axios.post(
-      'https://leetcode.com/graphql',
-      {
-        query: query,
-        variables: variables,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'YeetCode/1.0',
-        },
-      }
-    );
-
-    console.log(
-      '[DEBUG][fetch-random-problem] Response status:',
-      response.status
-    );
-
-    const data = response.data;
-    if (data.errors) {
-      console.error(
-        '[ERROR][fetch-random-problem] GraphQL errors:',
-        data.errors
-      );
-      throw new Error('GraphQL query failed: ' + JSON.stringify(data.errors));
-    }
-
-    const freeProblems = data.data.problemsetQuestionList.questions.filter(
-      problem => !problem.paidOnly
-    );
-
-    console.log(
-      '[DEBUG][fetch-random-problem] Found',
-      freeProblems.length,
-      'free problems'
-    );
-
-    if (freeProblems.length > 0) {
-      const randomProblem =
-        freeProblems[Math.floor(Math.random() * freeProblems.length)];
-      console.log(
-        '[DEBUG][fetch-random-problem] Selected:',
-        randomProblem.title
-      );
-      return randomProblem;
-    } else {
-      throw new Error('No free problems found');
-    }
+    logDebug('fetch-random-problem', 'difficulty:', difficulty);
+    const randomProblem = await leetCodeClient.selectRandomProblem(difficulty);
+    logDebug('fetch-random-problem', 'Selected:', randomProblem.title);
+    return randomProblem;
   } catch (error) {
-    console.error('[ERROR][fetch-random-problem]', error.message);
-    throw error; // Re-throw the error instead of returning fallback
+    logError('fetch-random-problem', error);
+    throw error;
   }
 });
 
@@ -1634,81 +1371,28 @@ ipcMain.handle('get-duel', async (event, duelId) => {
 ipcMain.handle(
   'fetch-leetcode-submissions',
   async (event, username, limit = 5) => {
-    console.log(
-      '[DEBUG][fetch-leetcode-submissions] called for username:',
-      username,
-      'limit:',
-      limit
-    );
-
     try {
-      // Use real LeetCode GraphQL API
-      const query = `
-      query recentAcSubmissions($username: String!, $limit: Int!) {
-        recentAcSubmissionList(username: $username, limit: $limit) {
-          titleSlug
-          timestamp
-        }
-      }
-    `;
-
-      const variables = {
-        username: username,
-        limit: limit,
-      };
-
-      console.log(
-        '[DEBUG][fetch-leetcode-submissions] Making GraphQL request to LeetCode...'
+      logDebug(
+        'fetch-leetcode-submissions',
+        'called for username:',
+        username,
+        'limit:',
+        limit
       );
-
-      const response = await axios.post(
-        'https://leetcode.com/graphql',
-        {
-          query: query,
-          variables: variables,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'YeetCode/1.0',
-          },
-        }
+      const submissions = await leetCodeClient.fetchRecentSubmissions(
+        username,
+        limit
       );
-
-      console.log(
-        '[DEBUG][fetch-leetcode-submissions] Response status:',
-        response.status
+      logDebug(
+        'fetch-leetcode-submissions',
+        `Successfully fetched ${submissions.length} submissions for ${username}`
       );
-
-      const data = response.data;
-      if (data.errors) {
-        console.error(
-          '[ERROR][fetch-leetcode-submissions] GraphQL errors:',
-          data.errors
-        );
-        throw new Error('GraphQL query failed: ' + JSON.stringify(data.errors));
-      }
-
-      const submissions = data.data.recentAcSubmissionList || [];
-
-      // Convert timestamp to readable format and add additional fields for compatibility
-      const formattedSubmissions = submissions.map(sub => ({
-        titleSlug: sub.titleSlug,
-        timestamp: new Date(parseInt(sub.timestamp) * 1000).toISOString(), // Convert Unix timestamp to ISO string
-        statusDisplay: 'Accepted', // All submissions from this endpoint are accepted
-        lang: 'unknown', // LeetCode API doesn't provide language in this endpoint
-      }));
-
-      console.log(
-        `[DEBUG][fetch-leetcode-submissions] Successfully fetched ${formattedSubmissions.length} submissions for ${username}`
-      );
-      return formattedSubmissions;
+      return submissions;
     } catch (error) {
-      console.error('[ERROR][fetch-leetcode-submissions]', error);
-
-      // Return empty array on error so duels continue working
-      console.log(
-        '[DEBUG][fetch-leetcode-submissions] Returning empty array due to error'
+      logError('fetch-leetcode-submissions', error);
+      logDebug(
+        'fetch-leetcode-submissions',
+        'Returning empty array due to error'
       );
       return [];
     }
@@ -1717,73 +1401,17 @@ ipcMain.handle(
 
 // Helper function to fetch problem details from LeetCode API
 const fetchLeetCodeProblemDetails = async slug => {
-  console.log(
-    '[DEBUG][fetchLeetCodeProblemDetails] fetching details for:',
-    slug
-  );
-
-  const query = `
-    query getQuestionDetail($titleSlug: String!) {
-      question(titleSlug: $titleSlug) {
-        title
-        titleSlug
-        questionFrontendId
-        difficulty
-        content
-        topicTags {
-          name
-        }
-        hints
-        sampleTestCase
-      }
-    }
-  `;
-
-  const variables = {
-    titleSlug: slug,
-  };
-
   try {
-    const response = await axios.post(
-      'https://leetcode.com/graphql',
-      {
-        query: query,
-        variables: variables,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'YeetCode/1.0',
-        },
-      }
-    );
-
-    console.log(
-      '[DEBUG][fetchLeetCodeProblemDetails] Response status:',
-      response.status
-    );
-
-    const data = response.data;
-    if (data.errors) {
-      console.error(
-        '[ERROR][fetchLeetCodeProblemDetails] GraphQL errors:',
-        data.errors
-      );
-      throw new Error('GraphQL query failed: ' + JSON.stringify(data.errors));
-    }
-
-    const questionData = data.data.question;
-    if (!questionData) {
-      throw new Error('Question not found');
-    }
-
-    console.log(
-      '[DEBUG][fetchLeetCodeProblemDetails] Successfully fetched:',
+    logDebug('fetchLeetCodeProblemDetails', 'fetching details for:', slug);
+    const questionData = await leetCodeClient.fetchProblemDetails(slug);
+    logDebug(
+      'fetchLeetCodeProblemDetails',
+      'Successfully fetched:',
       questionData.title
     );
     return questionData;
   } catch (error) {
-    console.error('[ERROR][fetchLeetCodeProblemDetails]', error.message);
+    logError('fetchLeetCodeProblemDetails', error);
     throw error;
   }
 };
