@@ -3,8 +3,8 @@ Authentication routes
 """
 
 import os
-from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
+from dotenv import load_dotenv
 
 from models import EmailOTPRequest, EmailOTPResponse
 from auth import verify_api_key, check_rate_limit
@@ -16,7 +16,7 @@ load_dotenv()
 
 router = APIRouter(tags=["Authentication"])
 
-DEBUG_MODE = False
+DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 HOST = os.getenv("HOST", "0.0.0.0")
 
 
