@@ -575,6 +575,23 @@ function App() {
         return;
       }
 
+      // 2) Check if username is already taken by another user
+      const existingUser = await window.electronAPI.getUserData(
+        userData.leetUsername
+      );
+
+      if (existingUser && existingUser.email) {
+        // Username exists in our database
+        if (existingUser.email.toLowerCase() !== userData.email.toLowerCase()) {
+          // Username is taken by someone with a different email
+          setError(
+            'This LeetCode username is already associated with another account. Please use your own LeetCode username.'
+          );
+          return;
+        }
+        // If emails match, user is reclaiming their account - this is allowed
+      }
+
       // 3) On success, show indicator and update display name
       setShowSuccess(true);
 
