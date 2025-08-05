@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import SearchableDropdown from '../SearchableDropdown';
 import {
   getUserDuels,
   getRecentDuels,
@@ -797,41 +798,47 @@ const DuelsSection = ({ leaderboard = [], userData }) => {
               <span className="text-lg">🎯</span>
             </div>
             <div className="space-y-3">
-              <select
-                className="w-full p-2 border-2 border-black rounded-lg font-medium"
+              <SearchableDropdown
+                options={availableFriends.map(friend => ({
+                  value: friend.username,
+                  label: friend.name,
+                }))}
                 value={selectedFriend}
-                onChange={e => setSelectedFriend(e.target.value)}
-              >
-                <option value="">Select a friend...</option>
-                {availableFriends.length > 0 ? (
-                  availableFriends.map(friend => (
-                    <option key={friend.username} value={friend.username}>
-                      {friend.name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No friends in group yet</option>
-                )}
-              </select>
-              <select
-                className="w-full p-2 border-2 border-black rounded-lg font-medium"
+                onChange={value => setSelectedFriend(value)}
+                placeholder={
+                  availableFriends.length > 0
+                    ? 'Select a friend...'
+                    : 'No friends in group yet'
+                }
+                disabled={availableFriends.length === 0}
+                className="font-medium"
+                compact={true}
+              />
+              <SearchableDropdown
+                options={[
+                  {
+                    value: 'Easy',
+                    label: 'Easy (100 XP + 200 bonus if you win)',
+                  },
+                  {
+                    value: 'Medium',
+                    label: 'Medium (300 XP + 200 bonus if you win)',
+                  },
+                  {
+                    value: 'Hard',
+                    label: 'Hard (500 XP + 200 bonus if you win)',
+                  },
+                  {
+                    value: 'Random',
+                    label: 'Random (? XP + 200 bonus if you win)',
+                  },
+                ]}
                 value={selectedDifficulty}
-                onChange={e => setSelectedDifficulty(e.target.value)}
-              >
-                <option value="">Problem difficulty...</option>
-                <option value="Easy">
-                  Easy (100 XP + 200 bonus if you win)
-                </option>
-                <option value="Medium">
-                  Medium (300 XP + 200 bonus if you win)
-                </option>
-                <option value="Hard">
-                  Hard (500 XP + 200 bonus if you win)
-                </option>
-                <option value="Random">
-                  Random (? XP + 200 bonus if you win)
-                </option>
-              </select>
+                onChange={value => setSelectedDifficulty(value)}
+                placeholder="Problem difficulty..."
+                className="font-medium"
+                compact={true}
+              />
             </div>
             {error && (
               <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">

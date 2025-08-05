@@ -176,7 +176,7 @@ async def get_university_leaderboard_endpoint(
         university_stats = {}
         for user in result.get("data", []):
             university = user.get("university")
-            if not university or university == "undefined" or university == "":
+            if not university or university == "undefined" or university == "" or university == "Other":
                 continue
                 
             if university not in university_stats:

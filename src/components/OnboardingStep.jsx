@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import SearchableDropdown from './SearchableDropdown';
 
 const UNIVERSITIES = [
   'MIT',
@@ -33,6 +34,15 @@ const OnboardingStep = ({
   showSuccess,
   handleValidateLeet,
 }) => {
+  const [notInUniversity, setNotInUniversity] = useState(false);
+
+  const handleNotInUniversityChange = checked => {
+    setNotInUniversity(checked);
+    if (checked) {
+      setUserData({ ...userData, university: '' });
+    }
+  };
+
   return (
     <div className={`flex flex-col gap-4 ${animationClass}`}>
       <div className="text-center mb-2">
@@ -64,23 +74,14 @@ const OnboardingStep = ({
           <label className="block text-sm font-bold mb-1">
             LeetCode Username
           </label>
-          <div className="flex gap-2">
-            <input
-              className="border-2 border-black rounded-lg px-3 py-2 flex-1 focus:border-blue-500 focus:outline-none transition-colors"
-              placeholder="Your LeetCode username"
-              value={userData.leetUsername}
-              onChange={e =>
-                setUserData({ ...userData, leetUsername: e.target.value })
-              }
-            />
-            <button
-              onClick={handleValidateLeet}
-              disabled={validating}
-              className={`px-4 py-2 ${validating ? 'bg-gray-400 text-gray-200' : 'bg-yellow-300 hover:bg-yellow-500 text-black'} border-2 border-black rounded-lg font-bold ${!validating ? 'btn-3d' : 'cursor-not-allowed'}`}
-            >
-              {validating ? 'Checking...' : 'Continue'}
-            </button>
-          </div>
+          <input
+            className="border-2 border-black rounded-lg px-3 py-2 w-full focus:border-blue-500 focus:outline-none transition-colors"
+            placeholder="Your LeetCode username"
+            value={userData.leetUsername}
+            onChange={e =>
+              setUserData({ ...userData, leetUsername: e.target.value })
+            }
+          />
           <p className="text-xs text-gray-500 mt-1">
             We'll verify this username exists on LeetCode
           </p>
@@ -88,24 +89,42 @@ const OnboardingStep = ({
 
         <div>
           <label className="block text-sm font-bold mb-1">University</label>
-          <select
-            className="border-2 border-black rounded-lg px-3 py-2 w-full focus:border-blue-500 focus:outline-none transition-colors"
+          <SearchableDropdown
+            options={UNIVERSITIES}
             value={userData.university || ''}
-            onChange={e =>
-              setUserData({ ...userData, university: e.target.value })
-            }
-          >
-            <option value="">Select your university</option>
-            {UNIVERSITIES.map(uni => (
-              <option key={uni} value={uni}>
-                {uni}
-              </option>
-            ))}
-          </select>
+            onChange={value => setUserData({ ...userData, university: value })}
+            placeholder="Select your university"
+            disabled={notInUniversity}
+          />
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              type="checkbox"
+              id="not-in-university"
+              checked={notInUniversity}
+              onChange={e => handleNotInUniversityChange(e.target.checked)}
+              className="w-4 h-4 border-2 border-black rounded"
+            />
+            <label
+              htmlFor="not-in-university"
+              className="text-sm text-gray-600 cursor-pointer"
+            >
+              Not in a university
+            </label>
+          </div>
           <p className="text-xs text-gray-500 mt-1">
-            Join the university leaderboard!
+            {notInUniversity
+              ? "You can join groups but won't appear on university leaderboard"
+              : 'Join the university leaderboard!'}
           </p>
         </div>
+
+        <button
+          onClick={handleValidateLeet}
+          disabled={validating}
+          className={`w-full px-4 py-2 ${validating ? 'bg-gray-400 text-gray-200' : 'bg-yellow-300 hover:bg-yellow-500 text-black'} border-2 border-black rounded-lg font-bold ${!validating ? 'btn-3d' : 'cursor-not-allowed'}`}
+        >
+          {validating ? 'Checking...' : 'Continue'}
+        </button>
       </div>
 
       {error && (
