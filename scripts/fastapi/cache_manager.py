@@ -36,6 +36,7 @@ class CacheType(Enum):
     DUELS = "duels"
     GROUPS = "groups"
     UNIVERSITY_LEADERBOARD = "university_leaderboard"
+    USER_DAILY_DATA = "user_daily_data"  # Cache for user streak data
 
 
 @dataclass
@@ -63,6 +64,7 @@ class CacheManager:
             CacheType.DUELS: {"ttl": 60, "refresh_interval": None},  # 1 minute, no auto-refresh
             CacheType.GROUPS: {"ttl": 60, "refresh_interval": None},  # 1 minute, no auto-refresh
             CacheType.UNIVERSITY_LEADERBOARD: {"ttl": 60, "refresh_interval": None},  # 1 minute, no auto-refresh
+            CacheType.USER_DAILY_DATA: {"ttl": 60, "refresh_interval": None},  # 1 minute, no auto-refresh
         }
         
         # Start background refresh thread

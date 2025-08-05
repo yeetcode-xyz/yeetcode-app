@@ -670,6 +670,45 @@ class DailyProblemOperations:
             raise error
     
     @staticmethod
+    def get_user_daily_data(username: str) -> Dict:
+        """Get just the user's streak data (lightweight operation)"""
+        try:
+            if not DAILY_TABLE:
+                raise Exception("DAILY_TABLE not configured")
+            
+            from datetime import datetime, timedelta
+            
+            # Get recent problems for streak calculation (last 30 days)
+            thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            scan_params = {
+                'TableName': DAILY_TABLE,
+                'FilterExpression': '#date >= :thirtyDaysAgo',
+                'ExpressionAttributeNames': {'#date': 'date'},
+                'ExpressionAttributeValues': {':thirtyDaysAgo': {'S': thirty_days_ago}}
+            }
+            
+            recent_problems = ddb.scan(**scan_params).get('Items', [])
+            
+            # Sort by date in reverse to check streak
+            sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+            
+            # Calculate streak
+            streak = 0
+            normalized_username = username.lower()
+            for problem in sorted_problems:
+                if 'users' in problem and normalized_username in problem.get('users', {}):
+                    streak += 1
+                else:
+                    break
+            
+            return {'streak': streak}
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get user daily data: {error}")
+            return {'streak': 0}
+    
+    @staticmethod
     def complete_daily_problem(username: str) -> Dict:
         """Mark daily problem as completed for a user"""
         try:

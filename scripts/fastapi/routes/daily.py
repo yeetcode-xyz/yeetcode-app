@@ -11,7 +11,7 @@ from cache_manager import cache_manager, CacheType
 
 router = APIRouter(tags=["Daily Problems"])
 
-DEBUG_MODE = False
+DEBUG_MODE = True
 
 
 @router.get("/daily-problem/{username}")
@@ -21,20 +21,49 @@ async def get_daily_problem_endpoint(
 ):
     """Get daily problem data for a user"""
     try:
+        print(f"[DEBUG] Getting daily problem for user: {username}")
+        
         # Check cache first for daily problem
         cached_problem = cache_manager.get(CacheType.DAILY_PROBLEM)
         cached_completions = cache_manager.get(CacheType.DAILY_COMPLETIONS)
         
-        if cached_problem and cached_completions:
-            # Use cached data
+        print(f"[DEBUG] Cached problem: {'Found' if cached_problem else 'Not found'}")
+        print(f"[DEBUG] Cached completions: {'Found' if cached_completions else 'Not found'}")
+        
+        if cached_problem:
+            # Have cached problem
             problem_data = cached_problem
-            completions_data = cached_completions
+            
+            # Check or create completions cache
+            if cached_completions:
+                completions_data = cached_completions
+            else:
+                # Create completions data from the cached problem
+                print("[DEBUG] Populating missing completions cache")
+                completions_data = {
+                    "success": True,
+                    "data": {
+                        "users": problem_data.get('users', {}),
+                        "problem_date": problem_data.get('date')
+                    }
+                }
+                # Cache the completions
+                cache_manager.set(CacheType.DAILY_COMPLETIONS, completions_data)
             
             # Check if user completed today's problem
-            user_completed = username in completions_data.get('users', [])
+            user_completed = username in completions_data.get('data', {}).get('users', {})
             
-            # Get user's streak from database (this changes frequently)
-            user_data = DailyProblemOperations.get_user_daily_data(username)
+            # Check cache for user's streak data
+            cached_user_data = cache_manager.get(CacheType.USER_DAILY_DATA, username)
+            if cached_user_data:
+                # Use cached user data
+                user_data = cached_user_data
+                print(f"[CACHE] Using cached user daily data for {username}")
+            else:
+                # Get user's streak from database and cache it
+                user_data = DailyProblemOperations.get_user_daily_data(username)
+                cache_manager.set(CacheType.USER_DAILY_DATA, user_data, username)
+                print(f"[CACHE] Cached user daily data for {username}")
             
             return {
                 "success": True,
@@ -66,6 +95,8 @@ async def complete_daily_problem_endpoint(
         
         # Invalidate cache to force refresh
         cache_manager.invalidate_all(CacheType.DAILY_COMPLETIONS)
+        # Also invalidate the user's daily data cache
+        cache_manager.invalidate(CacheType.USER_DAILY_DATA, request.username)
         
         return result
     except Exception as error:

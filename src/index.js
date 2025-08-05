@@ -33,6 +33,44 @@ const isDev = config.isDev || !app.isPackaged;
 const version = '0.1.2';
 
 // ========================================
+// LEETCODE PROBLEM DETAILS CACHE
+// ========================================
+// Cache LeetCode problem details to avoid expensive API calls
+const problemDetailsCache = new Map();
+const PROBLEM_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+const getCachedProblemDetails = async slug => {
+  const cached = problemDetailsCache.get(slug);
+  const now = Date.now();
+
+  console.log('[CACHE DEBUG] Checking cache for slug:', slug);
+  console.log('[CACHE DEBUG] Cache size:', problemDetailsCache.size);
+  console.log('[CACHE DEBUG] Cached entry:', cached ? 'found' : 'not found');
+
+  if (cached && now - cached.timestamp < PROBLEM_CACHE_TTL) {
+    const age = (now - cached.timestamp) / 1000;
+    console.log('[CACHE DEBUG] Cache hit! Age:', age, 'seconds');
+    logDebug('getCachedProblemDetails', 'Cache hit for:', slug);
+    return cached.data;
+  }
+
+  console.log('[CACHE DEBUG] Cache miss - fetching from LeetCode API');
+  logDebug('getCachedProblemDetails', 'Cache miss for:', slug);
+  try {
+    const details = await fetchLeetCodeProblemDetails(slug);
+    problemDetailsCache.set(slug, {
+      data: details,
+      timestamp: now,
+    });
+    console.log('[CACHE DEBUG] Cached new entry for:', slug);
+    return details;
+  } catch (error) {
+    logError('getCachedProblemDetails', 'Failed to fetch:', error);
+    throw error;
+  }
+};
+
+// ========================================
 // MAGIC LINK AUTHENTICATION SYSTEM
 // ========================================
 
@@ -605,6 +643,7 @@ ipcMain.handle('fetch-random-problem', async (event, difficulty) => {
 
 // Fetch daily problem data from FastAPI
 ipcMain.handle('get-daily-problem', async (event, username) => {
+  const startTime = Date.now();
   try {
     const axios = require('axios');
     const fastApiUrl = process.env.FASTAPI_URL;
@@ -628,9 +667,14 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
       let problemDetails = null;
       if (data.todaysProblem) {
         try {
-          problemDetails = await fetchLeetCodeProblemDetails(
-            data.todaysProblem.titleSlug || data.todaysProblem.slug
+          const slug = data.todaysProblem.titleSlug || data.todaysProblem.slug;
+          console.log('[DAILY DEBUG] Problem slug:', slug);
+          console.log(
+            '[DAILY DEBUG] Backend cache response time:',
+            Date.now() - startTime,
+            'ms'
           );
+          problemDetails = await getCachedProblemDetails(slug);
         } catch (error) {
           console.error(
             '[ERROR][get-daily-problem] Failed to fetch problem details:',
