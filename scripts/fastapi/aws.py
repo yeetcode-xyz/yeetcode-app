@@ -892,7 +892,7 @@ class DuelOperations:
             raise error
     
     @staticmethod
-    def create_duel(username: str, opponent: str, problem_slug: str) -> Dict:
+    def create_duel(username: str, opponent: str, problem_slug: str, difficulty: str = None) -> Dict:
         """Create a new duel"""
         try:
             if not DUELS_TABLE:
@@ -917,6 +917,10 @@ class DuelOperations:
                     'expires_at': {'N': str(int(time.time()) + 3600)}  # 1 hour
                 }
             }
+            
+            # Add difficulty if provided
+            if difficulty:
+                put_params['Item']['difficulty'] = {'S': difficulty}
             
             ddb.put_item(**put_params)
             
@@ -995,7 +999,7 @@ class DuelOperations:
             
             normalized_username = username.lower()
             
-            # Get duel details
+            # Get current duel details
             get_params = {
                 'TableName': DUELS_TABLE,
                 'Key': {'duelId': {'S': duel_id}}
@@ -1005,30 +1009,111 @@ class DuelOperations:
             if 'Item' not in get_result:
                 return {"success": False, "error": "Duel not found"}
             
-            # Update duel with submission
+            duel_item = get_result['Item']
+            challenger = duel_item.get('challenger', {}).get('S')
+            challengee = duel_item.get('challengee', {}).get('S')
+            current_status = duel_item.get('status', {}).get('S')
+            
+            # Don't allow submissions on already completed duels
+            if current_status == 'COMPLETED':
+                return {"success": False, "error": "Duel already completed"}
+            
+            # Determine if user is challenger or challengee
+            is_challenger = normalized_username == challenger
+            if not is_challenger and normalized_username != challengee:
+                return {"success": False, "error": "User not part of this duel"}
+            
+            # Get existing times
+            current_challenger_time = duel_item.get('challengerTime', {}).get('N')
+            current_challengee_time = duel_item.get('challengeeTime', {}).get('N')
+            
+            # Don't overwrite if user already has a time recorded
+            if is_challenger and current_challenger_time and current_challenger_time != '0':
+                return {"success": False, "error": "Challenger time already recorded"}
+            if not is_challenger and current_challengee_time and current_challengee_time != '0':
+                return {"success": False, "error": "Challengee time already recorded"}
+            
+            # Update the appropriate user's time
+            if is_challenger:
+                update_expression = 'SET challengerTime = :time'
+                expression_values = {':time': {'N': str(elapsed_ms)}}
+                new_challenger_time = elapsed_ms
+                new_challengee_time = int(current_challengee_time) if current_challengee_time and current_challengee_time != '0' else None
+            else:
+                update_expression = 'SET challengeeTime = :time'
+                expression_values = {':time': {'N': str(elapsed_ms)}}
+                new_challenger_time = int(current_challenger_time) if current_challenger_time and current_challenger_time != '0' else None
+                new_challengee_time = elapsed_ms
+            
+            # Update the time
             update_params = {
                 'TableName': DUELS_TABLE,
                 'Key': {'duelId': {'S': duel_id}},
-                'UpdateExpression': 'SET challengerTime = :challengerTime, challengeeTime = :challengeeTime, #status = :status, winner = :winner, xpAwarded = :xpAwarded',
-                'ExpressionAttributeNames': {'#status': 'status'},
-                'ExpressionAttributeValues': {
-                    ':challengerTime': {'N': str(elapsed_ms)},
-                    ':challengeeTime': {'N': '0'},
-                    ':status': {'S': 'COMPLETED'},
-                    ':winner': {'S': normalized_username},
-                    ':xpAwarded': {'N': '300'}
-                }
+                'UpdateExpression': update_expression,
+                'ExpressionAttributeValues': expression_values
             }
             
             ddb.update_item(**update_params)
             
-            # Award XP
-            UserOperations.award_xp(normalized_username, 25)
+            # Check if we should complete the duel (both users have times or one user completed and timeout passed)
+            should_complete_duel = False
+            winner = None
+            xp_award = 25  # Base XP for participation
+            
+            if new_challenger_time is not None and new_challengee_time is not None:
+                # Both users completed - determine winner
+                should_complete_duel = True
+                if new_challenger_time < new_challengee_time:
+                    winner = challenger
+                    xp_award = 50  # Winner gets more XP
+                elif new_challengee_time < new_challenger_time:
+                    winner = challengee
+                    xp_award = 50  # Winner gets more XP
+                else:
+                    # Tie - both get winner XP
+                    winner = None  # No single winner
+                    xp_award = 50
+                    
+            elif (new_challenger_time is not None or new_challengee_time is not None):
+                # Only one user completed - check if enough time has passed for timeout
+                # For now, don't auto-complete. Let background job handle timeouts
+                should_complete_duel = False
+            
+            if should_complete_duel:
+                # Complete the duel
+                complete_params = {
+                    'TableName': DUELS_TABLE,
+                    'Key': {'duelId': {'S': duel_id}},
+                    'UpdateExpression': 'SET #status = :status, winner = :winner, xpAwarded = :xp, completedAt = :completed',
+                    'ExpressionAttributeNames': {'#status': 'status'},
+                    'ExpressionAttributeValues': {
+                        ':status': {'S': 'COMPLETED'},
+                        ':winner': {'S': winner} if winner else {'NULL': True},
+                        ':xp': {'N': str(xp_award)},
+                        ':completed': {'S': datetime.now().isoformat()}
+                    }
+                }
+                
+                ddb.update_item(**complete_params)
+                
+                # Award XP to participants
+                if winner:
+                    UserOperations.award_xp(winner, xp_award)
+                    # Award participation XP to loser
+                    loser = challengee if winner == challenger else challenger
+                    UserOperations.award_xp(loser, 25)
+                else:
+                    # Tie - both get winner XP
+                    UserOperations.award_xp(challenger, xp_award)
+                    UserOperations.award_xp(challengee, xp_award)
+                
+                if DEBUG_MODE:
+                    print(f"[DEBUG] Duel {duel_id} completed. Winner: {winner or 'TIE'}")
             
             if DEBUG_MODE:
-                print(f"[DEBUG] User {normalized_username} completed duel {duel_id} in {elapsed_ms}ms")
+                print(f"[DEBUG] User {normalized_username} recorded time {elapsed_ms}ms for duel {duel_id}")
             
-            return {"success": True}
+            return {"success": True, "completed": should_complete_duel, "winner": winner if should_complete_duel else None}
             
         except Exception as error:
             if DEBUG_MODE:
@@ -1128,3 +1213,109 @@ class DuelOperations:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to cleanup expired duels: {error}")
             raise error
+    
+    @staticmethod
+    async def handle_duel_timeouts() -> Dict:
+        """Handle duel timeouts - complete duels where only one person solved and timeout period passed"""
+        try:
+            if not DUELS_TABLE:
+                raise Exception("DUELS_TABLE not configured")
+            
+            # Get all active duels
+            scan_params = {
+                'TableName': DUELS_TABLE,
+                'FilterExpression': '#status = :active',
+                'ExpressionAttributeNames': {'#status': 'status'},
+                'ExpressionAttributeValues': {':active': {'S': 'ACTIVE'}}
+            }
+            
+            scan_result = ddb.scan(**scan_params)
+            active_duels = scan_result.get('Items', [])
+            
+            now = int(time.time())
+            timeout_threshold = 30 * 60  # 30 minutes after one person solves
+            completed_duels = 0
+            
+            for duel_item in active_duels:
+                duel_id = duel_item.get('duelId', {}).get('S')
+                challenger = duel_item.get('challenger', {}).get('S')
+                challengee = duel_item.get('challengee', {}).get('S')
+                start_time_str = duel_item.get('startTime', {}).get('S')
+                
+                challenger_time = duel_item.get('challengerTime', {}).get('N')
+                challengee_time = duel_item.get('challengeeTime', {}).get('N')
+                
+                # Skip if both already have times (should have been completed already)
+                if challenger_time and challenger_time != '0' and challengee_time and challengee_time != '0':
+                    continue
+                
+                # Check if only one person has completed
+                challenger_completed = challenger_time and challenger_time != '0'
+                challengee_completed = challengee_time and challengee_time != '0'
+                
+                if challenger_completed or challengee_completed:
+                    # Someone completed - check if enough time has passed for timeout
+                    if start_time_str:
+                        start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+                        time_since_start = now - start_time.timestamp()
+                        
+                        if time_since_start > timeout_threshold:
+                            # Complete duel due to timeout
+                            winner = challenger if challenger_completed else challengee
+                            loser = challengee if challenger_completed else challenger
+                            
+                            complete_params = {
+                                'TableName': DUELS_TABLE,
+                                'Key': {'duelId': {'S': duel_id}},
+                                'UpdateExpression': 'SET #status = :status, winner = :winner, xpAwarded = :xp, completedAt = :completed, completionReason = :reason',
+                                'ExpressionAttributeNames': {'#status': 'status'},
+                                'ExpressionAttributeValues': {
+                                    ':status': {'S': 'COMPLETED'},
+                                    ':winner': {'S': winner},
+                                    ':xp': {'N': '75'},  # Winner by timeout gets bonus XP
+                                    ':completed': {'S': datetime.now().isoformat()},
+                                    ':reason': {'S': 'TIMEOUT'}
+                                }
+                            }
+                            
+                            ddb.update_item(**complete_params)
+                            
+                            # Award XP
+                            UserOperations.award_xp(winner, 75)  # Winner gets more for persistence
+                            UserOperations.award_xp(loser, 15)   # Loser gets something for participation
+                            
+                            completed_duels += 1
+                            if DEBUG_MODE:
+                                print(f"[DEBUG] Completed duel {duel_id} due to timeout. Winner: {winner}")
+                
+                # Also handle cases where no one solved and total duel time exceeded (2 hours)
+                elif start_time_str:
+                    start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+                    time_since_start = now - start_time.timestamp()
+                    max_duel_time = 2 * 60 * 60  # 2 hours max
+                    
+                    if time_since_start > max_duel_time:
+                        # End duel with no winner
+                        complete_params = {
+                            'TableName': DUELS_TABLE,
+                            'Key': {'duelId': {'S': duel_id}},
+                            'UpdateExpression': 'SET #status = :status, completedAt = :completed, completionReason = :reason',
+                            'ExpressionAttributeNames': {'#status': 'status'},
+                            'ExpressionAttributeValues': {
+                                ':status': {'S': 'COMPLETED'},
+                                ':completed': {'S': datetime.now().isoformat()},
+                                ':reason': {'S': 'EXPIRED'}
+                            }
+                        }
+                        
+                        ddb.update_item(**complete_params)
+                        completed_duels += 1
+                        if DEBUG_MODE:
+                            print(f"[DEBUG] Expired duel {duel_id} - no winner")
+            
+            return {"success": True, "completed_duels": completed_duels}
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to handle duel timeouts: {error}")
+            return {"success": False, "error": str(error)}

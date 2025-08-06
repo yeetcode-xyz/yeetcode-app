@@ -69,3 +69,4 @@ class DuelRequest(BaseModel):
     duel_id: Optional[str] = None
     opponent: Optional[str] = None
     problem_slug: Optional[str] = None
+    difficulty: Optional[str] = None

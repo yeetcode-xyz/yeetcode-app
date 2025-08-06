@@ -107,21 +107,3 @@ async def get_bounty_progress_endpoint(
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
-
-
-@router.post("/complete-bounty")
-async def complete_bounty_endpoint(
-    request: BountyRequest,
-    api_key: str = Depends(verify_api_key)
-):
-    """Complete a bounty for a user"""
-    try:
-        result = BountyOperations.complete_bounty(request.username, request.bounty_id)
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.BOUNTY_COMPETITIONS)
-        
-        return result
-    except Exception as error:
-        return {"success": False, "error": str(error)}
-

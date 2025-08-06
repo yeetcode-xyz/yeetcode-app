@@ -1235,6 +1235,7 @@ ipcMain.handle(
           username: challengerUsername,
           opponent: challengeeUsername,
           problem_slug: randomProblem.titleSlug,
+          difficulty: difficulty,
         },
         {
           headers: {

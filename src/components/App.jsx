@@ -26,6 +26,7 @@ function App() {
 
   // Fix: Declare previousLeaderboardRef here
   const previousLeaderboardRef = useRef([]);
+  const leaderboardStepRef = useRef();
 
   // Daily problem global state
   const [dailyData, setDailyData] = useState({
@@ -152,6 +153,10 @@ function App() {
         fetchLeaderboard();
         fetchUniversityLeaderboard();
         fetchDailyProblem();
+        // Refresh duels as part of the auto-refresh system
+        if (leaderboardStepRef.current) {
+          leaderboardStepRef.current.refreshDuels();
+        }
         lastRefreshTime = now;
       }
     };
@@ -839,7 +844,11 @@ function App() {
       {step === 'onboarding' && <OnboardingStep {...stepProps} />}
       {step === 'group' && <GroupStep {...stepProps} />}
       {step === 'leaderboard' && (
-        <LeaderboardStep {...stepProps} quickActionsProps={{ handleLogout }} />
+        <LeaderboardStep
+          ref={leaderboardStepRef}
+          {...stepProps}
+          quickActionsProps={{ handleLogout }}
+        />
       )}
 
       <style>{`

@@ -11,7 +11,7 @@ from cache_manager import cache_manager, CacheType
 
 router = APIRouter(tags=["Duels"])
 
-DEBUG_MODE = False
+DEBUG_MODE = True
 
 
 @router.get("/duels/{username}")
@@ -55,10 +55,14 @@ async def create_duel_endpoint(
 ):
     """Create a new duel"""
     try:
+        if DEBUG_MODE:
+            print(f"[DEBUG] Creating duel - username: {request.username}, opponent: {request.opponent}, problem_slug: {request.problem_slug}, difficulty: {request.difficulty}")
+        
         result = DuelOperations.create_duel(
             request.username, 
             request.opponent, 
-            request.problem_slug
+            request.problem_slug,
+            request.difficulty
         )
         
         # Invalidate cache to force refresh

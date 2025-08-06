@@ -4,8 +4,9 @@ FastAPI server for YeetCode email OTP functionality
 """
 
 import os
+import asyncio
 from datetime import datetime
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -20,8 +21,9 @@ from routes.daily import router as daily_router
 from routes.bounties import router as bounties_router
 from routes.duels import router as duels_router
 
-# Import cache manager
+# Import cache manager and AWS operations
 from cache_manager import cache_manager
+from aws import DuelOperations
 
 app = FastAPI(
     title="YeetCode Email API",
@@ -84,6 +86,36 @@ async def clear_cache():
     # In a real app, you'd add authentication here
     cache_manager._cache.clear()
     return {"success": True, "message": "Cache cleared"}
+
+
+# Background task for monitoring active duels
+async def monitor_active_duels():
+    """Background task to monitor active duels for timeouts and completion"""
+    if DEBUG_MODE:
+        print("[DEBUG] Starting duel monitoring background task")
+    
+    while True:
+        try:
+            # Get all active duels and check for timeouts
+            await DuelOperations.handle_duel_timeouts()
+            if DEBUG_MODE:
+                print("[DEBUG] Duel timeout check completed")
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Duel monitoring error: {error}")
+        
+        # Check every 30 seconds
+        await asyncio.sleep(30)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background tasks when the app starts"""
+    if DEBUG_MODE:
+        print("[DEBUG] Starting FastAPI server with background tasks")
+    
+    # Start the duel monitoring task
+    asyncio.create_task(monitor_active_duels())
 
 
 if __name__ == "__main__":
