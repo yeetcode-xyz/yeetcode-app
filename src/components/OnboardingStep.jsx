@@ -137,7 +137,6 @@ const OnboardingStep = ({
         <div className="relative overflow-hidden">
           <div className="bg-orange-500 p-6 border-4 border-black rounded-xl text-center animate-pulse shadow-2xl">
             <div className="space-y-3">
-              <div className="text-4xl animate-bounce">🎉</div>
               <div className="text-white font-bold text-xl">WELCOME BACK!</div>
               <div className="text-black text-sm">
                 Loading your dashboard...

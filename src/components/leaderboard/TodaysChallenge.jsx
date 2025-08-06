@@ -164,7 +164,6 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
                 className="px-2 py-1 bg-green-100 border border-green-300 rounded text-green-800 font-bold flex items-center gap-1 justify-center"
                 style={{ fontSize: '14px' }}
               >
-                <span>🎉</span>
                 <span>Daily challenge completed! You earned 200 XP.</span>
               </div>
             )}
