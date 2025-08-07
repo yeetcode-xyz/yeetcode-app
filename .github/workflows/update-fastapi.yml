@@ -12,23 +12,28 @@ jobs:
     environment: env
 
     steps:
-      - name: Checkout code (with history)
+      # 1️⃣ Checkout with enough history for diff
+      - name: Checkout code
         uses: actions/checkout@v3
         with:
           fetch-depth: 2
 
-      - name: Detect changed FastAPI files
+      # 2️⃣ Figure out what changed
+      - name: Detect FastAPI changes
         id: diff
         run: |
           git diff --name-only HEAD~1 HEAD -- scripts/fastapi/ > changed.txt
           CHANGED=$(grep -v '^$' changed.txt | tr '\n' ',' | sed 's/,$//')
           echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
 
-      - name: Skip if no FastAPI changes
+      # 3️⃣ Skip entirely if nothing changed
+      - name: Skip if no changes
         if: steps.diff.outputs.changed_files == ''
-        run: echo "✅ No FastAPI files changed. Skipping deploy."
+        run: |
+          echo "✅ No FastAPI files changed; skipping deploy."
 
-      - name: Archive only changed files
+      # 4️⃣ Archive only the changed files (flatten paths)
+      - name: Archive changed files
         if: steps.diff.outputs.changed_files != ''
         run: |
           mkdir -p changed-files
@@ -39,71 +44,80 @@ jobs:
           done < changed.txt
           tar -czf changed-files.tgz -C changed-files .
 
-      - name: Setup SSH
+      # 5️⃣ Install SSH key and suppress banners
+      - name: Setup SSH key & silence banner
         if: steps.diff.outputs.changed_files != ''
         run: |
           mkdir -p ~/.ssh
-          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          # Suppress motd/login banners
-          echo "LogLevel ERROR" >> ~/.ssh/config
+          # add known host and disable MOTD on VPS
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=no \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "touch ~/.hushlogin"
 
-      - name: Upload & deploy to VPS
+      # 6️⃣ Copy & deploy on the VPS
+      - name: Deploy to VPS
         if: steps.diff.outputs.changed_files != ''
         run: |
-          # Quietly copy files
-          scp -q -o LogLevel=ERROR changed-files.tgz changed.txt ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/
-          # SSH without a PTY and suppress banners
-          ssh -T -o LogLevel=ERROR ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          # copy archive and list
+          scp -i ~/.ssh/id_ed25519 -q -o StrictHostKeyChecking=no \
+            changed-files.tgz changed.txt \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/ 
+
+          # SSH in quietly and run all deploy steps
+          ssh -i ~/.ssh/id_ed25519 -q -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e
-            cd /root/yeetcode-api
+            cd ~/yeetcode-api
 
-            # Unpack changed files
-            tar -xzf /root/changed-files.tgz -C .
-            rm /root/changed-files.tgz
+            # unpack files
+            tar -xzf ~/changed-files.tgz -C .
+            rm ~/changed-files.tgz
 
-            # Load .env safely (ignore comments/blank lines)
+            # load env safely
             if [ -f .env ]; then
               export $(grep -v '^\s*#' .env | xargs)
             fi
 
-            # Reinstall if requirements.txt changed
-            if grep -q '^requirements.txt$' /root/changed.txt; then
+            # reinstall if needed
+            if grep -q '^requirements.txt$' ~/changed.txt; then
               echo "📦 requirements.txt changed; reinstalling..."
               source .venv/bin/activate
               pip install -r requirements.txt
             fi
 
-            # Restart FastAPI
+            # restart the app
             pkill -f 'python3 main.py' || true
             source .venv/bin/activate
             nohup python3 main.py > fastapi.log 2>&1 &
           EOF
 
-      - name: Notify success on Discord
+      # 7️⃣ Notify Discord on success
+      - name: Discord → success
         if: success()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           CHANGES: ${{ steps.diff.outputs.changed_files }}
         run: |
-          [ -z "$WEBHOOK" ] && { echo "🔕 No Discord webhook set."; exit 0; }
+          [ -z "$WEBHOOK" ] && exit 0
           if [ -z "$CHANGES" ]; then
-            MSG='🔕 No FastAPI files changed—deploy skipped.'
+            CONTENT='🔕 No FastAPI files changed—deploy skipped.'
           else
             ESC=$(printf '%s' "$CHANGES" | sed 's/"/\\"/g')
-            MSG="✅ FastAPI deployed with changed files:\n\`\`\`$ESC\`\`\`"
+            CONTENT="✅ FastAPI deployed with changed files:\n\`\`\`\n$ESC\n\`\`\`"
           fi
           curl -s -X POST -H "Content-Type: application/json" \
-               -d "{\"content\":\"$MSG\"}" \
+               -d "{\"content\":\"$CONTENT\"}" \
                "$WEBHOOK"
 
-      - name: Notify failure on Discord
+      # 8️⃣ Notify Discord on failure
+      - name: Discord → failure
         if: failure()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          [ -z "$WEBHOOK" ] && { echo "🔕 No Discord webhook set."; exit 0; }
+          [ -z "$WEBHOOK" ] && exit 0
           curl -s -X POST -H "Content-Type: application/json" \
-               -d '{"content":"❌ YeetCode FastAPI deploy failed."}' \
+               -d '{"content":"❌ FastAPI deploy failed."}' \
                "$WEBHOOK"
