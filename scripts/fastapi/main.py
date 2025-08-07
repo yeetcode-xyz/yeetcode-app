@@ -86,6 +86,7 @@ app.include_router(duels_router)
 
 if DEBUG_MODE:
     print("[DEBUG] Registered routes:")
+    print("This is a test command to see if log bot works!")
     for route in app.routes:
         if hasattr(route, 'path'):
             print(f"  {route.methods} {route.path}")
