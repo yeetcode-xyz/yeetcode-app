@@ -114,17 +114,10 @@ function App() {
     };
   }, []);
 
-  // Fetch university leaderboard when on leaderboard step
+  // Fetch university leaderboard when on leaderboard step (initial load only)
   useEffect(() => {
     if (step === 'leaderboard') {
       fetchUniversityLeaderboard();
-
-      // Set up refresh interval for university leaderboard
-      const interval = setInterval(() => {
-        fetchUniversityLeaderboard();
-      }, 60000); // Refresh every minute
-
-      return () => clearInterval(interval);
     }
   }, [step]);
 
@@ -153,9 +146,10 @@ function App() {
         fetchLeaderboard();
         fetchUniversityLeaderboard();
         fetchDailyProblem();
-        // Refresh duels as part of the auto-refresh system
+        // Refresh duels and bounties as part of the auto-refresh system
         if (leaderboardStepRef.current) {
           leaderboardStepRef.current.refreshDuels();
+          leaderboardStepRef.current.refreshBounties();
         }
         lastRefreshTime = now;
       }

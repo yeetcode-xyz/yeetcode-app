@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
+from logger import debug, info, cache_operation
 
 # Import AWS operations and utilities
 from aws import (
@@ -85,12 +86,10 @@ class CacheManager:
             entry = self._cache.get(key)
             
             if entry and not self._is_expired(entry):
-                if DEBUG_MODE:
-                    print(f"[CACHE] Hit for {key}")
+                cache_operation("Hit", key)
                 return entry.data
             
-            if DEBUG_MODE:
-                print(f"[CACHE] Miss for {key}")
+            cache_operation("Miss", key)
             return None
     
     def set(self, cache_type: CacheType, data: Any, identifier: str = "", ttl: Optional[int] = None) -> None:
@@ -101,8 +100,7 @@ class CacheManager:
             entry = CacheEntry(data=data, timestamp=time.time(), ttl=ttl)
             self._cache[key] = entry
             
-            if DEBUG_MODE:
-                print(f"[CACHE] Set {key} with TTL {ttl}s")
+            cache_operation("Set", key, ttl=ttl)
     
     def invalidate(self, cache_type: CacheType, identifier: str = "") -> None:
         """Invalidate specific cache entry"""

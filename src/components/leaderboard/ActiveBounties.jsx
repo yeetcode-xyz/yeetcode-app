@@ -1,26 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 
-const ActiveBounties = ({ userData }) => {
+const ActiveBounties = forwardRef(({ userData }, ref) => {
   const [bounties, setBounties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const loadBounties = async () => {
-      if (!userData?.leetUsername) return;
-      try {
+  const loadBounties = async (isManualRefresh = false) => {
+    if (!userData?.leetUsername) return;
+    try {
+      if (!isManualRefresh) {
         setLoading(true);
-        const bountiesData = await window.electronAPI.getBounties(
-          userData.leetUsername
-        );
-        setBounties(bountiesData);
-        setError(null);
-      } catch (err) {
-        setError('Failed to load bounties');
-      } finally {
-        setLoading(false);
       }
-    };
+      const bountiesData = await window.electronAPI.getBounties(
+        userData.leetUsername,
+        isManualRefresh
+      );
+      setBounties(bountiesData);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load bounties');
+      console.error('Error loading bounties:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Expose refresh function to parent component
+  useImperativeHandle(ref, () => ({
+    refreshBounties: () => {
+      loadBounties(true);
+    },
+  }));
+
+  // Initial load
+  useEffect(() => {
     loadBounties();
   }, [userData?.leetUsername]);
 
@@ -222,6 +240,6 @@ const ActiveBounties = ({ userData }) => {
       </div>
     </div>
   );
-};
+});
 
 export default ActiveBounties;

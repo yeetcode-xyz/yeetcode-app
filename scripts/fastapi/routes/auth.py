@@ -98,13 +98,3 @@ async def verify_code_endpoint(
         return {"success": False, "error": str(error)}
 
 
-@router.post("/cleanup-expired-codes")
-async def cleanup_expired_codes_endpoint(
-    api_key: str = Depends(verify_api_key)
-):
-    """Clean up expired verification codes"""
-    try:
-        result = VerificationOperations.cleanup_expired_codes()
-        return {"success": True, "message": f"Cleaned up {result.get('count', 0)} expired codes"}
-    except Exception as error:
-        return {"success": False, "error": str(error)}

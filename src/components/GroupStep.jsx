@@ -53,8 +53,8 @@ const GroupStep = ({
           </button>
         </div>
 
-        {/* Development skip option */}
-        {import.meta.env.DEV && (
+        {/* Development skip option - only show when API URL is 0.0.0.0 */}
+        {window.envVars?.fastApiUrl?.includes('0.0.0.0') && (
           <div className="text-center pt-4 border-t-2 border-gray-200">
             <p className="text-xs text-gray-500 mb-2">Development Mode</p>
             <button

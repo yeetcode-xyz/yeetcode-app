@@ -17,15 +17,20 @@ DEBUG_MODE = False
 @router.get("/bounties/{username}")
 async def get_user_bounties_endpoint(
     username: str,
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key),
+    refresh: bool = False
 ):
     """Get bounties for a user"""
     try:
+        # If refresh is requested, invalidate caches first
+        if refresh:
+            cache_manager.invalidate_all(CacheType.BOUNTY_COMPETITIONS)
+        
         # Check cache first for bounties
         cached_bounties = cache_manager.get(CacheType.BOUNTIES)
         cached_competitions = cache_manager.get(CacheType.BOUNTY_COMPETITIONS)
         
-        if cached_bounties and cached_competitions:
+        if cached_bounties and cached_competitions and not refresh:
             # Use cached data
             bounties_data = cached_bounties.get('data', [])
             competitions_data = cached_competitions
@@ -44,7 +49,7 @@ async def get_user_bounties_endpoint(
                 "data": user_bounties
             }
         
-        # Fallback to database
+        # Fallback to database (or forced refresh)
         result = BountyOperations.get_user_bounties(username)
         return result
     except Exception as error:
@@ -105,5 +110,20 @@ async def get_bounty_progress_endpoint(
         # Fallback to database
         result = BountyOperations.get_bounty_progress(bounty_id)
         return result
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@router.post("/refresh-bounty-cache")
+async def refresh_bounty_cache_endpoint(
+    api_key: str = Depends(verify_api_key)
+):
+    """Force refresh bounty and bounty competition caches"""
+    try:
+        # Invalidate both bounty caches
+        cache_manager.invalidate_all(CacheType.BOUNTIES)
+        cache_manager.invalidate_all(CacheType.BOUNTY_COMPETITIONS)
+        
+        return {"success": True, "message": "Bounty caches refreshed"}
     except Exception as error:
         return {"success": False, "error": str(error)}

@@ -11,6 +11,7 @@ import {
   getRecentDuels,
   createDuel,
   acceptDuel,
+  startDuel,
   rejectDuel,
   recordDuelSubmission,
 } from '../../services/duels';
@@ -24,14 +25,13 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState({});
-  const [duelStarts, setDuelStarts] = useState({}); // Track when duels started for timing
   const [notifications, setNotifications] = useState([]);
   const [showWinMessage, setShowWinMessage] = useState(false);
   const [lastWinData, setLastWinData] = useState(null);
 
-  // Refs for periodic refresh
-  const refreshInterval = useRef(null);
+  // Refs for component management
   const loadingRef = useRef(false); // Prevent duplicate calls
+  const previousDuelsRef = useRef([]); // Track previous duels for notifications
 
   // Filter out current user from friends list (case-insensitive)
   const availableFriends = leaderboard.filter(
@@ -48,30 +48,12 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     },
   }));
 
-  // Load duels on component mount and set up periodic refresh
+  // Load duels on component mount (initial load only)
   useEffect(() => {
     if (userData?.leetUsername) {
       loadDuels();
       loadRecentDuels();
-
-      // Set up periodic refresh for active duels (every 30 seconds)
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-      }
-
-      refreshInterval.current = setInterval(() => {
-        if (userData?.leetUsername) {
-          loadDuels();
-          loadRecentDuels();
-        }
-      }, 30000); // 30 seconds
     }
-
-    return () => {
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-      }
-    };
   }, [userData?.leetUsername]);
 
   // Load duels from backend
@@ -243,14 +225,21 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   };
 
   // Handle starting a duel (revealing problem and starting timer)
-  const handleStartDuel = duelId => {
-    const startTime = Date.now();
-    setDuelStarts(prev => ({ ...prev, [duelId]: startTime }));
+  const handleStartDuel = async duelId => {
+    try {
+      await startDuel(duelId, userData.leetUsername);
 
-    addNotification(
-      "Duel started! Solve the problem - we'll check your progress automatically!",
-      'success'
-    );
+      addNotification(
+        "Duel started! Solve the problem - we'll check your progress automatically!",
+        'success'
+      );
+
+      // Refresh duels to get updated state
+      loadDuels();
+    } catch (error) {
+      console.error('Failed to start duel:', error);
+      addNotification('Failed to start duel. Please try again.', 'error');
+    }
   };
 
   // Handle manual "Solve Now" click
@@ -353,13 +342,20 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     const opponentTime = isChallenger
       ? duel.challengeeTime
       : duel.challengerTime;
-    const duelStarted = duelStarts[duel.duelId];
-    const showProblem = duelStarted || userTime !== null;
 
-    // Only show time if it's a valid number
-    const validUserTime = typeof userTime === 'number' && !isNaN(userTime);
+    // New state logic:
+    // -1: User hasn't started yet
+    // 0: User clicked "Start Duel" but hasn't finished
+    // >0: User finished with completion time
+    const userNotStarted = userTime === -1;
+    const userStarted = userTime === 0;
+    const userCompleted = userTime > 0;
+    const showProblem = userStarted || userCompleted;
+
+    // Only show time if it's a completion time (>0)
+    const validUserTime = typeof userTime === 'number' && userTime > 0;
     const validOpponentTime =
-      typeof opponentTime === 'number' && !isNaN(opponentTime);
+      typeof opponentTime === 'number' && opponentTime > 0;
 
     // Calculate time remaining for 2-hour timeout (for active duels)
     const startTime = duel.startTime
@@ -407,22 +403,48 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
         <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
           <div className="text-center">
             <div className="font-bold">You</div>
-            <div className={validUserTime ? 'text-green-600' : 'text-gray-400'}>
-              {validUserTime ? formatTime(userTime) : 'Not submitted'}
+            <div
+              className={
+                validUserTime
+                  ? 'text-green-600'
+                  : userStarted
+                    ? 'text-blue-600'
+                    : 'text-gray-400'
+              }
+            >
+              {validUserTime
+                ? formatTime(userTime)
+                : userStarted
+                  ? '⏱️ Solving...'
+                  : userNotStarted
+                    ? 'Not started'
+                    : 'Not submitted'}
             </div>
           </div>
           <div className="text-center">
             <div className="font-bold">{otherUserDisplay}</div>
             <div
-              className={validOpponentTime ? 'text-green-600' : 'text-gray-400'}
+              className={
+                validOpponentTime
+                  ? 'text-green-600'
+                  : opponentTime === 0
+                    ? 'text-blue-600'
+                    : 'text-gray-400'
+              }
             >
-              {validOpponentTime ? formatTime(opponentTime) : 'Not submitted'}
+              {validOpponentTime
+                ? formatTime(opponentTime)
+                : opponentTime === 0
+                  ? '⏱️ Solving...'
+                  : opponentTime === -1
+                    ? 'Not started'
+                    : 'Not submitted'}
             </div>
           </div>
         </div>
 
-        {/* Show Start Duel if user's time is null and duel hasn't started for them */}
-        {userTime == null && !duelStarted && (
+        {/* Show Start Duel if user hasn't started yet */}
+        {userNotStarted && (
           <button
             onClick={() => handleStartDuel(duel.duelId)}
             className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-bold btn-3d"
@@ -431,8 +453,8 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
           </button>
         )}
 
-        {/* Show Solve Now only if duelStarted is true and userTime is null */}
-        {duelStarted && userTime == null && (
+        {/* Show Solve Now if user started but hasn't completed */}
+        {userStarted && (
           <div className="space-y-2">
             <button
               onClick={() => handleSolveNow(duel.problemSlug)}
@@ -442,6 +464,9 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             </button>
             <div className="text-center text-xs text-gray-600">
               Click to open problem
+            </div>
+            <div className="text-center text-xs text-blue-600 font-medium">
+              ⏱️ Solving in progress...
             </div>
           </div>
         )}
@@ -546,23 +571,6 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
     return null;
   };
-
-  // When duels are reloaded, reset duelStarts for duels that are not started
-  useEffect(() => {
-    setDuelStarts(prev => {
-      const newStarts = { ...prev };
-      duels.forEach(duel => {
-        const isChallenger = duel.challenger === userData.leetUsername;
-        const userTime = isChallenger
-          ? duel.challengerTime
-          : duel.challengeeTime;
-        if (!userTime) {
-          newStarts[duel.duelId] = undefined;
-        }
-      });
-      return newStarts;
-    });
-  }, [duels, userData.leetUsername]);
 
   // Detect new incoming duels and send system notification
   useEffect(() => {

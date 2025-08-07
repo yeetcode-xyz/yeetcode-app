@@ -90,6 +90,23 @@ async def accept_duel_endpoint(
         return {"success": False, "error": str(error)}
 
 
+@router.post("/start-duel")
+async def start_duel_endpoint(
+    request: DuelRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """Mark that a user has started working on a duel"""
+    try:
+        result = DuelOperations.start_duel(request.username, request.duel_id)
+        
+        # Invalidate cache to force refresh
+        cache_manager.invalidate_all(CacheType.DUELS)
+        
+        return result
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
 @router.post("/complete-duel")
 async def complete_duel_endpoint(
     request: DuelRequest,

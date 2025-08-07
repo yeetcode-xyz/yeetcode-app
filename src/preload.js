@@ -169,9 +169,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('complete-daily-problem', validatedUsername);
   },
 
-  getBounties: username => {
+  getBounties: (username, refresh = false) => {
     const validatedUsername = validateInput.username(username);
-    return ipcRenderer.invoke('get-bounties', validatedUsername);
+    return ipcRenderer.invoke('get-bounties', validatedUsername, refresh);
   },
 
   checkDailyNotification: () => ipcRenderer.invoke('check-daily-notification'),
@@ -232,6 +232,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
     const validatedUsername = validateInput.username(username);
     return ipcRenderer.invoke('accept-duel', duelId, validatedUsername);
+  },
+
+  startDuel: (duelId, username) => {
+    if (typeof duelId !== 'string' || duelId.length > 100) {
+      throw new Error('Invalid duel ID');
+    }
+    const validatedUsername = validateInput.username(username);
+    return ipcRenderer.invoke('start-duel', duelId, validatedUsername);
   },
 
   rejectDuel: duelId => {
@@ -302,4 +310,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
 // Expose secure configuration (no sensitive data)
 contextBridge.exposeInMainWorld('envVars', {
   nodeEnv: process.env.NODE_ENV,
+  fastApiUrl: process.env.FASTAPI_URL,
 });

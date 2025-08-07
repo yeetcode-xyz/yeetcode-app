@@ -61,6 +61,19 @@ export const acceptDuel = async (duelId, username) => {
 };
 
 /**
+ * Start working on a duel (mark as started)
+ * @param {string} duelId - ID of the duel to start
+ * @param {string} username - Username of the user starting the duel
+ * @returns {Promise<Object>} Success response
+ */
+export const startDuel = async (duelId, username) => {
+  if (!window.electronAPI?.startDuel) {
+    throw new Error('startDuel API not available');
+  }
+  return await window.electronAPI.startDuel(duelId, username);
+};
+
+/**
  * Reject a pending duel
  * @param {string} duelId - ID of the duel to reject
  * @returns {Promise<Object>} Success response

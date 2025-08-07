@@ -99,6 +99,16 @@ class LeetCodeGraphQLClient {
   }
 
   async fetchRandomProblems(difficulty, limit = 1000) {
+    // Map difficulty to what LeetCode API expects
+    const difficultyMap = {
+      Easy: 'EASY',
+      Medium: 'MEDIUM',
+      Hard: 'HARD',
+      Random: ['EASY', 'MEDIUM', 'HARD'][Math.floor(Math.random() * 3)],
+    };
+    const leetcodeDifficulty =
+      difficultyMap[difficulty] || difficulty.toUpperCase();
+
     const PROBLEM_LIST_QUERY = `
       query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
         problemsetQuestionList: questionList(
@@ -127,7 +137,7 @@ class LeetCodeGraphQLClient {
       limit,
       skip: 0,
       filters: {
-        difficulty: difficulty,
+        difficulty: leetcodeDifficulty,
       },
     };
 

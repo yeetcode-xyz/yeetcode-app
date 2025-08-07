@@ -1,8 +1,9 @@
-const { defineConfig } = require('vite');
-const react = require('@vitejs/plugin-react');
-const { resolve } = require('path');
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
+import { fileURLToPath, URL } from 'node:url';
 
-module.exports = defineConfig({
+export default defineConfig({
   plugins: [react()],
   base: './', // Use relative paths
   root: 'src', // Set src as root for dev server
@@ -11,7 +12,7 @@ module.exports = defineConfig({
     outDir: '../dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'src/index.html'),
+      input: resolve(fileURLToPath(new URL('.', import.meta.url)), 'src/index.html'),
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',

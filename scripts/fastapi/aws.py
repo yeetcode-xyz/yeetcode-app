@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Dict, Optional, List, Any
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
+from logger import debug, info, warning, error, duel_action, duel_check, submission_check
 
 # Load environment variables
 load_dotenv()
@@ -36,7 +37,7 @@ def normalize_dynamodb_item(item: Dict) -> Dict:
             if 'S' in value:
                 normalized[key] = value['S']
             elif 'N' in value:
-                normalized[key] = int(value['N'])
+                normalized[key] = int(float(value['N']))
             elif 'BOOL' in value:
                 normalized[key] = value['BOOL']
             elif 'M' in value:
@@ -588,22 +589,41 @@ class DailyProblemOperations:
             
             from datetime import datetime, timedelta
             
-            # Get the latest problem from the database
-            scan_params = {
-                'TableName': DAILY_TABLE
-            }
-            
+            # Try to get today's problem first (most likely case)
+            today = datetime.now().strftime('%Y-%m-%d')
             latest_problem = None
+            
             try:
-                scan_result = ddb.scan(**scan_params)
-                all_problems = scan_result.get('Items', [])
+                # Query for today's problem directly using the date key
+                query_params = {
+                    'TableName': DAILY_TABLE,
+                    'KeyConditionExpression': '#date = :today',
+                    'ExpressionAttributeNames': {'#date': 'date'},
+                    'ExpressionAttributeValues': {':today': {'S': today}}
+                }
                 
-                if all_problems:
-                    # Sort by date to get the latest problem
-                    sorted_problems = sorted(all_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
-                    latest_item = sorted_problems[0]
+                query_result = ddb.query(**query_params)
+                items = query_result.get('Items', [])
+                
+                if items:
+                    latest_item = items[0]  # Today's problem found
+                else:
+                    # Fallback: scan for the most recent problem if today's not found
+                    scan_params = {
+                        'TableName': DAILY_TABLE
+                    }
+                    scan_result = ddb.scan(**scan_params)
+                    all_problems = scan_result.get('Items', [])
                     
-                    # Normalize the item to get proper field names
+                    if all_problems:
+                        # Sort by date to get the latest problem
+                        sorted_problems = sorted(all_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+                        latest_item = sorted_problems[0]
+                    else:
+                        latest_item = None
+                
+                # Normalize the item to get proper field names if we found one
+                if latest_item:
                     normalized_item = normalize_dynamodb_item(latest_item)
                     latest_problem = {
                         'date': normalized_item.get('date'),
@@ -827,18 +847,53 @@ class BountyOperations:
             scan_result = ddb.scan(**scan_params)
             all_bounties = scan_result.get('Items', [])
             
-            # Filter non-expired bounties and add user progress
+            # Filter and enrich bounties with computed fields
             active_bounties = []
             for bounty in all_bounties:
-                expiry_date = bounty.get('expirydate', {}).get('N', '0')
-                if int(expiry_date) > current_time:
+                expiry_date = int(float(bounty.get('expirydate', {}).get('N', '0')))
+                start_date = int(float(bounty.get('startdate', {}).get('N', '0')))
+                count = int(float(bounty.get('count', {}).get('N', '0')))
+                
+                # Only include active bounties (started and not expired)
+                if start_date <= current_time <= expiry_date:
                     # Get user's progress (0 if not found)
                     users_map = bounty.get('users', {})
-                    user_progress = users_map.get(normalized_username, {}).get('N', '0')
+                    if DEBUG_MODE:
+                        print(f"[DEBUG] Looking for user '{normalized_username}' in bounty {bounty.get('bountyId', {}).get('S', 'unknown')}")
+                        print(f"[DEBUG] Users map structure: {users_map}")
+                        print(f"[DEBUG] Available users: {list(users_map.keys()) if isinstance(users_map, dict) else 'Not a dict'}")
                     
-                    # Add user progress to bounty data
+                    # Handle both raw DynamoDB format and normalized format
+                    if 'M' in users_map:
+                        # Raw DynamoDB Map format
+                        inner_users = users_map['M']
+                        user_record = inner_users.get(normalized_username, {})
+                        user_progress = int(float(user_record.get('N', '0')))
+                    else:
+                        # Already normalized format
+                        user_progress = int(float(users_map.get(normalized_username, 0)))
+                    
+                    if DEBUG_MODE:
+                        print(f"[DEBUG] User progress for '{normalized_username}': {user_progress}")
+                    
+                    # Calculate progress percentage
+                    progress_percent = min((user_progress / count) * 100, 100) if count > 0 else 0
+                    
+                    # Calculate time remaining
+                    time_remaining = expiry_date - current_time
+                    days_remaining = max(0, time_remaining // (24 * 60 * 60))
+                    hours_remaining = max(0, (time_remaining % (24 * 60 * 60)) // (60 * 60))
+                    
+                    # Create enriched bounty object
                     bounty_with_progress = dict(bounty)
-                    bounty_with_progress['userProgress'] = {'N': user_progress}
+                    bounty_with_progress['userProgress'] = {'N': str(user_progress)}
+                    bounty_with_progress['progressPercent'] = {'N': str(round(progress_percent, 1))}
+                    bounty_with_progress['timeRemaining'] = {'N': str(time_remaining)}
+                    bounty_with_progress['daysRemaining'] = {'N': str(days_remaining)}
+                    bounty_with_progress['hoursRemaining'] = {'N': str(hours_remaining)}
+                    bounty_with_progress['isActive'] = {'BOOL': True}
+                    bounty_with_progress['isExpired'] = {'BOOL': False}
+                    
                     active_bounties.append(bounty_with_progress)
             
             # Normalize DynamoDB data for bounties
@@ -914,7 +969,9 @@ class DuelOperations:
                     'problemSlug': {'S': problem_slug},
                     'status': {'S': 'PENDING'},
                     'createdAt': {'S': datetime.now().isoformat()},
-                    'expires_at': {'N': str(int(time.time()) + 3600)}  # 1 hour
+                    'expires_at': {'N': str(int(time.time()) + 3600)},  # 1 hour
+                    'challengerTime': {'N': '-1'},  # -1 means not started
+                    'challengeeTime': {'N': '-1'}   # -1 means not started
                 }
             }
             
@@ -924,8 +981,7 @@ class DuelOperations:
             
             ddb.put_item(**put_params)
             
-            if DEBUG_MODE:
-                print(f"[DEBUG] Created duel {duel_id} between {normalized_username} and {normalized_opponent}")
+            duel_action(f"Created duel {duel_id}", challenger=normalized_username, challengee=normalized_opponent, problem=problem_slug)
             
             return {"success": True, "data": {"duel_id": duel_id}}
             
@@ -955,14 +1011,63 @@ class DuelOperations:
             
             ddb.update_item(**update_params)
             
-            if DEBUG_MODE:
-                print(f"[DEBUG] User {username} accepted duel {duel_id}")
+            duel_action(f"User {username} accepted duel {duel_id}")
             
             return {"success": True}
             
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to accept duel: {error}")
+            raise error
+    
+    @staticmethod
+    def start_duel(username: str, duel_id: str) -> Dict:
+        """Mark that a user has started working on a duel (set their time to 0)"""
+        try:
+            if not DUELS_TABLE:
+                raise Exception("DUELS_TABLE not configured")
+            
+            normalized_username = username.lower()
+            
+            # First get the duel to determine if user is challenger or challengee
+            get_params = {
+                'TableName': DUELS_TABLE,
+                'Key': {'duelId': {'S': duel_id}}
+            }
+            
+            response = ddb.get_item(**get_params)
+            if 'Item' not in response:
+                raise Exception("Duel not found")
+            
+            duel = response['Item']
+            challenger = duel.get('challenger', {}).get('S')
+            challengee = duel.get('challengee', {}).get('S')
+            
+            # Determine which time field to update
+            if normalized_username == challenger:
+                time_field = 'challengerTime'
+            elif normalized_username == challengee:
+                time_field = 'challengeeTime'
+            else:
+                raise Exception("User is not part of this duel")
+            
+            # Update the user's time to 0 (started but not completed)
+            update_params = {
+                'TableName': DUELS_TABLE,
+                'Key': {'duelId': {'S': duel_id}},
+                'UpdateExpression': f'SET {time_field} = :time',
+                'ExpressionAttributeValues': {':time': {'N': '0'}}
+            }
+            
+            ddb.update_item(**update_params)
+            
+            duel_action(f"User {username} started duel {duel_id}")
+            
+            return {"success": True, "message": f"Duel started for {username}"}
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to start duel: {error}")
             raise error
     
     @staticmethod
@@ -1107,11 +1212,9 @@ class DuelOperations:
                     UserOperations.award_xp(challenger, xp_award)
                     UserOperations.award_xp(challengee, xp_award)
                 
-                if DEBUG_MODE:
-                    print(f"[DEBUG] Duel {duel_id} completed. Winner: {winner or 'TIE'}")
+                duel_action(f"Duel {duel_id} completed", winner=winner or 'TIE')
             
-            if DEBUG_MODE:
-                print(f"[DEBUG] User {normalized_username} recorded time {elapsed_ms}ms for duel {duel_id}")
+            duel_action(f"User {normalized_username} recorded time", duel_id=duel_id, time_ms=elapsed_ms)
             
             return {"success": True, "completed": should_complete_duel, "winner": winner if should_complete_duel else None}
             
@@ -1263,6 +1366,7 @@ class DuelOperations:
                             # Complete duel due to timeout
                             winner = challenger if challenger_completed else challengee
                             loser = challengee if challenger_completed else challenger
+                            duel_action(f"Completing duel {duel_id} due to timeout", winner=winner, loser=loser)
                             
                             complete_params = {
                                 'TableName': DUELS_TABLE,

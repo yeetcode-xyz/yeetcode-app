@@ -90,16 +90,6 @@ const storeVerificationCode = async (email, code) => {
   }
 };
 
-// Clean up expired verification codes
-const cleanupExpiredVerificationCodes = async () => {
-  try {
-    await fastApiClient.post('/cleanup-expired-codes', {});
-    logDebug('cleanupExpiredVerificationCodes', 'Cleanup completed');
-  } catch (error) {
-    logError('cleanupExpiredVerificationCodes', error);
-  }
-};
-
 // Verify code and return user data via FastAPI server
 const verifyCodeAndGetUser = async (email, code) => {
   const normalizedEmail = normalizeEmail(email);
@@ -761,13 +751,18 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
 });
 
 // Get all bounties
-ipcMain.handle('get-bounties', async (event, username) => {
+ipcMain.handle('get-bounties', async (event, username, refresh = false) => {
   try {
     const axios = require('axios');
     const fastApiUrl = process.env.FASTAPI_URL;
     const apiKey = process.env.YETCODE_API_KEY;
 
-    const response = await axios.get(`${fastApiUrl}/bounties/${username}`, {
+    const url = new URL(`${fastApiUrl}/bounties/${username}`);
+    if (refresh) {
+      url.searchParams.append('refresh', 'true');
+    }
+
+    const response = await axios.get(url.toString(), {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
@@ -778,35 +773,7 @@ ipcMain.handle('get-bounties', async (event, username) => {
     if (response.data.success) {
       const bounties = response.data.data || [];
 
-      // Calculate progress for each bounty if username is provided
-      if (username) {
-        bounties.forEach(bounty => {
-          const userProgress = bounty.users && bounty.users[username];
-          if (userProgress && userProgress.N) {
-            bounty.userProgress = parseInt(userProgress.N);
-            bounty.progressPercent = Math.min(
-              (bounty.userProgress / bounty.count) * 100,
-              100
-            );
-          } else {
-            bounty.userProgress = 0;
-            bounty.progressPercent = 0;
-          }
-
-          // Check if bounty is expired
-          const now = Math.floor(Date.now() / 1000);
-          bounty.isExpired = now > bounty.expirydate;
-          bounty.isActive = now >= bounty.startdate && !bounty.isExpired;
-
-          // Calculate time remaining
-          if (bounty.isActive) {
-            bounty.timeRemaining = bounty.expirydate - now;
-            bounty.daysRemaining = Math.ceil(
-              bounty.timeRemaining / (24 * 60 * 60)
-            );
-          }
-        });
-      }
+      // Backend now provides all computed fields (userProgress, progressPercent, isActive, isExpired, timeRemaining, daysRemaining)
 
       return bounties;
     } else {
@@ -1304,6 +1271,42 @@ ipcMain.handle('accept-duel', async (event, duelId, username) => {
   }
 });
 
+// Start a duel (mark as started)
+ipcMain.handle('start-duel', async (event, duelId, username) => {
+  try {
+    const axios = require('axios');
+    const fastApiUrl = process.env.FASTAPI_URL;
+    const apiKey = process.env.YETCODE_API_KEY;
+
+    const response = await axios.post(
+      `${fastApiUrl}/start-duel`,
+      {
+        duel_id: duelId,
+        username: username,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      }
+    );
+
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message,
+      };
+    } else {
+      throw new Error(response.data.error || 'Failed to start duel');
+    }
+  } catch (error) {
+    console.error('[ERROR][start-duel]', error);
+    throw error;
+  }
+});
+
 // Reject a duel
 ipcMain.handle('reject-duel', async (event, duelId) => {
   console.log('[DEBUG][reject-duel] called for duelId:', duelId);
@@ -1505,26 +1508,6 @@ exports.getDailyProblemStatus = async username => {
     return { streak: 0 };
   }
 };
-
-// Set up periodic cleanup tasks
-const setupCleanupTasks = () => {
-  // Clean up expired verification codes every 5 minutes
-  setInterval(cleanupExpiredVerificationCodes, 5 * 60 * 1000);
-
-  console.log('[DEBUG][setupCleanupTasks] Cleanup tasks scheduled');
-};
-
-// Set up cleanup tasks
-setupCleanupTasks();
-
-// IPC handlers for manual cleanup (for testing)
-ipcMain.handle('cleanup-expired-verification-codes', async () => {
-  console.log(
-    '[DEBUG][cleanup-expired-verification-codes] Manual cleanup triggered'
-  );
-  await cleanupExpiredVerificationCodes();
-  return { success: true };
-});
 
 // Clear server cache (for testing)
 ipcMain.handle('clear-daily-problem-cache', async () => {

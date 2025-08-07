@@ -27,12 +27,18 @@ const LeaderboardStep = forwardRef(
     ref
   ) => {
     const duelsSectionRef = useRef();
+    const activeBountiesRef = useRef();
 
-    // Expose refresh function to parent component
+    // Expose refresh functions to parent component
     useImperativeHandle(ref, () => ({
       refreshDuels: () => {
         if (duelsSectionRef.current) {
           duelsSectionRef.current.refreshDuels();
+        }
+      },
+      refreshBounties: () => {
+        if (activeBountiesRef.current) {
+          activeBountiesRef.current.refreshBounties();
         }
       },
     }));
@@ -78,6 +84,7 @@ const LeaderboardStep = forwardRef(
               dailyData={dailyData}
             />
             <ActiveBounties
+              ref={activeBountiesRef}
               userData={userData}
               leaderboard={leaderboard}
               dailyData={dailyData}
