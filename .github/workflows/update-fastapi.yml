@@ -12,134 +12,99 @@ jobs:
     environment: env
 
     steps:
-      # 1️⃣ Get code
       - name: Checkout code (with history)
         uses: actions/checkout@v3
         with:
           fetch-depth: 2
 
-      # 2️⃣ Figure out which FastAPI files changed
       - name: Detect changed FastAPI files
         id: diff
         run: |
           git diff --name-only HEAD~1 HEAD -- scripts/fastapi/ > changed.txt
           CHANGED=$(grep -v '^$' changed.txt | tr '\n' ',' | sed 's/,$//')
           echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
-          echo "→ Changed files: $CHANGED"
 
-      # 3️⃣ Skip if nothing in scripts/fastapi/ changed
-      - name: "Skip: no FastAPI changes"
+      - name: Skip if no FastAPI changes
         if: steps.diff.outputs.changed_files == ''
-        run: echo "✅ No FastAPI files changed—skipping deploy."
+        run: echo "✅ No FastAPI files changed. Skipping deploy."
 
-      # 4️⃣ Prepare a tarball of only those files, flattened into root
       - name: Archive only changed files
         if: steps.diff.outputs.changed_files != ''
         run: |
           mkdir -p changed-files
           while read file; do
-            # strip the scripts/fastapi/ prefix
             rel="${file#scripts/fastapi/}"
             mkdir -p "changed-files/$(dirname "$rel")"
             cp "$file" "changed-files/$rel"
           done < changed.txt
           tar -czf changed-files.tgz -C changed-files .
 
-      # 5️⃣ SSH key setup
       - name: Setup SSH
         if: steps.diff.outputs.changed_files != ''
         run: |
           mkdir -p ~/.ssh
-          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      # 6️⃣ Upload & deploy on VPS
-      - name: Upload & deploy to VPS
+      - name: Upload & deploy on VPS
         if: steps.diff.outputs.changed_files != ''
         run: |
           scp changed-files.tgz changed.txt ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash -s << 'EOF'
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e
             cd /root/yeetcode-api
 
-            # Unpack only the changed files into the app root
+            # Unpack changed files into project root
             tar -xzf /root/changed-files.tgz -C . 
             rm /root/changed-files.tgz
 
-            # Load your .env
+            # Load .env
             set -a
             [ -f .env ] && . .env
             set +a
 
-            # If requirements.txt changed, reinstall deps
+            # Reinstall if requirements.txt changed
             if grep -q '^requirements.txt$' /root/changed.txt; then
-              echo "📦 requirements.txt changed; installing deps..."
+              echo "📦 requirements.txt changed; reinstalling..."
               source .venv/bin/activate
               pip install -r requirements.txt
-            else
-              echo "📦 requirements.txt unchanged."
             fi
 
-            # Restart the app
+            # Restart FastAPI
             pkill -f 'python3 main.py' || true
             source .venv/bin/activate
             nohup python3 main.py > fastapi.log 2>&1 &
           EOF
 
-      # 7️⃣ Notify success
-      - name: Discord: success
+      - name: Notify success on Discord
         if: success()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           CHANGES: ${{ steps.diff.outputs.changed_files }}
         run: |
           if [ -z "$WEBHOOK" ]; then
-            echo "🔕 DISCORD_WEBHOOK secret not set, skipping notification."
+            echo "🔕 No Discord webhook set, skipping."
             exit 0
           fi
-          
-          echo "📡 Sending Discord notification..."
           if [ -z "$CHANGES" ]; then
-            RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" \
+            curl -X POST -H "Content-Type: application/json" \
               -d '{"content":"🔕 No FastAPI files changed—deploy skipped."}' \
-              "$WEBHOOK")
+              "$WEBHOOK"
           else
-            # Escape the changes variable for JSON and format as code block
-            ESCAPED_CHANGES=$(printf '%s' "$CHANGES" | sed 's/\\/\\\\/g; s/"/\\"/g')
-            RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" \
-              -d "{\"content\":\"✅ FastAPI deployed with changed files:\\n\\\`\\\`\\\`${ESCAPED_CHANGES}\\\`\\\`\\\`\"}" \
-              "$WEBHOOK")
-          fi
-          
-          HTTP_STATUS=$(echo $RESPONSE | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
-          if [ "$HTTP_STATUS" = "204" ]; then
-            echo "✅ Discord notification sent successfully"
-          else
-            echo "❌ Discord notification failed with status: $HTTP_STATUS"
-            echo "Response: $(echo $RESPONSE | sed -e 's/HTTPSTATUS:.*//')"
+            ESCAPED=$(printf '%s' "$CHANGES" | sed 's/"/\\"/g')
+            curl -X POST -H "Content-Type: application/json" \
+              -d "{\"content\":\"✅ FastAPI deployed with changed files:\\n\`\`\`$ESCAPED\`\`\`\"}" \
+              "$WEBHOOK"
           fi
 
-      # 8️⃣ Notify failure
-      - name: Discord: failure
+      - name: Notify failure on Discord
         if: failure()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          if [ -z "$WEBHOOK" ]; then
-            echo "🔕 DISCORD_WEBHOOK secret not set, skipping failure notification."
-            exit 0
-          fi
-          
-          echo "📡 Sending Discord failure notification..."
-          RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" \
-            -d '{"content":"❌ YeetCode FastAPI deploy failed."}' \
-            "$WEBHOOK")
-          
-          HTTP_STATUS=$(echo $RESPONSE | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
-          if [ "$HTTP_STATUS" = "204" ]; then
-            echo "✅ Discord failure notification sent successfully"
-          else
-            echo "❌ Discord failure notification failed with status: $HTTP_STATUS"
-            echo "Response: $(echo $RESPONSE | sed -e 's/HTTPSTATUS:.*//')"
+          if [ -n "$WEBHOOK" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{"content":"❌ FastAPI deployment failed."}' \
+              "$WEBHOOK"
           fi
