@@ -1,0 +1,79 @@
+name: Deploy FastAPI (diff-based)
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you deploying?"
+        required: false
+        default: "Manual deployment"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get list of changed files in scripts/fastapi/
+        id: diff
+        run: |
+          git fetch origin main
+          git diff --name-only origin/main~1 origin/main -- scripts/fastapi/ > changed.txt
+          cat changed.txt
+
+      - name: Create tarball of changed files
+        run: |
+          mkdir changed-files
+          while read file; do
+            mkdir -p changed-files/$(dirname "$file")
+            cp "$file" changed-files/"$file"
+          done < changed.txt
+          tar -czf changed-files.tar.gz -C changed-files .
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Upload and deploy on VPS
+        run: |
+          scp changed-files.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/changed-files.tar.gz
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd /root/yeetcode-api &&
+            tar -xzf /root/changed-files.tar.gz -C . &&
+            rm /root/changed-files.tar.gz &&
+
+            # Install requirements if it was among changed files
+            if grep -q 'scripts/fastapi/requirements.txt' /root/changed-files.txt; then
+              echo 'requirements.txt changed, installing...'
+              source .venv/bin/activate && pip install -r requirements.txt
+            else
+              echo 'No changes to requirements.txt'
+            fi &&
+
+            # Kill old process
+            pkill -f 'python3 main.py' || true &&
+
+            # Restart FastAPI
+            nohup bash -c 'source .venv/bin/activate && python3 main.py' > fastapi.log 2>&1 &
+          "
+
+      - name: Notify success on Discord
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"content": "✅ YeetCode FastAPI deployed with only changed files!"}' \
+               ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: Notify failure on Discord
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"content": "❌ YeetCode FastAPI deploy failed."}' \
+               ${{ secrets.DISCORD_WEBHOOK }}
