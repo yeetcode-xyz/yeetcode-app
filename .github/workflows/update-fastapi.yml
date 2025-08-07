@@ -2,10 +2,9 @@ name: Deploy FastAPI (auto, diff-aware)
 
 on:
   push:
+    branches: [ main ]
     paths:
       - 'scripts/fastapi/**'
-    branches:
-      - main
 
 jobs:
   deploy:
@@ -13,92 +12,107 @@ jobs:
     environment: env
 
     steps:
-      - name: Checkout code with history
+      # 1️⃣ Get code
+      - name: Checkout code (with history)
         uses: actions/checkout@v3
         with:
           fetch-depth: 2
 
-      - name: Get changed FastAPI files
-        id: get_changes
+      # 2️⃣ Figure out which FastAPI files changed
+      - name: Detect changed FastAPI files
+        id: diff
         run: |
           git diff --name-only HEAD~1 HEAD -- scripts/fastapi/ > changed.txt
-          CHANGED=$(cat changed.txt | tr '\n' ',' | sed 's/,$//')
-          echo "Changed files: $CHANGED"
+          CHANGED=$(grep -v '^$' changed.txt | tr '\n' ',' | sed 's/,$//')
           echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
+          echo "→ Changed files: $CHANGED"
 
-      - name: Stop if no FastAPI files changed
-        if: steps.get_changes.outputs.changed_files == ''
-        run: echo "✅ No FastAPI files changed. Skipping deploy."
+      # 3️⃣ Skip if nothing in scripts/fastapi/ changed
+      - name: Skip: no FastAPI changes
+        if: steps.diff.outputs.changed_files == ''
+        run: echo "✅ No FastAPI files changed—skipping deploy."
 
-      - name: Create tarball of only changed files (flattened)
-        if: steps.get_changes.outputs.changed_files != ''
+      # 4️⃣ Prepare a tarball of only those files, flattened into root
+      - name: Archive only changed files
+        if: steps.diff.outputs.changed_files != ''
         run: |
           mkdir -p changed-files
           while read file; do
-            relative_path="${file#scripts/fastapi/}"
-            mkdir -p "changed-files/$(dirname "$relative_path")"
-            cp "$file" "changed-files/$relative_path"
+            # strip the scripts/fastapi/ prefix
+            rel="${file#scripts/fastapi/}"
+            mkdir -p "changed-files/$(dirname "$rel")"
+            cp "$file" "changed-files/$rel"
           done < changed.txt
-          tar -czf changed-files.tar.gz -C changed-files .
+          tar -czf changed-files.tgz -C changed-files .
 
-      - name: Set up SSH
-        if: steps.get_changes.outputs.changed_files != ''
+      # 5️⃣ SSH key setup
+      - name: Setup SSH
+        if: steps.diff.outputs.changed_files != ''
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Upload and deploy to VPS
-        if: steps.get_changes.outputs.changed_files != ''
+      # 6️⃣ Upload & deploy on VPS
+      - name: Upload & deploy to VPS
+        if: steps.diff.outputs.changed_files != ''
         run: |
-          scp changed-files.tar.gz changed.txt ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd /root/yeetcode-api &&
-            tar -xzf /root/changed-files.tar.gz -C . &&
-            rm /root/changed-files.tar.gz &&
+          scp changed-files.tgz changed.txt ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash -s << 'EOF'
+            set -e
+            cd /root/yeetcode-api
 
-            # Install requirements if changed
-            if grep -q 'requirements.txt' /root/changed.txt; then
-              echo 'Installing updated requirements...'
-              source .venv/bin/activate && pip install -r requirements.txt
+            # Unpack only the changed files into the app root
+            tar -xzf /root/changed-files.tgz -C . 
+            rm /root/changed-files.tgz
+
+            # Load your .env
+            set -a
+            [ -f .env ] && . .env
+            set +a
+
+            # If requirements.txt changed, reinstall deps
+            if grep -q '^requirements.txt$' /root/changed.txt; then
+              echo "📦 requirements.txt changed; installing deps..."
+              source .venv/bin/activate
+              pip install -r requirements.txt
             else
-              echo 'No changes to requirements.txt'
-            fi &&
+              echo "📦 requirements.txt unchanged."
+            fi
 
-            # Restart FastAPI
-            pkill -f 'python3 main.py' || true &&
-            nohup bash -c 'cd /root/yeetcode-api && source .venv/bin/activate && export $(cat .env | xargs) && python3 main.py' > /root/yeetcode-api/fastapi.log 2>&1 &
-          "
+            # Restart the app
+            pkill -f 'python3 main.py' || true
+            source .venv/bin/activate
+            nohup python3 main.py > fastapi.log 2>&1 &
+          EOF
 
-      - name: Notify success on Discord
+      # 7️⃣ Notify success
+      - name: Discord: success
         if: success()
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          CHANGED_FILES: ${{ steps.get_changes.outputs.changed_files }}
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          CHANGES: ${{ steps.diff.outputs.changed_files }}
         run: |
-          if [ -n "$DISCORD_WEBHOOK" ]; then
-            if [ -z "$CHANGED_FILES" ]; then
-              curl -H "Content-Type: application/json" \
-                   -X POST \
-                   -d '{"content": "🔕 No FastAPI files changed. Deploy skipped."}' \
-                   "$DISCORD_WEBHOOK"
-            else
-              curl -H "Content-Type: application/json" \
-                   -X POST \
-                   -d "{\"content\": \"✅ FastAPI deployed with changed files:\n\`\`\`\n$CHANGED_FILES\n\`\`\`\"}" \
-                   "$DISCORD_WEBHOOK"
-            fi
+          [ -z "$WEBHOOK" ] && { echo "🔕 Webhook not set, skipping."; exit 0; }
+          if [ -z "$CHANGES" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{"content":"🔕 No FastAPI files changed—deploy skipped."}' \
+              "$WEBHOOK"
+          else
+            # nicely format as code block
+            curl -X POST -H "Content-Type: application/json" \
+              -d "{\"content\":\"✅ FastAPI deployed with changed files:\\n\`\`\`$CHANGES\`\`\`\"}" \
+              "$WEBHOOK"
           fi
 
-      - name: Notify failure on Discord
+      # 8️⃣ Notify failure
+      - name: Discord: failure
         if: failure()
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          if [ -n "$DISCORD_WEBHOOK" ]; then
-            curl -H "Content-Type: application/json" \
-                 -X POST \
-                 -d '{"content": "❌ YeetCode FastAPI deploy failed."}' \
-                 "$DISCORD_WEBHOOK"
-          fi
+          [ -z "$WEBHOOK" ] && { echo "🔕 Webhook not set."; exit 0; }
+          curl -X POST -H "Content-Type: application/json" \
+            -d '{"content":"❌ YeetCode FastAPI deploy failed."}' \
+            "$WEBHOOK"
