@@ -68,7 +68,7 @@ jobs:
 
             # Restart FastAPI
             pkill -f 'python3 main.py' || true &&
-            nohup bash -c 'source .venv/bin/activate && python3 main.py' > fastapi.log 2>&1 &
+            nohup bash -c 'cd /root/yeetcode-api && source .venv/bin/activate && export $(cat .env | xargs) && python3 main.py' > /root/yeetcode-api/fastapi.log 2>&1 &
           "
 
       - name: Notify success on Discord
