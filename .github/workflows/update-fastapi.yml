@@ -28,7 +28,7 @@ jobs:
           echo "→ Changed files: $CHANGED"
 
       # 3️⃣ Skip if nothing in scripts/fastapi/ changed
-      - name: Skip: no FastAPI changes
+      - name: "Skip: no FastAPI changes"
         if: steps.diff.outputs.changed_files == ''
         run: echo "✅ No FastAPI files changed—skipping deploy."
 
@@ -94,16 +94,30 @@ jobs:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           CHANGES: ${{ steps.diff.outputs.changed_files }}
         run: |
-          [ -z "$WEBHOOK" ] && { echo "🔕 Webhook not set, skipping."; exit 0; }
+          if [ -z "$WEBHOOK" ]; then
+            echo "🔕 DISCORD_WEBHOOK secret not set, skipping notification."
+            exit 0
+          fi
+          
+          echo "📡 Sending Discord notification..."
           if [ -z "$CHANGES" ]; then
-            curl -X POST -H "Content-Type: application/json" \
+            RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" \
               -d '{"content":"🔕 No FastAPI files changed—deploy skipped."}' \
-              "$WEBHOOK"
+              "$WEBHOOK")
           else
-            # nicely format as code block
-            curl -X POST -H "Content-Type: application/json" \
-              -d "{\"content\":\"✅ FastAPI deployed with changed files:\\n\`\`\`$CHANGES\`\`\`\"}" \
-              "$WEBHOOK"
+            # Escape the changes variable for JSON and format as code block
+            ESCAPED_CHANGES=$(printf '%s' "$CHANGES" | sed 's/\\/\\\\/g; s/"/\\"/g')
+            RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" \
+              -d "{\"content\":\"✅ FastAPI deployed with changed files:\\n\\\`\\\`\\\`${ESCAPED_CHANGES}\\\`\\\`\\\`\"}" \
+              "$WEBHOOK")
+          fi
+          
+          HTTP_STATUS=$(echo $RESPONSE | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+          if [ "$HTTP_STATUS" = "204" ]; then
+            echo "✅ Discord notification sent successfully"
+          else
+            echo "❌ Discord notification failed with status: $HTTP_STATUS"
+            echo "Response: $(echo $RESPONSE | sed -e 's/HTTPSTATUS:.*//')"
           fi
 
       # 8️⃣ Notify failure
@@ -112,7 +126,20 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          [ -z "$WEBHOOK" ] && { echo "🔕 Webhook not set."; exit 0; }
-          curl -X POST -H "Content-Type: application/json" \
+          if [ -z "$WEBHOOK" ]; then
+            echo "🔕 DISCORD_WEBHOOK secret not set, skipping failure notification."
+            exit 0
+          fi
+          
+          echo "📡 Sending Discord failure notification..."
+          RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" \
             -d '{"content":"❌ YeetCode FastAPI deploy failed."}' \
-            "$WEBHOOK"
+            "$WEBHOOK")
+          
+          HTTP_STATUS=$(echo $RESPONSE | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+          if [ "$HTTP_STATUS" = "204" ]; then
+            echo "✅ Discord failure notification sent successfully"
+          else
+            echo "❌ Discord failure notification failed with status: $HTTP_STATUS"
+            echo "Response: $(echo $RESPONSE | sed -e 's/HTTPSTATUS:.*//')"
+          fi
