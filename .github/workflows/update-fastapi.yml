@@ -1,32 +1,37 @@
-name: Deploy FastAPI (diff-based)
+name: Deploy FastAPI (auto, diff-aware)
 
 on:
-  workflow_dispatch:
-    inputs:
-      reason:
-        description: "Why are you deploying?"
-        required: false
-        default: "Manual deployment"
+  push:
+    paths:
+      - 'scripts/fastapi/**'
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: env
 
-
     steps:
-      - name: Checkout code (with commit history)
+      - name: Checkout code with history
         uses: actions/checkout@v3
         with:
-          fetch-depth: 2  # Needed for HEAD~1 diff to work
+          fetch-depth: 2
 
-      - name: Get list of changed files in scripts/fastapi/
-        id: diff
+      - name: Get changed FastAPI files
+        id: get_changes
         run: |
           git diff --name-only HEAD~1 HEAD -- scripts/fastapi/ > changed.txt
-          cat changed.txt
+          CHANGED=$(cat changed.txt | tr '\n' ',' | sed 's/,$//')
+          echo "Changed files: $CHANGED"
+          echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Stop if no FastAPI files changed
+        if: steps.get_changes.outputs.changed_files == ''
+        run: echo "✅ No FastAPI files changed. Skipping deploy."
 
       - name: Create tarball of only changed files
+        if: steps.get_changes.outputs.changed_files != ''
         run: |
           mkdir -p changed-files
           while read file; do
@@ -36,6 +41,7 @@ jobs:
           tar -czf changed-files.tar.gz -C changed-files .
 
       - name: Set up SSH
+        if: steps.get_changes.outputs.changed_files != ''
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
@@ -43,6 +49,7 @@ jobs:
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Upload and deploy to VPS
+        if: steps.get_changes.outputs.changed_files != ''
         run: |
           scp changed-files.tar.gz changed.txt ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
@@ -50,15 +57,15 @@ jobs:
             tar -xzf /root/changed-files.tar.gz -C . &&
             rm /root/changed-files.tar.gz &&
 
-            # Install requirements if it changed
+            # Install requirements if changed
             if grep -q 'scripts/fastapi/requirements.txt' /root/changed.txt; then
-              echo 'requirements.txt changed, installing...'
+              echo 'Installing new requirements...'
               source .venv/bin/activate && pip install -r requirements.txt
             else
-              echo 'No changes to requirements.txt'
+              echo 'requirements.txt not changed.'
             fi &&
 
-            # Kill and restart FastAPI
+            # Restart FastAPI
             pkill -f 'python3 main.py' || true &&
             nohup bash -c 'source .venv/bin/activate && python3 main.py' > fastapi.log 2>&1 &
           "
@@ -67,12 +74,17 @@ jobs:
         if: success()
         run: |
           if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
-            curl -H "Content-Type: application/json" \
+            if [ "${{ steps.get_changes.outputs.changed_files }}" = "" ]; then
+              curl -H "Content-Type: application/json" \
                 -X POST \
-                -d '{"content": "✅ YeetCode FastAPI deployed with only changed files!"}' \
+                -d '{"content": "🔕 No FastAPI files changed. Deploy skipped."}' \
                 ${{ secrets.DISCORD_WEBHOOK }}
-          else
-            echo "🔕 DISCORD_WEBHOOK not set, skipping notification."
+            else
+              curl -H "Content-Type: application/json" \
+                -X POST \
+                -d '{"content": "✅ FastAPI deployed with changed files:\n```{{ steps.get_changes.outputs.changed_files }}```"}' \
+                ${{ secrets.DISCORD_WEBHOOK }}
+            fi
           fi
 
       - name: Notify failure on Discord
@@ -83,6 +95,4 @@ jobs:
                 -X POST \
                 -d '{"content": "❌ YeetCode FastAPI deploy failed."}' \
                 ${{ secrets.DISCORD_WEBHOOK }}
-          else
-            echo "🔕 DISCORD_WEBHOOK not set, skipping notification."
           fi
