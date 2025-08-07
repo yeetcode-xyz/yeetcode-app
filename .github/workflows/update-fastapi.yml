@@ -64,17 +64,25 @@ jobs:
           "
 
       - name: Notify success on Discord
-        if: ${{ success() && secrets.DISCORD_WEBHOOK != '' }}
+        if: success()
         run: |
-          curl -H "Content-Type: application/json" \
-               -X POST \
-               -d '{"content": "✅ YeetCode FastAPI deployed with only changed files!"}' \
-               ${{ secrets.DISCORD_WEBHOOK }}
+          if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+            curl -H "Content-Type: application/json" \
+                -X POST \
+                -d '{"content": "✅ YeetCode FastAPI deployed with only changed files!"}' \
+                ${{ secrets.DISCORD_WEBHOOK }}
+          else
+            echo "🔕 DISCORD_WEBHOOK not set, skipping notification."
+          fi
 
       - name: Notify failure on Discord
-        if: ${{ failure() && secrets.DISCORD_WEBHOOK != '' }}
+        if: failure()
         run: |
-          curl -H "Content-Type: application/json" \
-               -X POST \
-               -d '{"content": "❌ YeetCode FastAPI deploy failed."}' \
-               ${{ secrets.DISCORD_WEBHOOK }}
+          if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+            curl -H "Content-Type: application/json" \
+                -X POST \
+                -d '{"content": "❌ YeetCode FastAPI deploy failed."}' \
+                ${{ secrets.DISCORD_WEBHOOK }}
+          else
+            echo "🔕 DISCORD_WEBHOOK not set, skipping notification."
+          fi
