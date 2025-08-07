@@ -30,13 +30,14 @@ jobs:
         if: steps.get_changes.outputs.changed_files == ''
         run: echo "✅ No FastAPI files changed. Skipping deploy."
 
-      - name: Create tarball of only changed files
+      - name: Create tarball of only changed files (flattened)
         if: steps.get_changes.outputs.changed_files != ''
         run: |
           mkdir -p changed-files
           while read file; do
-            mkdir -p changed-files/$(dirname "$file")
-            cp "$file" changed-files/"$file"
+            relative_path="${file#scripts/fastapi/}"
+            mkdir -p "changed-files/$(dirname "$relative_path")"
+            cp "$file" "changed-files/$relative_path"
           done < changed.txt
           tar -czf changed-files.tar.gz -C changed-files .
 
@@ -58,11 +59,11 @@ jobs:
             rm /root/changed-files.tar.gz &&
 
             # Install requirements if changed
-            if grep -q 'scripts/fastapi/requirements.txt' /root/changed.txt; then
-              echo 'Installing new requirements...'
+            if grep -q 'requirements.txt' /root/changed.txt; then
+              echo 'Installing updated requirements...'
               source .venv/bin/activate && pip install -r requirements.txt
             else
-              echo 'requirements.txt not changed.'
+              echo 'No changes to requirements.txt'
             fi &&
 
             # Restart FastAPI
@@ -73,30 +74,31 @@ jobs:
       - name: Notify success on Discord
         if: success()
         env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           CHANGED_FILES: ${{ steps.get_changes.outputs.changed_files }}
         run: |
           if [ -n "$DISCORD_WEBHOOK" ]; then
             if [ -z "$CHANGED_FILES" ]; then
               curl -H "Content-Type: application/json" \
-                  -X POST \
-                  -d '{"content": "🔕 No FastAPI files changed. Deploy skipped."}' \
-                  "$DISCORD_WEBHOOK"
+                   -X POST \
+                   -d '{"content": "🔕 No FastAPI files changed. Deploy skipped."}' \
+                   "$DISCORD_WEBHOOK"
             else
               curl -H "Content-Type: application/json" \
-                  -X POST \
-                  -d "{\"content\": \"✅ FastAPI deployed with changed files:\n\`\`\`\n$CHANGED_FILES\n\`\`\`\"}" \
-                  "$DISCORD_WEBHOOK"
+                   -X POST \
+                   -d "{\"content\": \"✅ FastAPI deployed with changed files:\n\`\`\`\n$CHANGED_FILES\n\`\`\`\"}" \
+                   "$DISCORD_WEBHOOK"
             fi
           fi
-        
-
 
       - name: Notify failure on Discord
         if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+          if [ -n "$DISCORD_WEBHOOK" ]; then
             curl -H "Content-Type: application/json" \
-                -X POST \
-                -d '{"content": "❌ YeetCode FastAPI deploy failed."}' \
-                ${{ secrets.DISCORD_WEBHOOK }}
+                 -X POST \
+                 -d '{"content": "❌ YeetCode FastAPI deploy failed."}' \
+                 "$DISCORD_WEBHOOK"
           fi
