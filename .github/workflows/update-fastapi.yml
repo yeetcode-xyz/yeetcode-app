@@ -11,21 +11,24 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: env
+
 
     steps:
-      - name: Checkout code
+      - name: Checkout code (with commit history)
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Needed for HEAD~1 diff to work
 
       - name: Get list of changed files in scripts/fastapi/
         id: diff
         run: |
-          git fetch origin main
-          git diff --name-only origin/main~1 origin/main -- scripts/fastapi/ > changed.txt
+          git diff --name-only HEAD~1 HEAD -- scripts/fastapi/ > changed.txt
           cat changed.txt
 
-      - name: Create tarball of changed files
+      - name: Create tarball of only changed files
         run: |
-          mkdir changed-files
+          mkdir -p changed-files
           while read file; do
             mkdir -p changed-files/$(dirname "$file")
             cp "$file" changed-files/"$file"
@@ -39,31 +42,29 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Upload and deploy on VPS
+      - name: Upload and deploy to VPS
         run: |
-          scp changed-files.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/changed-files.tar.gz
+          scp changed-files.tar.gz changed.txt ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd /root/yeetcode-api &&
             tar -xzf /root/changed-files.tar.gz -C . &&
             rm /root/changed-files.tar.gz &&
 
-            # Install requirements if it was among changed files
-            if grep -q 'scripts/fastapi/requirements.txt' /root/changed-files.txt; then
+            # Install requirements if it changed
+            if grep -q 'scripts/fastapi/requirements.txt' /root/changed.txt; then
               echo 'requirements.txt changed, installing...'
               source .venv/bin/activate && pip install -r requirements.txt
             else
               echo 'No changes to requirements.txt'
             fi &&
 
-            # Kill old process
+            # Kill and restart FastAPI
             pkill -f 'python3 main.py' || true &&
-
-            # Restart FastAPI
             nohup bash -c 'source .venv/bin/activate && python3 main.py' > fastapi.log 2>&1 &
           "
 
       - name: Notify success on Discord
-        if: success()
+        if: ${{ success() && secrets.DISCORD_WEBHOOK != '' }}
         run: |
           curl -H "Content-Type: application/json" \
                -X POST \
@@ -71,7 +72,7 @@ jobs:
                ${{ secrets.DISCORD_WEBHOOK }}
 
       - name: Notify failure on Discord
-        if: failure()
+        if: ${{ failure() && secrets.DISCORD_WEBHOOK != '' }}
         run: |
           curl -H "Content-Type: application/json" \
                -X POST \
