@@ -77,8 +77,12 @@ jobs:
 
             # load env safely
             if [ -f .env ]; then
-              export $(grep -v '^\s*#' .env | xargs)
+              # Strip comments, normalize “KEY = VALUE” to “KEY=VALUE”, then export
+              export $(grep -v '^\s*#' .env \
+                        | sed 's/[[:space:]]*=[[:space:]]*/=/g' \
+                        | xargs)
             fi
+
 
             # reinstall if needed
             if grep -q '^requirements.txt$' ~/changed.txt; then
