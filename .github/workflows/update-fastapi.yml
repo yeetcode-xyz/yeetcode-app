@@ -72,20 +72,25 @@ jobs:
 
       - name: Notify success on Discord
         if: success()
+        env:
+          CHANGED_FILES: ${{ steps.get_changes.outputs.changed_files }}
         run: |
-          if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
-            if [ "${{ steps.get_changes.outputs.changed_files }}" = "" ]; then
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            if [ -z "$CHANGED_FILES" ]; then
               curl -H "Content-Type: application/json" \
-                -X POST \
-                -d '{"content": "🔕 No FastAPI files changed. Deploy skipped."}' \
-                ${{ secrets.DISCORD_WEBHOOK }}
+                  -X POST \
+                  -d '{"content": "🔕 No FastAPI files changed. Deploy skipped."}' \
+                  "$DISCORD_WEBHOOK"
             else
               curl -H "Content-Type: application/json" \
-                -X POST \
-                -d '{"content": "✅ FastAPI deployed with changed files:\n```{{ steps.get_changes.outputs.changed_files }}```"}' \
-                ${{ secrets.DISCORD_WEBHOOK }}
+                  -X POST \
+                  -d "{\"content\": \"✅ FastAPI deployed with changed files:\n\`\`\`\n$CHANGED_FILES\n\`\`\`\"}" \
+                  "$DISCORD_WEBHOOK"
             fi
           fi
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
 
       - name: Notify failure on Discord
         if: failure()
