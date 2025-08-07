@@ -43,26 +43,30 @@ jobs:
         if: steps.diff.outputs.changed_files != ''
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          # Suppress motd/login banners
+          echo "LogLevel ERROR" >> ~/.ssh/config
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Upload & deploy on VPS
+      - name: Upload & deploy to VPS
         if: steps.diff.outputs.changed_files != ''
         run: |
-          scp changed-files.tgz changed.txt ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          # Quietly copy files
+          scp -q -o LogLevel=ERROR changed-files.tgz changed.txt ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/root/
+          # SSH without a PTY and suppress banners
+          ssh -T -o LogLevel=ERROR ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e
             cd /root/yeetcode-api
 
-            # Unpack changed files into project root
-            tar -xzf /root/changed-files.tgz -C . 
+            # Unpack changed files
+            tar -xzf /root/changed-files.tgz -C .
             rm /root/changed-files.tgz
 
-            # Load .env
-            set -a
-            [ -f .env ] && . .env
-            set +a
+            # Load .env safely (ignore comments/blank lines)
+            if [ -f .env ]; then
+              export $(grep -v '^\s*#' .env | xargs)
+            fi
 
             # Reinstall if requirements.txt changed
             if grep -q '^requirements.txt$' /root/changed.txt; then
@@ -83,28 +87,23 @@ jobs:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           CHANGES: ${{ steps.diff.outputs.changed_files }}
         run: |
-          if [ -z "$WEBHOOK" ]; then
-            echo "🔕 No Discord webhook set, skipping."
-            exit 0
-          fi
+          [ -z "$WEBHOOK" ] && { echo "🔕 No Discord webhook set."; exit 0; }
           if [ -z "$CHANGES" ]; then
-            curl -X POST -H "Content-Type: application/json" \
-              -d '{"content":"🔕 No FastAPI files changed—deploy skipped."}' \
-              "$WEBHOOK"
+            MSG='🔕 No FastAPI files changed—deploy skipped.'
           else
-            ESCAPED=$(printf '%s' "$CHANGES" | sed 's/"/\\"/g')
-            curl -X POST -H "Content-Type: application/json" \
-              -d "{\"content\":\"✅ FastAPI deployed with changed files:\\n\`\`\`$ESCAPED\`\`\`\"}" \
-              "$WEBHOOK"
+            ESC=$(printf '%s' "$CHANGES" | sed 's/"/\\"/g')
+            MSG="✅ FastAPI deployed with changed files:\n\`\`\`$ESC\`\`\`"
           fi
+          curl -s -X POST -H "Content-Type: application/json" \
+               -d "{\"content\":\"$MSG\"}" \
+               "$WEBHOOK"
 
       - name: Notify failure on Discord
         if: failure()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          if [ -n "$WEBHOOK" ]; then
-            curl -X POST -H "Content-Type: application/json" \
-              -d '{"content":"❌ FastAPI deployment failed."}' \
-              "$WEBHOOK"
-          fi
+          [ -z "$WEBHOOK" ] && { echo "🔕 No Discord webhook set."; exit 0; }
+          curl -s -X POST -H "Content-Type: application/json" \
+               -d '{"content":"❌ YeetCode FastAPI deploy failed."}' \
+               "$WEBHOOK"
