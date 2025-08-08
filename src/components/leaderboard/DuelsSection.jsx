@@ -655,14 +655,39 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
   if (loading) {
     return (
-      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
+      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg h-[32rem] relative">
         <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
           <div className="flex items-center gap-2">
             <span className="text-white text-lg">⚔️</span>
             <h3 className="font-bold text-white text-lg">DUELS</h3>
           </div>
         </div>
-        <div className="p-6 text-center text-gray-600">Loading duels...</div>
+        <div className="p-6" style={{ height: '313px' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse">
+            <div
+              className="bg-white p-4 border-2 border-black rounded-lg shadow-md"
+              style={{ height: '265px' }}
+            >
+              <div className="h-6 bg-gray-200 rounded w-1/2 mb-3"></div>
+              <div className="space-y-3">
+                <div className="h-8 bg-gray-200 rounded"></div>
+                <div className="h-8 bg-gray-200 rounded"></div>
+              </div>
+              <div className="h-9 bg-gray-200 rounded w-full mt-3"></div>
+            </div>
+            <div className="bg-white p-4 border-2 border-black rounded-lg shadow-md">
+              <div className="h-6 bg-gray-200 rounded w-1/3 mb-3"></div>
+              <div
+                className="space-y-2 overflow-hidden"
+                style={{ height: '190px' }}
+              >
+                <div className="h-14 bg-gray-200 rounded"></div>
+                <div className="h-14 bg-gray-200 rounded"></div>
+                <div className="h-14 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

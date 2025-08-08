@@ -98,8 +98,10 @@ const ActiveBounties = forwardRef(({ userData }, ref) => {
             <h3 className="font-bold text-white text-lg">ACTIVE BOUNTIES</h3>
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-600">Loading bounties...</div>
+        <div className="flex-1 p-4 space-y-4 animate-pulse">
+          <div className="h-24 bg-gray-200 rounded"></div>
+          <div className="h-24 bg-gray-200 rounded"></div>
+          <div className="h-24 bg-gray-200 rounded"></div>
         </div>
       </div>
     );

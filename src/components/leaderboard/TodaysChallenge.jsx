@@ -31,16 +31,30 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
 
   if (dailyData.loading) {
     return (
-      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
-        <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-80">
+        <div className="bg-blue-500 px-6 py-4 border-b-4 border-black flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-white text-lg">🎯</span>
             <h3 className="font-bold text-white text-lg">TODAY'S CHALLENGE</h3>
           </div>
         </div>
-        <div className="p-6">
-          <div className="text-center text-gray-600">
-            Loading daily challenge...
+        <div className="flex-1 p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-6 bg-gray-200 rounded w-2/3"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <div className="h-5 w-20 bg-gray-200 rounded"></div>
+              <div className="h-5 w-24 bg-gray-200 rounded"></div>
+              <div className="h-5 w-16 bg-gray-200 rounded"></div>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <div className="h-10 w-40 bg-gray-200 rounded border-2 border-black"></div>
+              <div className="h-6 w-32 bg-gray-200 rounded"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -49,15 +63,15 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
 
   if (dailyData.error || !dailyData.todaysProblem) {
     return (
-      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
-        <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+      <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-80">
+        <div className="bg-blue-500 px-6 py-4 border-b-4 border-black flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-white text-lg">🎯</span>
             <h3 className="font-bold text-white text-lg">TODAY'S CHALLENGE</h3>
           </div>
         </div>
-        <div className="p-6">
-          <div className="text-center text-gray-600">
+        <div className="flex-1 p-6">
+          <div className="h-full w-full flex items-center justify-center text-center text-gray-600">
             {dailyData.error
               ? `Error: ${dailyData.error}`
               : 'No daily challenge available today'}
@@ -92,14 +106,14 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
     stripHtmlTags(problem.content || '').substring(0, 200) + '...';
 
   return (
-    <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg">
-      <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
+    <div className="bg-yellow-100 border-4 border-black rounded-xl overflow-hidden shadow-lg flex flex-col h-80 relative">
+      <div className="bg-blue-500 px-6 py-4 border-b-4 border-black flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-white text-lg">🎯</span>
           <h3 className="font-bold text-white text-lg">TODAY'S CHALLENGE</h3>
         </div>
       </div>
-      <div className="p-6 h-full overflow-y-auto">
+      <div className="flex-1 p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold">{problem.title}</h3>
           <div className="flex items-center gap-2">
