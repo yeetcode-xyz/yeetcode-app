@@ -17,6 +17,9 @@ import {
 } from '../../services/duels';
 
 const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
+  // Normalize username to lowercase for consistent comparisons
+  const normalizedCurrentUser = userData?.leetUsername?.toLowerCase();
+
   // State management
   const [duels, setDuels] = useState([]);
   const [recentDuels, setRecentDuels] = useState([]);
@@ -35,13 +38,13 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
   // Filter out current user from friends list (case-insensitive)
   const availableFriends = leaderboard.filter(
-    user => user.username !== userData?.leetUsername?.toLowerCase()
+    user => user.username !== normalizedCurrentUser
   );
 
   // Expose refresh function to parent component
   useImperativeHandle(ref, () => ({
     refreshDuels: () => {
-      if (userData?.leetUsername) {
+      if (normalizedCurrentUser) {
         loadDuels();
         loadRecentDuels();
       }
@@ -50,22 +53,22 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
   // Load duels on component mount (initial load only)
   useEffect(() => {
-    if (userData?.leetUsername) {
+    if (normalizedCurrentUser) {
       loadDuels();
       loadRecentDuels();
     }
-  }, [userData?.leetUsername]);
+  }, [normalizedCurrentUser]);
 
   // Load duels from backend
   const loadDuels = async () => {
-    if (!userData?.leetUsername || loadingRef.current) return;
+    if (!normalizedCurrentUser || loadingRef.current) return;
 
     try {
       loadingRef.current = true;
       setLoading(true);
 
       // Load current duels
-      const userDuels = await getUserDuels(userData.leetUsername);
+      const userDuels = await getUserDuels(normalizedCurrentUser);
 
       // Add completed property to each duel
       const duelsWithCompletedFlag = userDuels.map(duel => ({
@@ -86,10 +89,10 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
   // Load recent completed duels
   const loadRecentDuels = async () => {
-    if (!userData?.leetUsername) return;
+    if (!normalizedCurrentUser) return;
 
     try {
-      const recentDuelsData = await getRecentDuels(userData.leetUsername);
+      const recentDuelsData = await getRecentDuels(normalizedCurrentUser);
       setRecentDuels(recentDuelsData);
     } catch (err) {
       console.error('Error loading recent duels:', err);
@@ -123,12 +126,14 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       setActionLoading({ createDuel: true });
 
       const newDuel = await createDuel(
-        userData.leetUsername,
+        normalizedCurrentUser,
         selectedFriend,
         selectedDifficulty
       );
 
-      setDuels(prev => [...prev, newDuel]);
+      // Refresh duels list to get complete duel data from backend
+      await loadDuels();
+
       setSelectedFriend('');
       setSelectedDifficulty('');
 
@@ -152,15 +157,10 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     try {
       setActionLoading({ [`accept_${duelId}`]: true });
 
-      const updatedDuel = await acceptDuel(duelId, userData.leetUsername);
+      await acceptDuel(duelId, normalizedCurrentUser);
 
-      setDuels(prev =>
-        prev.map(duel =>
-          duel.duelId === duelId
-            ? { ...updatedDuel, completed: updatedDuel.status === 'COMPLETED' }
-            : duel
-        )
-      );
+      // Refresh duels to get the updated data
+      await loadDuels();
 
       addNotification('Duel accepted! The battle begins!', 'success');
     } catch (err) {
@@ -227,7 +227,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   // Handle starting a duel (revealing problem and starting timer)
   const handleStartDuel = async duelId => {
     try {
-      await startDuel(duelId, userData.leetUsername);
+      await startDuel(duelId, normalizedCurrentUser);
 
       addNotification(
         "Duel started! Solve the problem - we'll check your progress automatically!",
@@ -263,7 +263,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
   // Render pending duel
   const renderPendingDuel = duel => {
-    const isChallenger = duel.challenger === userData.leetUsername;
+    const isChallenger = duel.challenger === normalizedCurrentUser;
     const otherUser = isChallenger ? duel.challengee : duel.challenger;
     const otherUserDisplay =
       leaderboard.find(u => u.username === otherUser)?.name || otherUser;
@@ -334,7 +334,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
   // Render active duel
   const renderActiveDuel = duel => {
-    const isChallenger = duel.challenger === userData.leetUsername;
+    const isChallenger = duel.challenger === normalizedCurrentUser;
     const otherUser = isChallenger ? duel.challengee : duel.challenger;
     const otherUserDisplay =
       leaderboard.find(u => u.username === otherUser)?.name || otherUser;
@@ -489,7 +489,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
   // Render duel with completed check
   const renderDuel = duel => {
-    const isChallenger = duel.challenger === userData.leetUsername;
+    const isChallenger = duel.challenger === normalizedCurrentUser;
     const otherUser = isChallenger ? duel.challengee : duel.challenger;
     const otherUserDisplay =
       leaderboard.find(u => u.username === otherUser)?.name || otherUser;
@@ -500,7 +500,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
     // Branch on duel.completed for main display logic
     if (duel.completed) {
-      const won = duel.winner === userData.leetUsername;
+      const won = duel.winner === normalizedCurrentUser;
 
       return (
         <div
@@ -559,13 +559,13 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       );
     }
 
-    // Handle PENDING duels
+    // Handle PENDING duels (not yet accepted)
     if (duel.status === 'PENDING') {
       return renderPendingDuel(duel);
     }
 
-    // Handle ACTIVE duels
-    if (duel.status === 'ACTIVE') {
+    // Handle ACCEPTED duels (accepted but not started - shows Start Duel button)
+    if (duel.status === 'ACCEPTED' || duel.status === 'ACTIVE') {
       return renderActiveDuel(duel);
     }
 
@@ -574,12 +574,12 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
   // Detect new incoming duels and send system notification
   useEffect(() => {
-    if (!userData?.leetUsername) return;
+    if (!normalizedCurrentUser) return;
     const prevDuels = previousDuelsRef.current;
     const newDuels = duels.filter(
       duel =>
         duel.status === 'PENDING' &&
-        duel.challengee === userData.leetUsername &&
+        duel.challengee === normalizedCurrentUser &&
         !prevDuels.some(prev => prev.duelId === duel.duelId)
     );
     if (newDuels.length > 0 && window.electronAPI?.notifyDuelEvent) {
@@ -592,7 +592,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       });
     }
     previousDuelsRef.current = duels;
-  }, [duels, userData?.leetUsername]);
+  }, [duels, normalizedCurrentUser]);
 
   // Win message component
   const WinMessage = () => {
@@ -622,13 +622,32 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   // Helper: filter out expired duels
   const filterExpiredDuels = duel => {
     const now = Date.now();
-    if (duel.status === 'PENDING') {
-      const createdAt = new Date(duel.createdAt).getTime();
-      return now < createdAt + 3 * 60 * 60 * 1000; // 3 hours
+    if (duel.status === 'PENDING' || duel.status === 'ACCEPTED') {
+      // Handle both old (no Z) and new (with Z) timestamp formats
+      const createdAtStr =
+        duel.createdAt.includes('Z') || duel.createdAt.includes('+')
+          ? duel.createdAt
+          : duel.createdAt + 'Z';
+      const createdAt = new Date(createdAtStr).getTime();
+      // Check if the date is valid
+      if (isNaN(createdAt)) {
+        return true; // Keep duel if we can't parse the date
+      }
+      const expiryTime = createdAt + 3 * 60 * 60 * 1000;
+      const isExpired = now >= expiryTime;
+      return !isExpired; // Keep if not expired
     }
     if (duel.status === 'ACTIVE') {
       if (!duel.startTime) return true; // Defensive: if no startTime, don't filter
-      const startTime = new Date(duel.startTime).getTime();
+      // Handle both old (no Z) and new (with Z) timestamp formats
+      const startTimeStr =
+        duel.startTime.includes('Z') || duel.startTime.includes('+')
+          ? duel.startTime
+          : duel.startTime + 'Z';
+      const startTime = new Date(startTimeStr).getTime();
+      if (isNaN(startTime)) {
+        return true; // Keep duel if we can't parse the date
+      }
       return now < startTime + 2 * 60 * 60 * 1000; // 2 hours
     }
     return true; // Always show completed duels
@@ -761,7 +780,12 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             >
               {/* Show active and pending duels first */}
               {filteredDuels
-                .filter(d => d.status === 'PENDING' || d.status === 'ACTIVE')
+                .filter(
+                  d =>
+                    d.status === 'PENDING' ||
+                    d.status === 'ACCEPTED' ||
+                    d.status === 'ACTIVE'
+                )
                 .map(renderDuel)}
 
               {/* Show completed duels if any */}
@@ -772,9 +796,9 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
                   </div>
                   {/* Show only recent duels from API */}
                   {recentDuels.map(duel => {
-                    const isWinner = duel.winner === userData.leetUsername;
+                    const isWinner = duel.winner === normalizedCurrentUser;
                     const otherUser =
-                      duel.challenger === userData.leetUsername
+                      duel.challenger === normalizedCurrentUser
                         ? duel.challengee
                         : duel.challenger;
                     const otherUserDisplay =

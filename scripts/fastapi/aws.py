@@ -5,7 +5,7 @@ AWS DynamoDB operations for YeetCode
 import os
 import time
 import boto3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional, List, Any
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
@@ -169,8 +169,8 @@ class UserOperations:
                     'username': {'S': normalized_username},
                     'email': {'S': normalized_email},
                     'display_name': {'S': display_name or username},
-                    'created_at': {'S': datetime.now().isoformat()},
-                    'updated_at': {'S': datetime.now().isoformat()}
+                    'created_at': {'S': datetime.now(timezone.utc).isoformat()},
+                    'updated_at': {'S': datetime.now(timezone.utc).isoformat()}
                 }
             }
             
@@ -290,7 +290,7 @@ class VerificationOperations:
                     'email': {'S': normalized_email},
                     'verification_code': {'S': code},
                     'ttl': {'N': str(ttl)},
-                    'created_at': {'S': datetime.now().isoformat()}
+                    'created_at': {'S': datetime.now(timezone.utc).isoformat()}
                 }
             }
             
@@ -587,10 +587,10 @@ class DailyProblemOperations:
             if not DAILY_TABLE:
                 raise Exception("DAILY_TABLE not configured")
             
-            from datetime import datetime, timedelta
+            from datetime import datetime, timezone, timedelta
             
             # Try to get today's problem first (most likely case)
-            today = datetime.now().strftime('%Y-%m-%d')
+            today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
             latest_problem = None
             
             try:
@@ -696,7 +696,7 @@ class DailyProblemOperations:
             if not DAILY_TABLE:
                 raise Exception("DAILY_TABLE not configured")
             
-            from datetime import datetime, timedelta
+            from datetime import datetime, timezone, timedelta
             
             # Get recent problems for streak calculation (last 30 days)
             thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
@@ -735,9 +735,9 @@ class DailyProblemOperations:
             if not DAILY_TABLE or not USERS_TABLE:
                 raise Exception("Tables not configured")
             
-            from datetime import datetime
+            from datetime import datetime, timezone
             
-            today = datetime.now().strftime('%Y-%m-%d')
+            today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
             normalized_username = username.lower()
             
             # Update daily problem
@@ -968,7 +968,7 @@ class DuelOperations:
                     'challengee': {'S': normalized_opponent},
                     'problemSlug': {'S': problem_slug},
                     'status': {'S': 'PENDING'},
-                    'createdAt': {'S': datetime.now().isoformat()},
+                    'createdAt': {'S': datetime.now(timezone.utc).isoformat()},
                     'expires_at': {'N': str(int(time.time()) + 3600)},  # 1 hour
                     'challengerTime': {'N': '-1'},  # -1 means not started
                     'challengeeTime': {'N': '-1'}   # -1 means not started
@@ -992,20 +992,20 @@ class DuelOperations:
     
     @staticmethod
     def accept_duel(username: str, duel_id: str) -> Dict:
-        """Accept a duel"""
+        """Accept a duel - marks as ACCEPTED, not yet started"""
         try:
             if not DUELS_TABLE:
                 raise Exception("DUELS_TABLE not configured")
             
-            # Update duel status
+            # Update duel status to ACCEPTED (not ACTIVE yet)
             update_params = {
                 'TableName': DUELS_TABLE,
                 'Key': {'duelId': {'S': duel_id}},
-                'UpdateExpression': 'SET #status = :status, startTime = :startTime',
+                'UpdateExpression': 'SET #status = :status, acceptedAt = :acceptedAt',
                 'ExpressionAttributeNames': {'#status': 'status'},
                 'ExpressionAttributeValues': {
-                    ':status': {'S': 'ACTIVE'},
-                    ':startTime': {'S': datetime.now().isoformat()}
+                    ':status': {'S': 'ACCEPTED'},
+                    ':acceptedAt': {'S': datetime.now(timezone.utc).isoformat()}
                 }
             }
             
@@ -1051,12 +1051,17 @@ class DuelOperations:
             else:
                 raise Exception("User is not part of this duel")
             
-            # Update the user's time to 0 (started but not completed)
+            # Update the user's time to 0 and set status to ACTIVE (only first time)
             update_params = {
                 'TableName': DUELS_TABLE,
                 'Key': {'duelId': {'S': duel_id}},
-                'UpdateExpression': f'SET {time_field} = :time',
-                'ExpressionAttributeValues': {':time': {'N': '0'}}
+                'UpdateExpression': f'SET {time_field} = :time, #status = :status, startTime = if_not_exists(startTime, :startTime)',
+                'ExpressionAttributeNames': {'#status': 'status'},
+                'ExpressionAttributeValues': {
+                    ':time': {'N': '0'},
+                    ':status': {'S': 'ACTIVE'},
+                    ':startTime': {'S': datetime.now(timezone.utc).isoformat()}
+                }
             }
             
             ddb.update_item(**update_params)
@@ -1195,7 +1200,7 @@ class DuelOperations:
                         ':status': {'S': 'COMPLETED'},
                         ':winner': {'S': winner} if winner else {'NULL': True},
                         ':xp': {'N': str(xp_award)},
-                        ':completed': {'S': datetime.now().isoformat()}
+                        ':completed': {'S': datetime.now(timezone.utc).isoformat()}
                     }
                 }
                 
@@ -1377,7 +1382,7 @@ class DuelOperations:
                                     ':status': {'S': 'COMPLETED'},
                                     ':winner': {'S': winner},
                                     ':xp': {'N': '75'},  # Winner by timeout gets bonus XP
-                                    ':completed': {'S': datetime.now().isoformat()},
+                                    ':completed': {'S': datetime.now(timezone.utc).isoformat()},
                                     ':reason': {'S': 'TIMEOUT'}
                                 }
                             }
@@ -1407,7 +1412,7 @@ class DuelOperations:
                             'ExpressionAttributeNames': {'#status': 'status'},
                             'ExpressionAttributeValues': {
                                 ':status': {'S': 'COMPLETED'},
-                                ':completed': {'S': datetime.now().isoformat()},
+                                ':completed': {'S': datetime.now(timezone.utc).isoformat()},
                                 ':reason': {'S': 'EXPIRED'}
                             }
                         }

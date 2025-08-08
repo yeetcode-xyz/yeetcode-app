@@ -1195,14 +1195,14 @@ ipcMain.handle(
       const randomProblem =
         freeProblems[Math.floor(Math.random() * freeProblems.length)];
 
-      // Create duel via FastAPI
+      // Create duel via FastAPI (normalize usernames to lowercase)
       const response = await axios.post(
         `${fastApiUrl}/create-duel`,
         {
-          username: challengerUsername,
-          opponent: challengeeUsername,
+          username: challengerUsername.toLowerCase(),
+          opponent: challengeeUsername.toLowerCase(),
           problem_slug: randomProblem.titleSlug,
-          difficulty: difficulty,
+          difficulty: targetDifficulty,
         },
         {
           headers: {
@@ -1214,16 +1214,19 @@ ipcMain.handle(
       );
 
       if (response.data.success) {
-        return {
+        const createdDuel = {
           duelId: response.data.data.duel_id,
-          challenger: challengerUsername,
-          challengee: challengeeUsername,
-          difficulty,
+          challenger: challengerUsername.toLowerCase(),
+          challengee: challengeeUsername.toLowerCase(),
+          difficulty: randomProblem.difficulty, // Use actual problem difficulty
           status: 'PENDING',
           problemSlug: randomProblem.titleSlug,
           problemTitle: randomProblem.title,
           createdAt: new Date().toISOString(),
+          challengerTime: -1,
+          challengeeTime: -1,
         };
+        return createdDuel;
       } else {
         throw new Error(response.data.error || 'Failed to create duel');
       }
