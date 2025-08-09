@@ -1,0 +1,106 @@
+name: Deploy FastAPI (manual, full deployment)
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        default: 'Manual deployment requested'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: env
+
+    steps:
+      # 1️⃣ Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2️⃣ Archive all FastAPI files for full deployment
+      - name: Archive all FastAPI files
+        run: |
+          mkdir -p fastapi-files
+          cp -r scripts/fastapi/* fastapi-files/
+          tar -czf fastapi-files.tgz -C fastapi-files .
+
+      # 3️⃣ Install SSH key and suppress banners
+      - name: Setup SSH key & silence banner
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # add known host and disable MOTD on VPS
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=no \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "touch ~/.hushlogin"
+
+      # 4️⃣ Deploy full FastAPI to VPS
+      - name: Deploy to VPS
+        run: |
+          # copy archive
+          scp -i ~/.ssh/id_ed25519 -q -o StrictHostKeyChecking=no \
+            fastapi-files.tgz \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/
+
+          # SSH in quietly and run all deploy steps
+          ssh -i ~/.ssh/id_ed25519 -q -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -e
+            cd ~/yeetcode-api
+
+            # backup existing files
+            if [ -d "backup" ]; then rm -rf backup; fi
+            mkdir -p backup
+            cp -r * backup/ 2>/dev/null || true
+
+            # unpack all files (overwrite existing)
+            tar -xzf ~/fastapi-files.tgz -C .
+            rm ~/fastapi-files.tgz
+
+            # load env safely
+            if [ -f .env ]; then
+              # Strip comments, normalize "KEY = VALUE" to "KEY=VALUE", then export
+              export $(grep -v '^\s*#' .env \
+                        | sed 's/[[:space:]]*=[[:space:]]*/=/g' \
+                        | xargs)
+            fi
+
+            # always reinstall dependencies for full deployment
+            echo "📦 Full deployment: reinstalling dependencies..."
+            source .venv/bin/activate
+            pip install -r requirements.txt
+
+            # restart the app
+            pkill -f 'python3 main.py' || true
+            source .venv/bin/activate
+            nohup python3 main.py > fastapi.log 2>&1 &
+            
+            echo "✅ Manual FastAPI deployment completed"
+          EOF
+
+      # 5️⃣ Notify Discord on success
+      - name: Discord → success
+        if: success()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          REASON: ${{ github.event.inputs.reason }}
+        run: |
+          [ -z "$WEBHOOK" ] && exit 0
+          REASON_TEXT="${REASON:-Manual deployment}"
+          CONTENT="✅ FastAPI manually deployed successfully\\n📝 Reason: $REASON_TEXT\\n👤 Triggered by: ${{ github.actor }}"
+          curl -s -X POST -H "Content-Type: application/json" \
+               -d "{\"content\":\"$CONTENT\"}" \
+               "$WEBHOOK"
+
+      # 6️⃣ Notify Discord on failure
+      - name: Discord → failure
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          [ -z "$WEBHOOK" ] && exit 0
+          curl -s -X POST -H "Content-Type: application/json" \
+               -d '{"content":"❌ Manual FastAPI deployment failed."}' \
+               "$WEBHOOK"
