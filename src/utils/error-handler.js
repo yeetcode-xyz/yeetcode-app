@@ -1,18 +1,17 @@
-// Centralized error handling utilities
-
 const logError = (context, error) => {
   console.error(`[ERROR][${context}]`, error);
 };
 
 const logDebug = (context, message, data = null) => {
-  console.log(`[DEBUG][${context}]`, message, data || '');
+  if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+    console.log(`[DEBUG][${context}]`, message, data || '');
+  }
 };
 
 const handleAPIError = (error, context) => {
   logError(context, error);
 
   if (error.response) {
-    // HTTP error response
     const status = error.response.status;
     const data = error.response.data;
 
@@ -46,7 +45,6 @@ const handleAPIError = (error, context) => {
     throw new Error('Request timeout - please try again');
   }
 
-  // Re-throw original error if we can't handle it
   throw error;
 };
 

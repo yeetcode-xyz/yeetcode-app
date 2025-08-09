@@ -51,7 +51,17 @@ async def get_daily_problem_endpoint(
                 cache_manager.set(CacheType.DAILY_COMPLETIONS, completions_data)
             
             # Check if user completed today's problem
-            user_completed = username in completions_data.get('data', {}).get('users', {})
+            users_data = completions_data.get('data', {}).get('users', {})
+            user_completed = False
+            if username in users_data:
+                user_completion = users_data[username]
+                # Handle both boolean and nested boolean structure
+                if isinstance(user_completion, bool):
+                    user_completed = user_completion
+                elif isinstance(user_completion, dict) and user_completion.get('BOOL'):
+                    user_completed = user_completion['BOOL']
+                else:
+                    user_completed = True  # Default to true if user exists in the users field
             
             # Check cache for user's streak data
             cached_user_data = cache_manager.get(CacheType.USER_DAILY_DATA, username)

@@ -660,7 +660,18 @@ class DailyProblemOperations:
             daily_complete = False
             if latest_problem and 'users' in latest_problem:
                 normalized_username = username.lower()
-                daily_complete = normalized_username in latest_problem['users']
+                users_data = latest_problem['users']
+                
+                # Check if user exists in users and is marked as completed
+                if normalized_username in users_data:
+                    user_completion = users_data[normalized_username]
+                    # Handle both boolean and nested boolean structure
+                    if isinstance(user_completion, bool):
+                        daily_complete = user_completion
+                    elif isinstance(user_completion, dict) and user_completion.get('BOOL'):
+                        daily_complete = user_completion['BOOL']
+                    else:
+                        daily_complete = True  # Default to true if user exists in the users field
             
             # Calculate streak
             streak = 0
@@ -670,7 +681,20 @@ class DailyProblemOperations:
                     problem_date = problem.get('date', {}).get('S')
                     if problem_date and 'users' in problem:
                         normalized_username = username.lower()
-                        if normalized_username in problem.get('users', {}):
+                        users_data = problem.get('users', {})
+                        
+                        # Check if user completed this problem (same logic as daily_complete)
+                        user_completed = False
+                        if normalized_username in users_data:
+                            user_completion = users_data[normalized_username]
+                            if isinstance(user_completion, bool):
+                                user_completed = user_completion
+                            elif isinstance(user_completion, dict) and user_completion.get('BOOL'):
+                                user_completed = user_completion['BOOL']
+                            else:
+                                user_completed = True
+                        
+                        if user_completed:
                             streak += 1
                         else:
                             break
@@ -858,10 +882,6 @@ class BountyOperations:
                 if start_date <= current_time <= expiry_date:
                     # Get user's progress (0 if not found)
                     users_map = bounty.get('users', {})
-                    if DEBUG_MODE:
-                        print(f"[DEBUG] Looking for user '{normalized_username}' in bounty {bounty.get('bountyId', {}).get('S', 'unknown')}")
-                        print(f"[DEBUG] Users map structure: {users_map}")
-                        print(f"[DEBUG] Available users: {list(users_map.keys()) if isinstance(users_map, dict) else 'Not a dict'}")
                     
                     # Handle both raw DynamoDB format and normalized format
                     if 'M' in users_map:
@@ -873,8 +893,6 @@ class BountyOperations:
                         # Already normalized format
                         user_progress = int(float(users_map.get(normalized_username, 0)))
                     
-                    if DEBUG_MODE:
-                        print(f"[DEBUG] User progress for '{normalized_username}': {user_progress}")
                     
                     # Calculate progress percentage
                     progress_percent = min((user_progress / count) * 100, 100) if count > 0 else 0

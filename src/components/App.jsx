@@ -11,7 +11,6 @@ import LeaderboardStep from './LeaderboardStep';
 
 const APP_VERSION = '0.1.2';
 function App() {
-  // Core state
   const [step, setStep] = useState('welcome');
   const [userData, setUserData] = useState({
     email: '',
@@ -28,7 +27,6 @@ function App() {
   const previousLeaderboardRef = useRef([]);
   const leaderboardStepRef = useRef();
 
-  // Daily problem global state
   const [dailyData, setDailyData] = useState({
     dailyComplete: false,
     streak: 0,
@@ -37,7 +35,6 @@ function App() {
     loading: true,
   });
 
-  // UI state
   const [error, setError] = useState('');
   const [validating, setValidating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -45,17 +42,15 @@ function App() {
   const [refreshIn, setRefreshIn] = useState(60);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
 
-  // Load saved data on mount
   useEffect(() => {
     const savedUserData = loadFromStorage(STORAGE_KEYS.USER_DATA);
     const savedAppState = loadFromStorage(STORAGE_KEYS.APP_STATE);
 
     if (savedUserData) {
-      // Handle existing users (update them with email fields if missing)
       const updatedUserData = {
         email: savedUserData.email || '',
         verified:
-          savedUserData.verified || (savedUserData.leetUsername ? true : false), // Existing users are considered verified
+          savedUserData.verified || (savedUserData.leetUsername ? true : false),
         name: savedUserData.name || '',
         leetUsername: savedUserData.leetUsername || '',
       };
@@ -68,26 +63,22 @@ function App() {
     }
   }, []);
 
-  // Save user data when it changes
   useEffect(() => {
     if (userData.name || userData.leetUsername) {
       saveToStorage(STORAGE_KEYS.USER_DATA, userData);
     }
   }, [userData]);
 
-  // Save app state when it changes
   useEffect(() => {
     if (step !== 'welcome' || groupData.joined) {
       saveAppState(step, groupData);
     }
   }, [step, groupData]);
 
-  // Track app state for smart notifications - prevent double calls
   const prevAppState = useRef({ step: null, userData: null, dailyData: null });
 
   useEffect(() => {
     if (window.electronAPI) {
-      // Only update if there's an actual change to prevent double calls
       const currentState = { step, userData, dailyData };
       const prevState = prevAppState.current;
 
@@ -105,7 +96,6 @@ function App() {
     }
   }, [step, userData, dailyData]);
 
-  // Clear app state when component unmounts
   useEffect(() => {
     return () => {
       if (window.electronAPI) {
@@ -114,14 +104,12 @@ function App() {
     };
   }, []);
 
-  // Fetch university leaderboard when on leaderboard step (initial load only)
   useEffect(() => {
     if (step === 'leaderboard') {
       fetchUniversityLeaderboard();
     }
   }, [step]);
 
-  // Smart refresh system based on app focus
   useEffect(() => {
     if (step !== 'leaderboard' || !groupData.joined || !groupData.code) {
       return;
@@ -131,22 +119,19 @@ function App() {
     let currentInterval = null;
     let isAppFocused = true;
 
-    // Get initial refresh interval based on focus
     const getRefreshInterval = () => {
-      return isAppFocused ? 60 : 600; // 1 min focused, 10 min unfocused
+      return isAppFocused ? 60 : 600;
     };
 
-    // Function to refresh data with minimum delay check
     const refreshData = () => {
       const now = Date.now();
       const timeSinceLastRefresh = now - lastRefreshTime;
-      const minimumDelay = 60 * 1000; // 1 minute minimum
+      const minimumDelay = 60 * 1000;
 
       if (timeSinceLastRefresh >= minimumDelay) {
         fetchLeaderboard();
         fetchUniversityLeaderboard();
         fetchDailyProblem();
-        // Refresh duels and bounties as part of the auto-refresh system
         if (leaderboardStepRef.current) {
           leaderboardStepRef.current.refreshDuels();
           leaderboardStepRef.current.refreshBounties();
@@ -155,7 +140,6 @@ function App() {
       }
     };
 
-    // Function to start/restart the refresh timer
     const startRefreshTimer = () => {
       if (currentInterval) {
         clearInterval(currentInterval);
@@ -175,23 +159,20 @@ function App() {
       }, 1000);
     };
 
-    // Handle focus/blur events
     const handleFocus = () => {
       isAppFocused = true;
-      refreshData(); // Refresh immediately when app gains focus
-      startRefreshTimer(); // Restart with focused interval
+      refreshData();
+      startRefreshTimer();
     };
 
     const handleBlur = () => {
       isAppFocused = false;
-      startRefreshTimer(); // Restart with unfocused interval
+      startRefreshTimer();
     };
 
-    // Set up focus/blur listeners
     window.addEventListener('focus', handleFocus);
     window.addEventListener('blur', handleBlur);
 
-    // Initial load and start timer
     refreshData();
     lastRefreshTime = Date.now();
     startRefreshTimer();
@@ -205,7 +186,6 @@ function App() {
     };
   }, [step, groupData.joined, groupData.code]);
 
-  // Add useEffect to detect leaderboard changes and trigger notifications
   useEffect(() => {
     if (previousLeaderboardRef.current.length) {
       detectLeaderboardChanges(leaderboard, previousLeaderboardRef.current);
@@ -213,7 +193,6 @@ function App() {
     previousLeaderboardRef.current = leaderboard;
   }, [leaderboard]);
 
-  // Helper functions
   const saveAppState = (currentStep, currentGroupData) => {
     saveToStorage(STORAGE_KEYS.APP_STATE, {
       step: currentStep,
@@ -221,24 +200,20 @@ function App() {
     });
   };
 
-  // Notification management
   const addNotification = (type, message) => {
     const id = Date.now() + Math.random();
     const notification = { id, type, message };
 
-    setNotifications(prev => [notification, ...prev.slice(0, 2)]); // Keep only 3 notifications
+    setNotifications(prev => [notification, ...prev.slice(0, 2)]);
 
-    // Auto-dismiss after 5 seconds
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 5000);
   };
 
-  // Detect leaderboard changes and generate notifications
   const detectLeaderboardChanges = (newLeaderboard, oldLeaderboard) => {
-    if (!oldLeaderboard.length) return; // Skip first load
+    if (!oldLeaderboard.length) return;
 
-    // Calculate XP for sorting - ensure all values are numbers
     const calculateXP = user => {
       const easy = Number(user.easy) || 0;
       const medium = Number(user.medium) || 0;
@@ -249,7 +224,6 @@ function App() {
       return baseXP + bonusXP;
     };
 
-    // Sort both leaderboards by XP
     const newSorted = [...newLeaderboard].sort(
       (a, b) => calculateXP(b) - calculateXP(a)
     );
@@ -257,7 +231,6 @@ function App() {
       (a, b) => calculateXP(b) - calculateXP(a)
     );
 
-    // Create maps for quick lookup
     const newUserMap = new Map(
       newSorted.map((user, index) => [
         user.username,
@@ -271,25 +244,21 @@ function App() {
       ])
     );
 
-    // Check for new users (joined)
     for (const [username, user] of newUserMap) {
       if (!oldUserMap.has(username)) {
         addNotification('joined', `${user.name} joined the competition! 🎯`);
       }
     }
 
-    // Check for users who left
     for (const [username, user] of oldUserMap) {
       if (!newUserMap.has(username)) {
         addNotification('left', `${user.name} left the group 👋`);
       }
     }
 
-    // Check for rank changes (overtakes)
     for (const [username, newUser] of newUserMap) {
       const oldUser = oldUserMap.get(username);
       if (oldUser && oldUser.rank > newUser.rank) {
-        // User moved up in rank
         const rankDiff = oldUser.rank - newUser.rank;
         if (rankDiff === 1) {
           addNotification(
@@ -314,7 +283,6 @@ function App() {
     }, 300);
   };
 
-  // Development helpers
   useDevHelpers({
     step,
     userData,
@@ -336,29 +304,25 @@ function App() {
     if (!groupData.code) return;
 
     try {
-      // 1) IPC into main, DynamoDB GSI or scan
       const items = await window.electronAPI.getStatsForGroup(groupData.code);
-      // 2) Normalize + compute totals - ensure all values are numbers
       const normalized = items.map(item => {
         return {
           username: item.username,
-          name: item.name, // Now using the proper display name from backend
+          name: item.name,
           easy: Number(item.easy) || 0,
           medium: Number(item.medium) || 0,
           hard: Number(item.hard) || 0,
           today: Number(item.today) || 0,
-          xp: Number(item.xp) || 0, // Include XP from daily challenges - ensure it's a number
+          xp: Number(item.xp) || 0,
         };
       });
 
-      // 3) Sort by total problems solved (descending)
       normalized.sort((a, b) => {
         const totalA = a.easy + a.medium + a.hard;
         const totalB = b.easy + b.medium + b.hard;
         return totalB - totalA;
       });
 
-      // Calculate user rank
       const userRank =
         normalized.findIndex(user => user.username === userData.leetUsername) +
         1;
@@ -416,7 +380,6 @@ function App() {
     navigateToStep('email');
   };
 
-  // Magic link authentication handlers
   const handleEmailSent = email => {
     setUserData(prev => ({ ...prev, email: email.toLowerCase() }));
     navigateToStep('verification');
@@ -429,10 +392,8 @@ function App() {
       verified: true,
     }));
 
-    // Check if user already exists and has complete profile
     try {
       if (window.electronAPI) {
-        // Get user data by email to see if they already exist
         const userByEmail = await window.electronAPI.getUserByEmail(
           result.email.toLowerCase()
         );
@@ -449,11 +410,9 @@ function App() {
         if (userByEmail && userByEmail.data) {
           console.log('Existing user found:', userByEmail.data);
 
-          // Check if user has completed onboarding (username !== email)
           if (userByEmail.data.username !== userByEmail.data.email) {
             // User has completed onboarding
             if (userByEmail.data.group_id) {
-              // User has joined a group - go to leaderboard
               console.log(
                 'Existing user with complete profile found:',
                 userByEmail.data
@@ -515,10 +474,8 @@ function App() {
       }
     } catch (error) {
       console.error('Error checking existing user:', error);
-      // Continue with normal flow if there's an error
     }
 
-    // Normal flow - go to onboarding
     navigateToStep('onboarding');
   };
 

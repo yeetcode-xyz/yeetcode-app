@@ -1,8 +1,5 @@
 console.log('🚀 APP STARTING - Environment loading will begin...');
 
-// Server-side caching is now handled by FastAPI
-// Frontend caching removed in favor of server-side caching
-
 const {
   app,
   BrowserWindow,
@@ -14,7 +11,6 @@ const path = require('path');
 const electronSquirrelStartup = require('electron-squirrel-startup');
 const fs = require('fs');
 
-// Import utility modules
 const config = require('./utils/config');
 const { fastApiClient, leetCodeClient } = require('./utils/api');
 const {
@@ -43,18 +39,18 @@ const getCachedProblemDetails = async slug => {
   const cached = problemDetailsCache.get(slug);
   const now = Date.now();
 
-  console.log('[CACHE DEBUG] Checking cache for slug:', slug);
-  console.log('[CACHE DEBUG] Cache size:', problemDetailsCache.size);
-  console.log('[CACHE DEBUG] Cached entry:', cached ? 'found' : 'not found');
+  logDebug('cache', `Checking cache for slug: ${slug}`);
+  logDebug('cache', `Cache size: ${problemDetailsCache.size}`);
+  logDebug('cache', `Cached entry: ${cached ? 'found' : 'not found'}`);
 
   if (cached && now - cached.timestamp < PROBLEM_CACHE_TTL) {
     const age = (now - cached.timestamp) / 1000;
-    console.log('[CACHE DEBUG] Cache hit! Age:', age, 'seconds');
+    logDebug('cache', `Cache hit! Age: ${age} seconds`);
     logDebug('getCachedProblemDetails', 'Cache hit for:', slug);
     return cached.data;
   }
 
-  console.log('[CACHE DEBUG] Cache miss - fetching from LeetCode API');
+  logDebug('cache', 'Cache miss - fetching from LeetCode API');
   logDebug('getCachedProblemDetails', 'Cache miss for:', slug);
   try {
     const details = await fetchLeetCodeProblemDetails(slug);
@@ -62,7 +58,7 @@ const getCachedProblemDetails = async slug => {
       data: details,
       timestamp: now,
     });
-    console.log('[CACHE DEBUG] Cached new entry for:', slug);
+    logDebug('cache', `Cached new entry for: ${slug}`);
     return details;
   } catch (error) {
     logError('getCachedProblemDetails', 'Failed to fetch:', error);
@@ -115,7 +111,6 @@ const verifyCodeAndGetUser = async (email, code) => {
   }
 };
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (electronSquirrelStartup) {
   app.quit();
 }
@@ -125,7 +120,6 @@ let mainWindow;
 const createWindow = () => {
   console.log(path.join(__dirname, 'preload.js'));
 
-  // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 1500,
     height: 900,
@@ -147,22 +141,18 @@ const createWindow = () => {
       mainWindow.webContents.openDevTools();
     }
   } else {
-    // In packaged app, built files are in resources/dist/
     const builtHtmlPath = path.join(__dirname, '..', 'dist', 'index.html');
     if (fs.existsSync(builtHtmlPath)) {
       mainWindow.loadFile(builtHtmlPath);
     } else {
-      // Fallback to src directory if dist not found
       mainWindow.loadFile(path.join(__dirname, 'index.html'));
     }
   }
 
-  // Log when the window is ready
   mainWindow.webContents.on('did-finish-load', () => {
     console.log('Window loaded successfully');
   });
 
-  // Log any errors
   mainWindow.webContents.on(
     'did-fail-load',
     (event, errorCode, errorDescription) => {
@@ -170,14 +160,10 @@ const createWindow = () => {
     }
   );
 
-  // Handle window closed
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 };
-
-// Daily challenge notification system
-// Removed: lastCheckedDate is no longer needed with new notification system
 
 // Clean notification manager class
 class NotificationManager {
@@ -203,27 +189,23 @@ class NotificationManager {
       lastUpdated: new Date().toISOString(),
     };
 
-    console.log('[DEBUG][NotificationManager.updateAppState]', {
+    logDebug('NotificationManager.updateAppState', 'App state updated', {
       step,
       username: userData?.leetUsername,
       dailyComplete: dailyData?.dailyComplete,
       dailyProblem: dailyData?.todaysProblem?.title,
     });
 
-    // Check if this is a new app open (user just opened the app)
     const now = Date.now();
     const isNewAppOpen =
       !this.lastAppOpenTime || now - this.lastAppOpenTime > 30000; // 30 seconds threshold
 
     if (isNewAppOpen) {
-      console.log(
-        '[DEBUG][NotificationManager.updateAppState] New app open detected'
-      );
+      logDebug('NotificationManager.updateAppState', 'New app open detected');
       this.lastAppOpenTime = now;
       this.handleAppOpen();
     }
 
-    // Check for daily problem changes
     this.checkForDailyProblemChange(previousState, this.currentAppState);
   }
 
@@ -237,34 +219,31 @@ class NotificationManager {
   }
 
   async handleAppOpen() {
-    console.log('[DEBUG][NotificationManager.handleAppOpen] App opened');
+    logDebug('NotificationManager.handleAppOpen', 'App opened');
 
-    // Reset daily change notification flag on new day
     const today = new Date().toISOString().split('T')[0];
     if (this.lastDailyProblem?.date !== today) {
       this.dailyChangeNotificationSent = false;
     }
 
-    // Check if user should get "haven't solved daily" notification
     const shouldNotify =
       this.currentAppState.step === 'leaderboard' &&
       this.currentAppState.userData?.leetUsername &&
       this.currentAppState.dailyData?.dailyComplete === false;
 
     if (shouldNotify) {
-      console.log(
-        '[DEBUG][NotificationManager.handleAppOpen] Scheduling daily reminder notification'
+      logDebug(
+        'NotificationManager.handleAppOpen',
+        'Scheduling daily reminder notification'
       );
 
-      // Schedule notification after 1 minute delay
       setTimeout(() => {
         this.sendDailyReminderNotification();
-      }, 60000); // 1 minute delay
+      }, 60000);
     }
   }
 
   async checkForDailyProblemChange(previousState, currentState) {
-    // Only check if user is in leaderboard and has daily data
     if (
       currentState.step !== 'leaderboard' ||
       !currentState.dailyData?.todaysProblem
@@ -275,7 +254,6 @@ class NotificationManager {
     const currentProblem = currentState.dailyData.todaysProblem;
     const previousProblem = previousState.dailyData?.todaysProblem;
 
-    // Check if daily problem has changed (not first load)
     if (
       previousProblem &&
       currentProblem.slug !== previousProblem.slug &&
@@ -292,12 +270,10 @@ class NotificationManager {
       this.dailyChangeNotificationSent = true;
     }
 
-    // Update last known daily problem
     this.lastDailyProblem = currentProblem;
   }
 
   sendDailyReminderNotification() {
-    // Double-check conditions before sending
     if (
       this.currentAppState.step !== 'leaderboard' ||
       !this.currentAppState.userData?.leetUsername ||
@@ -356,26 +332,17 @@ class NotificationManager {
 // Create global notification manager instance
 const notificationManager = new NotificationManager();
 
-// Start daily challenge checker (simplified - notifications now handled by app state changes)
 const startDailyChallengeChecker = () => {
   console.log(
     '[DEBUG][startDailyChallengeChecker] Notification system initialized'
   );
-  // Notifications are now handled automatically when app state changes
-  // No need for periodic checks since we track state changes directly
 };
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   createWindow();
 
-  // Start the daily challenge notification system
   startDailyChallengeChecker();
 
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -383,20 +350,12 @@ app.whenReady().then(() => {
   });
 });
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
-
-// LeetCode username validation using GraphQL API
-// Register IPC handler for LeetCode username validation
 ipcMain.handle('validate-leetcode-username', async (event, username) => {
   try {
     logDebug('validate-leetcode-username', 'Validating username:', username);
@@ -417,7 +376,7 @@ ipcMain.handle('create-group', async (event, username, displayName) => {
       display_name: displayName,
     });
 
-    console.log('[DEBUG] create-group response:', response);
+    logDebug('create-group', 'Group created successfully', response);
     // The response includes the entire data object with success field
     if (response && response.group_id) {
       return { groupId: response.group_id };
@@ -441,7 +400,7 @@ ipcMain.handle(
         display_name: displayName,
       });
 
-      console.log('[DEBUG] join-group response:', response);
+      logDebug('join-group', 'Joined group successfully', response);
       // The response includes the entire data object with success field
       if (response && response.group_id) {
         return { joined: true, groupId: response.group_id };
@@ -457,7 +416,7 @@ ipcMain.handle(
 
 // GET GROUP STATS
 ipcMain.handle('get-stats-for-group', async (event, groupId) => {
-  console.log('[DEBUG][get-stats-for-group] Called with groupId:', groupId);
+  logDebug('get-stats-for-group', `Called with groupId: ${groupId}`);
 
   try {
     const axios = require('axios');
@@ -608,7 +567,7 @@ ipcMain.handle('update-display-name', async (event, username, displayName) => {
 
 // Add handler to open URLs in system browser
 ipcMain.handle('open-external-url', async (event, url) => {
-  console.log('[DEBUG][open-external-url] opening:', url);
+  logDebug('open-external-url', `Opening: ${url}`);
   try {
     await shell.openExternal(url);
     return { success: true };
@@ -658,7 +617,7 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
       if (data.todaysProblem) {
         try {
           const slug = data.todaysProblem.titleSlug || data.todaysProblem.slug;
-          console.log('[DAILY DEBUG] Problem slug:', slug);
+          logDebug('daily-challenge', `Problem slug: ${slug}`);
           console.log(
             '[DAILY DEBUG] Backend cache response time:',
             Date.now() - startTime,
@@ -825,7 +784,7 @@ ipcMain.handle('get-cached-top-problems', async () => {
 
 // App state tracking for smart notifications
 ipcMain.handle('update-app-state', async (event, step, userData, dailyData) => {
-  console.log('[DEBUG][update-app-state] Updating app state:', {
+  logDebug('update-app-state', 'Updating app state', {
     step,
     username: userData?.leetUsername,
     dailyComplete: dailyData?.dailyComplete,
@@ -837,7 +796,7 @@ ipcMain.handle('update-app-state', async (event, step, userData, dailyData) => {
 });
 
 ipcMain.handle('clear-app-state', async () => {
-  console.log('[DEBUG][clear-app-state] Clearing app state');
+  logDebug('clear-app-state', 'Clearing app state');
   notificationManager.clearAppState();
 
   return { success: true };
@@ -849,7 +808,7 @@ ipcMain.handle('clear-app-state', async () => {
 
 // Send magic link with verification code
 ipcMain.handle('send-magic-link', async (event, email) => {
-  console.log('[DEBUG][send-magic-link] called for email:', email);
+  logDebug('send-magic-link', `Called for email: ${email}`);
 
   if (!email || !email.trim()) {
     return { success: false, error: 'Email is required' };
@@ -889,7 +848,7 @@ ipcMain.handle('send-magic-link', async (event, email) => {
       );
 
       if (response.data.success) {
-        console.log('[DEBUG][send-magic-link] FastAPI success for:', email);
+        logDebug('send-magic-link', `FastAPI success for: ${email}`);
         return {
           success: true,
           message: 'Verification code sent to your email',
@@ -913,11 +872,9 @@ ipcMain.handle('send-magic-link', async (event, email) => {
 
 // Verify magic link code
 ipcMain.handle('verify-magic-token', async (event, email, code) => {
-  console.log(
-    '[DEBUG][verify-magic-token] called for email:',
-    email,
-    'code:',
-    code
+  logDebug(
+    'verify-magic-token',
+    `Called for email: ${email} with code: ${code}`
   );
 
   if (!email || !code) {
@@ -931,10 +888,7 @@ ipcMain.handle('verify-magic-token', async (event, email, code) => {
       return result;
     }
 
-    console.log(
-      '[DEBUG][verify-magic-token] Verification successful for:',
-      email
-    );
+    logDebug('verify-magic-token', `Verification successful for: ${email}`);
     return result;
   } catch (error) {
     console.error('[ERROR][verify-magic-token]', error);
