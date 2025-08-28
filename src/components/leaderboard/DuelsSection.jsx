@@ -15,7 +15,7 @@ import {
   rejectDuel,
   recordDuelSubmission,
 } from '../../services/duels';
-import { leetCodeClient } from '../../utils/api';
+import { fetchRecentSubmissions } from '../../services/leetcode';
 
 const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   // Normalize username to lowercase for consistent comparisons
@@ -379,11 +379,8 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     startTimes
   ) => {
     try {
-      // Get recent submissions from LeetCode GraphQL API
-      const recentSubmissions = await leetCodeClient.fetchRecentSubmissions(
-        username,
-        10
-      );
+      // Get recent submissions from LeetCode GraphQL API via Electron IPC
+      const recentSubmissions = await fetchRecentSubmissions(username, 10);
 
       // Check if any recent submission matches the duel problem
       const matchingSubmission = recentSubmissions.find(
