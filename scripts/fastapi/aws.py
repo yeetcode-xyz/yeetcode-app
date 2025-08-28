@@ -965,7 +965,7 @@ class DuelOperations:
             raise error
     
     @staticmethod
-    def create_duel(username: str, opponent: str, problem_slug: str, difficulty: str = None) -> Dict:
+    def create_duel(username: str, opponent: str, problem_slug: str, problem_title: str = None, problem_number: str = None, difficulty: str = None) -> Dict:
         """Create a new duel"""
         try:
             if not DUELS_TABLE:
@@ -993,9 +993,13 @@ class DuelOperations:
                 }
             }
             
-            # Add difficulty if provided
+            # Add optional fields if provided
             if difficulty:
                 put_params['Item']['difficulty'] = {'S': difficulty}
+            if problem_title:
+                put_params['Item']['problemTitle'] = {'S': problem_title}
+            if problem_number:
+                put_params['Item']['problemNumber'] = {'S': problem_number}
             
             ddb.put_item(**put_params)
             
@@ -1119,6 +1123,23 @@ class DuelOperations:
             raise error
     
     @staticmethod
+    def calculate_duel_xp(difficulty: str, is_winner: bool) -> int:
+        """Calculate BONUS XP for winning duels
+        UI advertises:
+        - Easy: 100 XP + 200 bonus if you win
+        - Medium: 300 XP + 200 bonus if you win  
+        - Hard: 500 XP + 200 bonus if you win
+        
+        Base XP is awarded automatically by daily problem system.
+        This function only returns the WIN BONUS.
+        """
+        if not is_winner:
+            return 0  # Losers get no bonus XP
+        
+        # All difficulties get +200 bonus for winning
+        return 200
+    
+    @staticmethod
     def record_duel_submission(username: str, duel_id: str, elapsed_ms: int) -> Dict:
         """Record a duel submission with elapsed time"""
         try:
@@ -1141,6 +1162,7 @@ class DuelOperations:
             challenger = duel_item.get('challenger', {}).get('S')
             challengee = duel_item.get('challengee', {}).get('S')
             current_status = duel_item.get('status', {}).get('S')
+            difficulty = duel_item.get('difficulty', {}).get('S', 'Medium')  # Default to Medium if not set
             
             # Don't allow submissions on already completed duels
             if current_status == 'COMPLETED':
@@ -1186,21 +1208,21 @@ class DuelOperations:
             # Check if we should complete the duel (both users have times or one user completed and timeout passed)
             should_complete_duel = False
             winner = None
-            xp_award = 25  # Base XP for participation
+            xp_award = 0  # Only winner gets XP
             
             if new_challenger_time is not None and new_challengee_time is not None:
                 # Both users completed - determine winner
                 should_complete_duel = True
                 if new_challenger_time < new_challengee_time:
                     winner = challenger
-                    xp_award = 50  # Winner gets more XP
+                    xp_award = DuelOperations.calculate_duel_xp(difficulty, True)
                 elif new_challengee_time < new_challenger_time:
                     winner = challengee
-                    xp_award = 50  # Winner gets more XP
+                    xp_award = DuelOperations.calculate_duel_xp(difficulty, True)
                 else:
                     # Tie - both get winner XP
                     winner = None  # No single winner
-                    xp_award = 50
+                    xp_award = DuelOperations.calculate_duel_xp(difficulty, True)  # Both get winner XP in case of tie
                     
             elif (new_challenger_time is not None or new_challengee_time is not None):
                 # Only one user completed - check if enough time has passed for timeout
@@ -1239,7 +1261,12 @@ class DuelOperations:
             
             duel_action(f"User {normalized_username} recorded time", duel_id=duel_id, time_ms=elapsed_ms)
             
-            return {"success": True, "completed": should_complete_duel, "winner": winner if should_complete_duel else None}
+            return {
+                "success": True, 
+                "completed": should_complete_duel, 
+                "winner": winner if should_complete_duel else None,
+                "xpAwarded": xp_award if should_complete_duel else None
+            }
             
         except Exception as error:
             if DEBUG_MODE:
@@ -1271,6 +1298,7 @@ class DuelOperations:
                 'status': duel_item.get('status', {}).get('S'),
                 'problemSlug': duel_item.get('problemSlug', {}).get('S'),
                 'problemTitle': duel_item.get('problemTitle', {}).get('S'),
+                'problemNumber': duel_item.get('problemNumber', {}).get('S'),
                 'createdAt': duel_item.get('createdAt', {}).get('S'),
                 'startTime': duel_item.get('startTime', {}).get('S'),
                 'challengerTime': int(duel_item.get('challengerTime', {}).get('N', '0')),
@@ -1366,6 +1394,7 @@ class DuelOperations:
                 duel_id = duel_item.get('duelId', {}).get('S')
                 challenger = duel_item.get('challenger', {}).get('S')
                 challengee = duel_item.get('challengee', {}).get('S')
+                difficulty = duel_item.get('difficulty', {}).get('S', 'Medium')  # Default to Medium if not set
                 start_time_str = duel_item.get('startTime', {}).get('S')
                 
                 challenger_time = duel_item.get('challengerTime', {}).get('N')
@@ -1391,6 +1420,9 @@ class DuelOperations:
                             loser = challengee if challenger_completed else challenger
                             duel_action(f"Completing duel {duel_id} due to timeout", winner=winner, loser=loser)
                             
+                            # Calculate proper bonus XP
+                            bonus_xp = DuelOperations.calculate_duel_xp(difficulty, True)  # Winner gets bonus
+                            
                             complete_params = {
                                 'TableName': DUELS_TABLE,
                                 'Key': {'duelId': {'S': duel_id}},
@@ -1399,7 +1431,7 @@ class DuelOperations:
                                 'ExpressionAttributeValues': {
                                     ':status': {'S': 'COMPLETED'},
                                     ':winner': {'S': winner},
-                                    ':xp': {'N': '75'},  # Winner by timeout gets bonus XP
+                                    ':xp': {'N': str(bonus_xp)},
                                     ':completed': {'S': datetime.now(timezone.utc).isoformat()},
                                     ':reason': {'S': 'TIMEOUT'}
                                 }
@@ -1407,9 +1439,8 @@ class DuelOperations:
                             
                             ddb.update_item(**complete_params)
                             
-                            # Award XP
-                            UserOperations.award_xp(winner, 75)  # Winner gets more for persistence
-                            UserOperations.award_xp(loser, 15)   # Loser gets something for participation
+                            # Award only bonus XP to winner (base XP comes from daily problem system)
+                            UserOperations.award_xp(winner, bonus_xp)  # Winner gets +200 bonus
                             
                             completed_duels += 1
                             if DEBUG_MODE:

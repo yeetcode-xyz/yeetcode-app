@@ -56,12 +56,14 @@ async def create_duel_endpoint(
     """Create a new duel"""
     try:
         if DEBUG_MODE:
-            print(f"[DEBUG] Creating duel - username: {request.username}, opponent: {request.opponent}, problem_slug: {request.problem_slug}, difficulty: {request.difficulty}")
+            print(f"[DEBUG] Creating duel - username: {request.username}, opponent: {request.opponent}, problem_slug: {request.problem_slug}, problem_title: {request.problem_title}, problem_number: {request.problem_number}, difficulty: {request.difficulty}")
         
         result = DuelOperations.create_duel(
             request.username, 
             request.opponent, 
             request.problem_slug,
+            request.problem_title,
+            request.problem_number,
             request.difficulty
         )
         

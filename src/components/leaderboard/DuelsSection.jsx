@@ -234,11 +234,78 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
         'success'
       );
 
+      // Start automatic submission simulation (temporary)
+      startAutoSubmissionSimulation(duelId);
+
       // Refresh duels to get updated state
       loadDuels();
     } catch (error) {
       console.error('Failed to start duel:', error);
       addNotification('Failed to start duel. Please try again.', 'error');
+    }
+  };
+
+  // Temporary auto-submission simulation (will be replaced with real polling)
+  const startAutoSubmissionSimulation = async duelId => {
+    try {
+      // Find the duel to get participant info
+      const duel = duels.find(d => d.duelId === duelId);
+      if (!duel) return;
+
+      const challenger = duel.challenger;
+      const challengee = duel.challengee;
+      let duelCompleted = false;
+
+      // Auto-submit for challenger after 10 seconds
+      setTimeout(async () => {
+        if (duelCompleted) return;
+        try {
+          const elapsedMs = 10000; // 10 seconds
+          const result = await recordDuelSubmission(
+            duelId,
+            challenger,
+            elapsedMs
+          );
+          console.log(
+            `[AUTO-SUBMIT] Challenger ${challenger} submitted after 10 seconds`
+          );
+          loadDuels(); // Refresh to show updated state
+
+          // If duel completed, cancel the second timer
+          if (result && result.completed) {
+            duelCompleted = true;
+            console.log(
+              `[AUTO-SUBMIT] Duel ${duelId} completed after challenger submission`
+            );
+          }
+        } catch (error) {
+          console.error('Failed to auto-submit for challenger:', error);
+        }
+      }, 10000);
+
+      // Auto-submit for challengee after 200 seconds (only if duel not completed)
+      setTimeout(async () => {
+        if (duelCompleted) {
+          console.log(
+            `[AUTO-SUBMIT] Skipping challengee submission - duel already completed`
+          );
+          return;
+        }
+        try {
+          const elapsedMs = 200000; // 200 seconds
+          await recordDuelSubmission(duelId, challengee, elapsedMs);
+          console.log(
+            `[AUTO-SUBMIT] Challengee ${challengee} submitted after 200 seconds`
+          );
+          loadDuels(); // Refresh to show updated state
+        } catch (error) {
+          console.error('Failed to auto-submit for challengee:', error);
+        }
+      }, 200000);
+
+      console.log(`[AUTO-SUBMIT] Started simulation timers for duel ${duelId}`);
+    } catch (error) {
+      console.error('Error starting auto-submission simulation:', error);
     }
   };
 
@@ -259,6 +326,41 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  // Format difficulty from backend (EASY/MEDIUM/HARD) to proper case
+  const formatDifficulty = difficulty => {
+    if (!difficulty) return 'Unknown';
+    return (
+      difficulty.charAt(0).toUpperCase() + difficulty.slice(1).toLowerCase()
+    );
+  };
+
+  // Format problem display with number and title
+  const formatProblemDisplay = (
+    problemNumber,
+    problemTitle,
+    difficulty,
+    problemSlug
+  ) => {
+    const formattedDifficulty = formatDifficulty(difficulty);
+
+    if (problemNumber && problemTitle) {
+      return `${problemNumber}. ${problemTitle}`;
+    }
+    if (problemTitle) {
+      return problemTitle;
+    }
+    // For old duels without title, show a better fallback
+    if (problemSlug) {
+      // Convert slug to readable format: "two-sum" → "Two Sum"
+      const readableTitle = problemSlug
+        .split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+      return readableTitle;
+    }
+    return `${formattedDifficulty} Problem`;
   };
 
   // Render pending duel
@@ -292,12 +394,17 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             <h5 className="font-bold text-sm" style={{ fontSize: '12px' }}>
               {isChallenger
                 ? `Challenge sent to ${otherUserDisplay}`
-                : `Challenge from ${otherUserDisplay} • ${duel.difficulty || 'Unknown'}`}
+                : `Challenge from ${otherUserDisplay} • ${formatDifficulty(duel.difficulty)}`}
             </h5>
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
               {isChallenger
-                ? `${duel.difficulty || 'Unknown'} • All the best!`
-                : ''}
+                ? `${formatProblemDisplay(duel.problemNumber, duel.problemTitle, duel.difficulty, duel.problemSlug)} • All the best!`
+                : formatProblemDisplay(
+                    duel.problemNumber,
+                    duel.problemTitle,
+                    duel.difficulty,
+                    duel.problemSlug
+                  )}
             </p>
             {timeRemaining > 0 && (
               <p className="text-xs text-orange-600 font-bold">
@@ -387,7 +494,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
           <div>
             <h5 className="font-bold text-sm">Dueling {otherUserDisplay}</h5>
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
-              {duel.difficulty || 'Unknown'} • Problem Hidden
+              {formatDifficulty(duel.difficulty)} • Problem Hidden
             </p>
             {timeRemaining > 0 && (
               <p className="text-xs text-orange-600 font-bold">
@@ -511,8 +618,15 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             <div>
               <h5 className="font-bold text-sm">vs {otherUserDisplay}</h5>
               <p className="text-xs text-gray-600">
-                {duel.difficulty || 'Unknown'} •{' '}
-                {duel.problemTitle || 'Unknown Problem'}
+                {formatProblemDisplay(
+                  duel.problemNumber,
+                  duel.problemTitle,
+                  duel.difficulty,
+                  duel.problemSlug
+                )}
+              </p>
+              <p className="text-xs text-gray-500">
+                {formatDifficulty(duel.difficulty)}
               </p>
             </div>
             <span
@@ -549,10 +663,10 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             ✅ COMPLETED
           </button>
 
-          {/* Winner badge and XP banner only when duel.completed === true */}
-          {duel.completed && won && (
+          {/* XP banner for winners only */}
+          {duel.completed && duel.xpAwarded && won && (
             <div className="mt-2 text-center text-xs text-orange-600 font-bold">
-              +{duel.xpAwarded} XP earned!
+              +{duel.xpAwarded} XP bonus earned!
             </div>
           )}
         </div>
@@ -847,13 +961,20 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
                             <span className="ml-2">vs {otherUserDisplay}</span>
                           </div>
                           <div className="text-right">
-                            <div className="font-bold">{duel.problemTitle}</div>
-                            <div className="text-gray-600">
-                              {duel.difficulty}
+                            <div className="font-bold">
+                              {formatProblemDisplay(
+                                duel.problemNumber,
+                                duel.problemTitle,
+                                duel.difficulty,
+                                duel.problemSlug
+                              )}
                             </div>
-                            {isWinner && duel.xpAwarded && (
+                            <div className="text-gray-600">
+                              {formatDifficulty(duel.difficulty)}
+                            </div>
+                            {duel.xpAwarded && isWinner && (
                               <div className="text-green-600 font-bold">
-                                +{duel.xpAwarded} XP
+                                +{duel.xpAwarded} XP bonus
                               </div>
                             )}
                           </div>

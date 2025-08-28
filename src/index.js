@@ -1156,7 +1156,9 @@ ipcMain.handle(
           username: challengerUsername.toLowerCase(),
           opponent: challengeeUsername.toLowerCase(),
           problem_slug: randomProblem.titleSlug,
-          difficulty: targetDifficulty,
+          problem_title: randomProblem.title,
+          problem_number: randomProblem.frontendQuestionId,
+          difficulty: randomProblem.difficulty, // Use the original difficulty from LeetCode
         },
         {
           headers: {
@@ -1172,7 +1174,7 @@ ipcMain.handle(
           duelId: response.data.data.duel_id,
           challenger: challengerUsername.toLowerCase(),
           challengee: challengeeUsername.toLowerCase(),
-          difficulty: randomProblem.difficulty, // Use actual problem difficulty
+          difficulty: difficulty, // Use original difficulty (Easy/Medium/Hard/Random)
           status: 'PENDING',
           problemSlug: randomProblem.titleSlug,
           problemTitle: randomProblem.title,
