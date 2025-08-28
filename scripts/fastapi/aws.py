@@ -924,6 +924,153 @@ class BountyOperations:
                 print(f"[ERROR] Failed to get bounties: {error}")
             return {"success": False, "error": str(error)}
     
+    @staticmethod
+    def get_all_bounties() -> Dict:
+        """Get all bounties without user-specific data"""
+        try:
+            if not BOUNTIES_TABLE:
+                raise Exception("BOUNTIES_TABLE not configured")
+            
+            scan_params = {'TableName': BOUNTIES_TABLE}
+            scan_result = ddb.scan(**scan_params)
+            all_bounties = scan_result.get('Items', [])
+            
+            # Normalize bounties
+            normalized_bounties = [normalize_dynamodb_item(bounty) for bounty in all_bounties]
+            
+            return {"success": True, "data": normalized_bounties}
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get all bounties: {error}")
+            return {"success": False, "error": str(error)}
+    
+    @staticmethod
+    def get_bounty_by_id(bounty_id: str) -> Dict:
+        """Get specific bounty by ID"""
+        try:
+            if not BOUNTIES_TABLE:
+                raise Exception("BOUNTIES_TABLE not configured")
+            
+            response = ddb.get_item(
+                TableName=BOUNTIES_TABLE,
+                Key={'id': {'S': bounty_id}}
+            )
+            
+            if 'Item' in response:
+                bounty = normalize_dynamodb_item(response['Item'])
+                return {"success": True, "data": bounty}
+            
+            return {"success": False, "error": "Bounty not found"}
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get bounty by ID: {error}")
+            return {"success": False, "error": str(error)}
+    
+    @staticmethod
+    def get_bounty_progress(bounty_id: str) -> Dict:
+        """Get progress for all users on a specific bounty"""
+        try:
+            if not BOUNTIES_TABLE:
+                raise Exception("BOUNTIES_TABLE not configured")
+            
+            response = ddb.get_item(
+                TableName=BOUNTIES_TABLE,
+                Key={'id': {'S': bounty_id}}
+            )
+            
+            if 'Item' in response:
+                bounty = normalize_dynamodb_item(response['Item'])
+                users_progress = bounty.get('users', {})
+                return {"success": True, "data": users_progress}
+            
+            return {"success": False, "error": "Bounty not found"}
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get bounty progress: {error}")
+            return {"success": False, "error": str(error)}
+    
+    @staticmethod
+    def update_bounty_progress(username: str, bounty_id: str, increment: int = 1) -> Dict:
+        """Update user's progress on a bounty and check for completion"""
+        try:
+            if not BOUNTIES_TABLE:
+                raise Exception("BOUNTIES_TABLE not configured")
+            
+            normalized_username = username.lower()
+            
+            # First get the current bounty to check completion requirements
+            response = ddb.get_item(
+                TableName=BOUNTIES_TABLE,
+                Key={'id': {'S': bounty_id}}
+            )
+            
+            if 'Item' not in response:
+                return {"success": False, "error": "Bounty not found"}
+            
+            bounty = normalize_dynamodb_item(response['Item'])
+            current_time = int(time.time())
+            expiry_date = bounty.get('expirydate', 0)
+            start_date = bounty.get('startdate', 0)
+            required_count = bounty.get('count', 0)
+            xp_reward = bounty.get('xp', 0)
+            
+            # Check if bounty is still active
+            if not (start_date <= current_time <= expiry_date):
+                return {"success": False, "error": "Bounty is not active"}
+            
+            # Get current user progress
+            users_progress = bounty.get('users', {})
+            current_progress = users_progress.get(normalized_username, 0)
+            
+            # Check if user already completed this bounty
+            if current_progress >= required_count:
+                return {"success": False, "error": "User has already completed this bounty"}
+            
+            # Calculate new progress
+            new_progress = min(current_progress + increment, required_count)
+            
+            # Update bounty progress in DynamoDB
+            update_params = {
+                'TableName': BOUNTIES_TABLE,
+                'Key': {'id': {'S': bounty_id}},
+                'UpdateExpression': 'SET users.#username = :progress',
+                'ExpressionAttributeNames': {'#username': normalized_username},
+                'ExpressionAttributeValues': {':progress': {'N': str(new_progress)}}
+            }
+            
+            ddb.update_item(**update_params)
+            
+            # Check if user just completed the bounty
+            just_completed = (current_progress < required_count and new_progress >= required_count)
+            
+            if just_completed and xp_reward > 0:
+                # Award XP for bounty completion
+                UserOperations.award_xp(normalized_username, xp_reward)
+                if DEBUG_MODE:
+                    print(f"[DEBUG] User {normalized_username} completed bounty {bounty_id}, awarded {xp_reward} XP")
+                
+                return {
+                    "success": True, 
+                    "progress": new_progress,
+                    "completed": True,
+                    "xp_awarded": xp_reward,
+                    "message": f"Bounty completed! Awarded {xp_reward} XP"
+                }
+            
+            return {
+                "success": True, 
+                "progress": new_progress,
+                "completed": False,
+                "progress_percent": (new_progress / required_count * 100) if required_count > 0 else 0
+            }
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to update bounty progress: {error}")
+            return {"success": False, "error": str(error)}
     
 
 class DuelOperations:

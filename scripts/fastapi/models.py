@@ -62,6 +62,7 @@ class DailyProblemResponse(BaseModel):
 class BountyRequest(BaseModel):
     username: str
     bounty_id: Optional[str] = None
+    increment: Optional[int] = 1
 
 
 class DuelRequest(BaseModel):

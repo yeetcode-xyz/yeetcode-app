@@ -53,6 +53,10 @@ class FastAPIClient {
   async delete(endpoint) {
     return this.request('DELETE', endpoint);
   }
+
+  async getUserSubmissions(username, limit = 5) {
+    return this.get(`/user-submissions/${username}?limit=${limit}`);
+  }
 }
 
 class LeetCodeGraphQLClient {

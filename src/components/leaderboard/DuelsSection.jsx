@@ -15,6 +15,7 @@ import {
   rejectDuel,
   recordDuelSubmission,
 } from '../../services/duels';
+import { leetCodeClient } from '../../utils/api';
 
 const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   // Normalize username to lowercase for consistent comparisons
@@ -35,6 +36,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   // Refs for component management
   const loadingRef = useRef(false); // Prevent duplicate calls
   const previousDuelsRef = useRef([]); // Track previous duels for notifications
+  const pollingIntervalsRef = useRef(new Map()); // Track polling intervals for each duel
 
   // Filter out current user from friends list (case-insensitive)
   const availableFriends = leaderboard.filter(
@@ -59,6 +61,18 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     }
   }, [normalizedCurrentUser]);
 
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all polling intervals when component unmounts
+      pollingIntervalsRef.current.forEach((interval, duelId) => {
+        console.log(`[POLLING] Cleaning up polling for duel ${duelId}`);
+        clearInterval(interval);
+      });
+      pollingIntervalsRef.current.clear();
+    };
+  }, []);
+
   // Load duels from backend
   const loadDuels = async () => {
     if (!normalizedCurrentUser || loadingRef.current) return;
@@ -78,6 +92,19 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
       setDuels(duelsWithCompletedFlag);
       setError('');
+
+      // Start polling for any active duels
+      duelsWithCompletedFlag.forEach(duel => {
+        if (
+          duel.status === 'ACTIVE' &&
+          !pollingIntervalsRef.current.has(duel.duelId)
+        ) {
+          console.log(
+            `[POLLING] Resuming polling for active duel ${duel.duelId}`
+          );
+          startDuelPolling(duel.duelId);
+        }
+      });
     } catch (err) {
       console.error('Error loading duels:', err);
       setError('Failed to load duels');
@@ -159,10 +186,16 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
       await acceptDuel(duelId, normalizedCurrentUser);
 
+      // Start polling for both participants immediately after acceptance
+      startDuelPolling(duelId);
+
       // Refresh duels to get the updated data
       await loadDuels();
 
-      addNotification('Duel accepted! The battle begins!', 'success');
+      addNotification(
+        "Duel accepted! The battle begins! We'll track your progress automatically.",
+        'success'
+      );
     } catch (err) {
       console.error('Error accepting duel:', err);
       addNotification('Failed to accept duel', 'error');
@@ -234,8 +267,8 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
         'success'
       );
 
-      // Start automatic submission simulation (temporary)
-      startAutoSubmissionSimulation(duelId);
+      // Start polling for both participants immediately
+      startDuelPolling(duelId);
 
       // Refresh duels to get updated state
       loadDuels();
@@ -245,67 +278,157 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     }
   };
 
-  // Temporary auto-submission simulation (will be replaced with real polling)
-  const startAutoSubmissionSimulation = async duelId => {
+  // Start polling LeetCode submissions for both participants
+  const startDuelPolling = async duelId => {
     try {
       // Find the duel to get participant info
       const duel = duels.find(d => d.duelId === duelId);
       if (!duel) return;
 
+      // Clear any existing polling for this duel
+      if (pollingIntervalsRef.current.has(duelId)) {
+        clearInterval(pollingIntervalsRef.current.get(duelId));
+      }
+
       const challenger = duel.challenger;
       const challengee = duel.challengee;
+      const problemSlug = duel.problemSlug;
       let duelCompleted = false;
 
-      // Auto-submit for challenger after 10 seconds
-      setTimeout(async () => {
-        if (duelCompleted) return;
-        try {
-          const elapsedMs = 10000; // 10 seconds
-          const result = await recordDuelSubmission(
-            duelId,
-            challenger,
-            elapsedMs
-          );
-          console.log(
-            `[AUTO-SUBMIT] Challenger ${challenger} submitted after 10 seconds`
-          );
-          loadDuels(); // Refresh to show updated state
+      console.log(
+        `[POLLING] Starting LeetCode submission polling for duel ${duelId}, problem: ${problemSlug}`
+      );
 
-          // If duel completed, cancel the second timer
-          if (result && result.completed) {
-            duelCompleted = true;
-            console.log(
-              `[AUTO-SUBMIT] Duel ${duelId} completed after challenger submission`
-            );
-          }
-        } catch (error) {
-          console.error('Failed to auto-submit for challenger:', error);
-        }
-      }, 10000);
+      // Store the start time for each user to track when they actually started
+      const startTimes = new Map();
 
-      // Auto-submit for challengee after 200 seconds (only if duel not completed)
-      setTimeout(async () => {
+      // Start polling every 1 second for both participants
+      const pollingInterval = setInterval(async () => {
         if (duelCompleted) {
-          console.log(
-            `[AUTO-SUBMIT] Skipping challengee submission - duel already completed`
-          );
+          clearInterval(pollingInterval);
+          pollingIntervalsRef.current.delete(duelId);
           return;
         }
-        try {
-          const elapsedMs = 200000; // 200 seconds
-          await recordDuelSubmission(duelId, challengee, elapsedMs);
-          console.log(
-            `[AUTO-SUBMIT] Challengee ${challengee} submitted after 200 seconds`
-          );
-          loadDuels(); // Refresh to show updated state
-        } catch (error) {
-          console.error('Failed to auto-submit for challengee:', error);
-        }
-      }, 200000);
 
-      console.log(`[AUTO-SUBMIT] Started simulation timers for duel ${duelId}`);
+        try {
+          // Check submissions for both challenger and challengee
+          await Promise.all([
+            checkLeetCodeSubmission(
+              duelId,
+              challenger,
+              problemSlug,
+              startTimes
+            ),
+            checkLeetCodeSubmission(
+              duelId,
+              challengee,
+              problemSlug,
+              startTimes
+            ),
+          ]);
+
+          // Refresh duels to get updated state
+          await loadDuels();
+
+          // Check if duel is now completed
+          const updatedDuel = duels.find(d => d.duelId === duelId);
+          if (
+            updatedDuel &&
+            ['COMPLETED', 'TIMEOUT'].includes(updatedDuel.status)
+          ) {
+            duelCompleted = true;
+            console.log(`[POLLING] Duel ${duelId} completed, stopping polling`);
+            clearInterval(pollingInterval);
+            pollingIntervalsRef.current.delete(duelId);
+          }
+        } catch (error) {
+          console.error(
+            `[POLLING] Error checking LeetCode submissions for duel ${duelId}:`,
+            error
+          );
+          // Don't stop polling on errors, just log them
+        }
+      }, 1000); // Poll every 1 second
+
+      // Store the interval so we can clear it later
+      pollingIntervalsRef.current.set(duelId, pollingInterval);
+
+      // Set a maximum polling duration (e.g., 2 hours)
+      setTimeout(
+        () => {
+          if (pollingIntervalsRef.current.has(duelId)) {
+            console.log(
+              `[POLLING] Stopping polling for duel ${duelId} after timeout`
+            );
+            clearInterval(pollingInterval);
+            pollingIntervalsRef.current.delete(duelId);
+          }
+        },
+        2 * 60 * 60 * 1000
+      ); // 2 hours
     } catch (error) {
-      console.error('Error starting auto-submission simulation:', error);
+      console.error('Error starting duel polling:', error);
+    }
+  };
+
+  // Check if a user has submitted the duel problem to LeetCode
+  const checkLeetCodeSubmission = async (
+    duelId,
+    username,
+    problemSlug,
+    startTimes
+  ) => {
+    try {
+      // Get recent submissions from LeetCode GraphQL API
+      const recentSubmissions = await leetCodeClient.fetchRecentSubmissions(
+        username,
+        10
+      );
+
+      // Check if any recent submission matches the duel problem
+      const matchingSubmission = recentSubmissions.find(
+        sub => sub.titleSlug === problemSlug && sub.statusDisplay === 'Accepted'
+      );
+
+      if (matchingSubmission) {
+        // Record the start time if this is the first time we see this user active
+        if (!startTimes.has(username)) {
+          startTimes.set(username, Date.now());
+          console.log(
+            `[POLLING] User ${username} started working (first poll detection)`
+          );
+        }
+
+        const submissionTime = new Date(matchingSubmission.timestamp).getTime();
+        const startTime = startTimes.get(username);
+        const elapsedMs = submissionTime - startTime;
+
+        console.log(
+          `[POLLING] User ${username} submitted solution for duel ${duelId}, elapsed: ${elapsedMs}ms`
+        );
+
+        // Record the submission via backend
+        try {
+          await recordDuelSubmission(duelId, username, Math.max(0, elapsedMs));
+          return { submitted: true, elapsedMs };
+        } catch (recordError) {
+          console.error(
+            `[POLLING] Failed to record submission for ${username}:`,
+            recordError
+          );
+        }
+      }
+
+      return { submitted: false };
+    } catch (error) {
+      // Don't log every error to avoid spam
+      if (!error.message.includes('That user does not exist')) {
+        console.error(
+          `[POLLING] Error checking LeetCode submissions for ${username}:`,
+          error.message
+        );
+      }
+      return { submitted: false };
     }
   };
 
