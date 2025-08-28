@@ -1082,14 +1082,20 @@ ipcMain.handle(
       const fastApiUrl = process.env.FASTAPI_URL;
       const apiKey = process.env.YETCODE_API_KEY;
 
-      // Map difficulty to LeetCode API values
+      // Map difficulty to LeetCode API values - handle both cases
+
+      // Normalize to capitalize first letter only
+      const normalizedDifficulty = difficulty
+        ? difficulty.charAt(0).toUpperCase() + difficulty.slice(1).toLowerCase()
+        : '';
+
       const difficultyMap = {
         Easy: 'EASY',
         Medium: 'MEDIUM',
         Hard: 'HARD',
         Random: ['EASY', 'MEDIUM', 'HARD'][Math.floor(Math.random() * 3)],
       };
-      const targetDifficulty = difficultyMap[difficulty] || 'MEDIUM';
+      const targetDifficulty = difficultyMap[normalizedDifficulty] || 'MEDIUM';
 
       // Fetch a real random problem from LeetCode API
       const query = `

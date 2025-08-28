@@ -61,11 +61,11 @@ const validateInput = {
   },
 
   difficulty: input => {
-    const validDifficulties = ['EASY', 'MEDIUM', 'HARD'];
+    const validDifficulties = ['EASY', 'MEDIUM', 'HARD', 'RANDOM'];
     if (!validDifficulties.includes(input?.toUpperCase())) {
       throw new Error('Invalid difficulty level');
     }
-    return input.toUpperCase();
+    return input; // Return original case to preserve "Easy", "Medium", "Hard", "Random"
   },
 
   email: input => {
