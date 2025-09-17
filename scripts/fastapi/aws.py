@@ -673,14 +673,15 @@ class DailyProblemOperations:
                     else:
                         daily_complete = True  # Default to true if user exists in the users field
             
-            # Calculate streak - count consecutive calendar days with completions
+            # Calculate streak - count consecutive completed problems from database entries
             streak = 0
             if daily_problems:
                 normalized_username = username.lower()
                 
-                # Create a set for quick lookup of completed dates
-                completed_dates = set()
-                for problem in daily_problems:
+                # Sort problems by date (newest first) and count consecutive completions
+                sorted_problems = sorted(daily_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+                
+                for problem in sorted_problems:
                     problem_date = problem.get('date', {}).get('S')
                     if problem_date and 'users' in problem:
                         users_data = problem.get('users', {})
@@ -697,18 +698,12 @@ class DailyProblemOperations:
                                 user_completed = True
                         
                         if user_completed:
-                            completed_dates.add(problem_date)
-                
-                # Start from today and work backwards to count consecutive days
-                from datetime import datetime, timedelta
-                current_date = datetime.now().date()
-                
-                while True:
-                    date_str = current_date.strftime('%Y-%m-%d')
-                    if date_str in completed_dates:
-                        streak += 1
-                        current_date -= timedelta(days=1)
+                            streak += 1
+                        else:
+                            # User didn't complete this problem, streak ends
+                            break
                     else:
+                        # No users data for this problem, streak ends
                         break
             
             return {
@@ -748,27 +743,24 @@ class DailyProblemOperations:
             # Sort by date in reverse to check streak
             sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
             
-            # Calculate streak - count consecutive calendar days with completions
+            # Calculate streak - count consecutive completed problems from database entries
             streak = 0
             normalized_username = username.lower()
             
-            # Create a dict for quick lookup of completed dates
-            completed_dates = set()
-            for problem in recent_problems:
+            # Sort problems by date (newest first) and count consecutive completions
+            sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+            
+            for problem in sorted_problems:
                 problem_date = problem.get('date', {}).get('S')
-                if problem_date and 'users' in problem and normalized_username in problem.get('users', {}):
-                    completed_dates.add(problem_date)
-            
-            # Start from today and work backwards to count consecutive days
-            from datetime import datetime, timedelta
-            current_date = datetime.now().date()
-            
-            while True:
-                date_str = current_date.strftime('%Y-%m-%d')
-                if date_str in completed_dates:
-                    streak += 1
-                    current_date -= timedelta(days=1)
+                if problem_date and 'users' in problem:
+                    # Check if user completed this problem
+                    if normalized_username in problem.get('users', {}):
+                        streak += 1
+                    else:
+                        # User didn't complete this problem, streak ends
+                        break
                 else:
+                    # No users data for this problem, streak ends
                     break
             
             return {'streak': streak}
