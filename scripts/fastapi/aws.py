@@ -640,12 +640,12 @@ class DailyProblemOperations:
                     print(f"[DEBUG] Scan failed: {query_error}")
             
             # Get recent problems for streak calculation
-            thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            ninety_days_ago = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
             scan_params = {
                 'TableName': DAILY_TABLE,
-                'FilterExpression': '#date >= :thirtyDaysAgo',
+                'FilterExpression': '#date >= :ninetyDaysAgo',
                 'ExpressionAttributeNames': {'#date': 'date'},
-                'ExpressionAttributeValues': {':thirtyDaysAgo': {'S': thirty_days_ago}}
+                'ExpressionAttributeValues': {':ninetyDaysAgo': {'S': ninety_days_ago}}
             }
             
             try:
@@ -729,13 +729,13 @@ class DailyProblemOperations:
             
             from datetime import datetime, timezone, timedelta
             
-            # Get recent problems for streak calculation (last 30 days)
-            thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            # Get recent problems for streak calculation (last 90 days to catch longer streaks)
+            ninety_days_ago = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
             scan_params = {
                 'TableName': DAILY_TABLE,
-                'FilterExpression': '#date >= :thirtyDaysAgo',
+                'FilterExpression': '#date >= :ninetyDaysAgo',
                 'ExpressionAttributeNames': {'#date': 'date'},
-                'ExpressionAttributeValues': {':thirtyDaysAgo': {'S': thirty_days_ago}}
+                'ExpressionAttributeValues': {':ninetyDaysAgo': {'S': ninety_days_ago}}
             }
             
             recent_problems = ddb.scan(**scan_params).get('Items', [])
