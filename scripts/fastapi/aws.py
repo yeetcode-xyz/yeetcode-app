@@ -650,7 +650,9 @@ class DailyProblemOperations:
             
             try:
                 scan_result = ddb.scan(**scan_params)
-                daily_problems = scan_result.get('Items', [])
+                raw_daily_problems = scan_result.get('Items', [])
+                # Normalize the DynamoDB items for consistent access
+                daily_problems = [normalize_dynamodb_item(item) for item in raw_daily_problems]
             except Exception as scan_error:
                 if DEBUG_MODE:
                     print(f"[ERROR] Scan failed: {scan_error}")
@@ -679,10 +681,10 @@ class DailyProblemOperations:
                 normalized_username = username.lower()
                 
                 # Sort problems by date (newest first) and count consecutive completions
-                sorted_problems = sorted(daily_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+                sorted_problems = sorted(daily_problems, key=lambda x: x.get('date', ''), reverse=True)
                 
                 for problem in sorted_problems:
-                    problem_date = problem.get('date', {}).get('S')
+                    problem_date = problem.get('date')
                     if problem_date and 'users' in problem:
                         users_data = problem.get('users', {})
                         
@@ -738,20 +740,19 @@ class DailyProblemOperations:
                 'ExpressionAttributeValues': {':ninetyDaysAgo': {'S': ninety_days_ago}}
             }
             
-            recent_problems = ddb.scan(**scan_params).get('Items', [])
-            
-            # Sort by date in reverse to check streak
-            sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+            raw_recent_problems = ddb.scan(**scan_params).get('Items', [])
+            # Normalize the DynamoDB items for consistent access
+            recent_problems = [normalize_dynamodb_item(item) for item in raw_recent_problems]
             
             # Calculate streak - count consecutive completed problems from database entries
             streak = 0
             normalized_username = username.lower()
             
             # Sort problems by date (newest first) and count consecutive completions
-            sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
+            sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', ''), reverse=True)
             
             for problem in sorted_problems:
-                problem_date = problem.get('date', {}).get('S')
+                problem_date = problem.get('date')
                 if problem_date and 'users' in problem:
                     # Check if user completed this problem
                     if normalized_username in problem.get('users', {}):
