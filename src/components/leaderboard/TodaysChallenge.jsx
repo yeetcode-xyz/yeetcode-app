@@ -1,12 +1,143 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
+  const pollingIntervalRef = useRef(null);
+  const hasStartedPollingRef = useRef(false);
+
   const handleStartCoding = () => {
     if (dailyData.todaysProblem) {
       const leetcodeUrl = `https://leetcode.com/problems/${dailyData.todaysProblem.titleSlug}/`;
       window.electronAPI.openExternalUrl(leetcodeUrl);
     }
   };
+
+  const checkDailyCompletion = async () => {
+    if (
+      dailyData.dailyComplete ||
+      !userData?.leetUsername ||
+      !dailyData.todaysProblem
+    ) {
+      return;
+    }
+
+    try {
+      console.log(
+        '[DAILY POLLING] Fetching submissions for user:',
+        userData.leetUsername
+      );
+
+      // Check recent submissions for the daily problem
+      const submissions = await window.electronAPI.fetchLeetCodeSubmissions(
+        userData.leetUsername,
+        10
+      );
+      const problemSlug = dailyData.todaysProblem.titleSlug;
+      const problemTitle = dailyData.todaysProblem.title;
+
+      console.log(
+        '[DAILY POLLING] Fetched submissions count:',
+        submissions?.length || 0
+      );
+
+      console.log(
+        '[DAILY POLLING] Looking for problem:',
+        problemTitle,
+        'slug:',
+        problemSlug
+      );
+      console.log(
+        '[DAILY POLLING] Recent submissions:',
+        submissions.map(s => ({
+          slug: s.titleSlug || s.problem?.titleSlug,
+          title: s.title || s.problem?.title,
+          status: s.statusDisplay,
+          date: new Date(s.timestamp * 1000).toDateString(),
+          time: new Date(s.timestamp * 1000).toLocaleTimeString(),
+        }))
+      );
+
+      // Look for a recent accepted submission for today's problem
+      // Try both titleSlug and title matching
+      const recentSubmission = submissions.find(sub => {
+        const isAccepted = sub.statusDisplay === 'Accepted';
+        const isToday =
+          new Date(sub.timestamp * 1000).toDateString() ===
+          new Date().toDateString();
+        const slugMatch =
+          (sub.titleSlug || sub.problem?.titleSlug) === problemSlug;
+        const titleMatch = (sub.title || sub.problem?.title) === problemTitle;
+
+        return isAccepted && isToday && (slugMatch || titleMatch);
+      });
+
+      console.log(
+        '[DAILY POLLING] Found matching submission:',
+        recentSubmission
+      );
+
+      if (recentSubmission) {
+        console.log(
+          '[DAILY POLLING] Found accepted submission for daily challenge, marking as complete'
+        );
+
+        // Automatically complete the daily challenge
+        const result = await window.electronAPI.completeDailyProblem(
+          userData.leetUsername
+        );
+        if (result.success) {
+          onDailyComplete(result);
+        }
+      }
+    } catch (error) {
+      console.error(
+        '[DAILY POLLING] Error checking LeetCode submissions:',
+        error
+      );
+    }
+  };
+
+  const startDailyPolling = () => {
+    if (hasStartedPollingRef.current) {
+      return;
+    }
+
+    console.log('[DAILY POLLING] Starting automatic daily completion checking');
+    hasStartedPollingRef.current = true;
+
+    // Check immediately
+    checkDailyCompletion();
+
+    // Then check every minute
+    const pollingInterval = setInterval(checkDailyCompletion, 60000);
+    pollingIntervalRef.current = pollingInterval;
+  };
+
+  const stopDailyPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    hasStartedPollingRef.current = false;
+  };
+
+  // Start polling when component loads (only if not already complete)
+  useEffect(() => {
+    if (
+      !dailyData.dailyComplete &&
+      userData?.leetUsername &&
+      dailyData.todaysProblem
+    ) {
+      startDailyPolling();
+    }
+
+    return () => {
+      stopDailyPolling();
+    };
+  }, [
+    dailyData.dailyComplete,
+    userData?.leetUsername,
+    dailyData.todaysProblem,
+  ]);
 
   const getDifficultyColor = difficulty => {
     switch (difficulty?.toLowerCase()) {

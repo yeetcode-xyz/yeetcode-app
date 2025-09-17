@@ -1,5 +1,5 @@
 const axios = require('axios');
-const config = require('./config');
+const config = require('./config.js');
 
 class FastAPIClient {
   constructor() {
