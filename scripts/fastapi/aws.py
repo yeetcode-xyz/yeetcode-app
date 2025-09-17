@@ -673,14 +673,16 @@ class DailyProblemOperations:
                     else:
                         daily_complete = True  # Default to true if user exists in the users field
             
-            # Calculate streak
+            # Calculate streak - count consecutive calendar days with completions
             streak = 0
             if daily_problems:
-                sorted_problems = sorted(daily_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
-                for problem in sorted_problems:
+                normalized_username = username.lower()
+                
+                # Create a set for quick lookup of completed dates
+                completed_dates = set()
+                for problem in daily_problems:
                     problem_date = problem.get('date', {}).get('S')
                     if problem_date and 'users' in problem:
-                        normalized_username = username.lower()
                         users_data = problem.get('users', {})
                         
                         # Check if user completed this problem (same logic as daily_complete)
@@ -695,9 +697,19 @@ class DailyProblemOperations:
                                 user_completed = True
                         
                         if user_completed:
-                            streak += 1
-                        else:
-                            break
+                            completed_dates.add(problem_date)
+                
+                # Start from today and work backwards to count consecutive days
+                from datetime import datetime, timedelta
+                current_date = datetime.now().date()
+                
+                while True:
+                    date_str = current_date.strftime('%Y-%m-%d')
+                    if date_str in completed_dates:
+                        streak += 1
+                        current_date -= timedelta(days=1)
+                    else:
+                        break
             
             return {
                 "success": True,
@@ -736,12 +748,26 @@ class DailyProblemOperations:
             # Sort by date in reverse to check streak
             sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', {}).get('S', ''), reverse=True)
             
-            # Calculate streak
+            # Calculate streak - count consecutive calendar days with completions
             streak = 0
             normalized_username = username.lower()
-            for problem in sorted_problems:
-                if 'users' in problem and normalized_username in problem.get('users', {}):
+            
+            # Create a dict for quick lookup of completed dates
+            completed_dates = set()
+            for problem in recent_problems:
+                problem_date = problem.get('date', {}).get('S')
+                if problem_date and 'users' in problem and normalized_username in problem.get('users', {}):
+                    completed_dates.add(problem_date)
+            
+            # Start from today and work backwards to count consecutive days
+            from datetime import datetime, timedelta
+            current_date = datetime.now().date()
+            
+            while True:
+                date_str = current_date.strftime('%Y-%m-%d')
+                if date_str in completed_dates:
                     streak += 1
+                    current_date -= timedelta(days=1)
                 else:
                     break
             
@@ -783,7 +809,7 @@ class DailyProblemOperations:
                 'ExpressionAttributeValues': {
                     ':today': {'N': '1'},
                     ':zero': {'N': '0'},
-                    ':xp': {'N': '10'}
+                    ':xp': {'N': '200'}
                 }
             }
             
