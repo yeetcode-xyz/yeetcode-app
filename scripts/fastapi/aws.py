@@ -794,8 +794,11 @@ class DailyProblemOperations:
             update_daily_params = {
                 'TableName': DAILY_TABLE,
                 'Key': {'date': {'S': today}},
-                'UpdateExpression': 'SET users.#username = :completed',
-                'ExpressionAttributeNames': {'#username': normalized_username},
+                'UpdateExpression': 'SET #users.#username = :completed',
+                'ExpressionAttributeNames': {
+                    '#users': 'users',
+                    '#username': normalized_username
+                },
                 'ExpressionAttributeValues': {':completed': {'BOOL': True}}
             }
             
