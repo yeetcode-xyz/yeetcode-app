@@ -1335,11 +1335,13 @@ class DuelOperations:
                 update_expression = 'SET challengerTime = :time'
                 expression_values = {':time': {'N': str(elapsed_ms)}}
                 new_challenger_time = elapsed_ms
-                new_challengee_time = int(current_challengee_time) if current_challengee_time and current_challengee_time != '0' else None
+                # Only consider positive times as valid completions (0 means started but not finished)
+                new_challengee_time = int(current_challengee_time) if current_challengee_time and int(current_challengee_time) > 0 else None
             else:
                 update_expression = 'SET challengeeTime = :time'
                 expression_values = {':time': {'N': str(elapsed_ms)}}
-                new_challenger_time = int(current_challenger_time) if current_challenger_time and current_challenger_time != '0' else None
+                # Only consider positive times as valid completions (0 means started but not finished)
+                new_challenger_time = int(current_challenger_time) if current_challenger_time and int(current_challenger_time) > 0 else None
                 new_challengee_time = elapsed_ms
             
             # Update the time

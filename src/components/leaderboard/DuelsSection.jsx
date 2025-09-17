@@ -302,7 +302,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       // Store the start time for each user to track when they actually started
       const startTimes = new Map();
 
-      // Start polling every 1 second for both participants
+      // Start polling every 5 seconds for both participants
       const pollingInterval = setInterval(async () => {
         if (duelCompleted) {
           clearInterval(pollingInterval);
@@ -312,7 +312,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
         try {
           // Check submissions for both challenger and challengee
-          await Promise.all([
+          const results = await Promise.all([
             checkLeetCodeSubmission(
               duelId,
               challenger,
@@ -327,19 +327,26 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             ),
           ]);
 
-          // Refresh duels to get updated state
-          await loadDuels();
+          // Only refresh if a submission was detected
+          if (results.some(r => r.submitted)) {
+            console.log(
+              `[POLLING] Submission detected, refreshing duel ${duelId}`
+            );
+            await loadDuels();
 
-          // Check if duel is now completed
-          const updatedDuel = duels.find(d => d.duelId === duelId);
-          if (
-            updatedDuel &&
-            ['COMPLETED', 'TIMEOUT'].includes(updatedDuel.status)
-          ) {
-            duelCompleted = true;
-            console.log(`[POLLING] Duel ${duelId} completed, stopping polling`);
-            clearInterval(pollingInterval);
-            pollingIntervalsRef.current.delete(duelId);
+            // Check if duel is now completed after refresh
+            const updatedDuel = duels.find(d => d.duelId === duelId);
+            if (
+              updatedDuel &&
+              ['COMPLETED', 'TIMEOUT'].includes(updatedDuel.status)
+            ) {
+              duelCompleted = true;
+              console.log(
+                `[POLLING] Duel ${duelId} completed, stopping polling`
+              );
+              clearInterval(pollingInterval);
+              pollingIntervalsRef.current.delete(duelId);
+            }
           }
         } catch (error) {
           console.error(
@@ -348,7 +355,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
           );
           // Don't stop polling on errors, just log them
         }
-      }, 1000); // Poll every 1 second
+      }, 5000); // Poll every 5 seconds to reduce load
 
       // Store the interval so we can clear it later
       pollingIntervalsRef.current.set(duelId, pollingInterval);
