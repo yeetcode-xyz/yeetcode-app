@@ -1413,7 +1413,7 @@ ipcMain.handle(
       );
       logDebug(
         'fetch-leetcode-submissions',
-        `Successfully fetched ${submissions.length} submissions for ${username}`
+        `Successfully fetched ${submissions.length} submissions for ${username} Submissions: ${submissions}`
       );
       return submissions;
     } catch (error) {

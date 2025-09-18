@@ -1234,24 +1234,28 @@ class DuelOperations:
             challenger = duel.get('challenger', {}).get('S')
             challengee = duel.get('challengee', {}).get('S')
             
-            # Determine which time field to update
+            # Determine which time field to update and which start time field to set
+            current_time = datetime.now(timezone.utc).isoformat()
             if normalized_username == challenger:
                 time_field = 'challengerTime'
+                start_time_field = 'challengerStartTime'
             elif normalized_username == challengee:
                 time_field = 'challengeeTime'
+                start_time_field = 'challengeeStartTime'
             else:
                 raise Exception("User is not part of this duel")
             
-            # Update the user's time to 0 and set status to ACTIVE (only first time)
+            # Update the user's time to 0, set their individual start time, and set status to ACTIVE
             update_params = {
                 'TableName': DUELS_TABLE,
                 'Key': {'duelId': {'S': duel_id}},
-                'UpdateExpression': f'SET {time_field} = :time, #status = :status, startTime = if_not_exists(startTime, :startTime)',
+                'UpdateExpression': f'SET {time_field} = :time, {start_time_field} = :userStartTime, #status = :status, startTime = if_not_exists(startTime, :startTime)',
                 'ExpressionAttributeNames': {'#status': 'status'},
                 'ExpressionAttributeValues': {
                     ':time': {'N': '0'},
+                    ':userStartTime': {'S': current_time},
                     ':status': {'S': 'ACTIVE'},
-                    ':startTime': {'S': datetime.now(timezone.utc).isoformat()}
+                    ':startTime': {'S': current_time}
                 }
             }
             
@@ -1352,19 +1356,38 @@ class DuelOperations:
             if not is_challenger and current_challengee_time and current_challengee_time != '0':
                 return {"success": False, "error": "Challengee time already recorded"}
             
+            # Note: elapsed_ms passed from frontend is not reliable, we'll calculate it ourselves
+            # Get the user's individual start time
+            challenger_start = duel_item.get('challengerStartTime', {}).get('S')
+            challengee_start = duel_item.get('challengeeStartTime', {}).get('S')
+            
+            # Calculate actual elapsed time based on individual start times
+            current_timestamp = datetime.now(timezone.utc)
+            if is_challenger and challenger_start:
+                user_start_time = datetime.fromisoformat(challenger_start.replace('Z', '+00:00'))
+                actual_elapsed_ms = int((current_timestamp - user_start_time).total_seconds() * 1000)
+            elif not is_challenger and challengee_start:
+                user_start_time = datetime.fromisoformat(challengee_start.replace('Z', '+00:00'))
+                actual_elapsed_ms = int((current_timestamp - user_start_time).total_seconds() * 1000)
+            else:
+                # Fallback to provided elapsed_ms if no start time found
+                actual_elapsed_ms = elapsed_ms
+                if DEBUG_MODE:
+                    print(f"[DEBUG] No individual start time found for {normalized_username}, using provided elapsed: {elapsed_ms}ms")
+            
             # Update the appropriate user's time
             if is_challenger:
                 update_expression = 'SET challengerTime = :time'
-                expression_values = {':time': {'N': str(elapsed_ms)}}
-                new_challenger_time = elapsed_ms
+                expression_values = {':time': {'N': str(actual_elapsed_ms)}}
+                new_challenger_time = actual_elapsed_ms
                 # Only consider positive times as valid completions (0 means started but not finished)
                 new_challengee_time = int(current_challengee_time) if current_challengee_time and int(current_challengee_time) > 0 else None
             else:
                 update_expression = 'SET challengeeTime = :time'
-                expression_values = {':time': {'N': str(elapsed_ms)}}
+                expression_values = {':time': {'N': str(actual_elapsed_ms)}}
                 # Only consider positive times as valid completions (0 means started but not finished)
                 new_challenger_time = int(current_challenger_time) if current_challenger_time and int(current_challenger_time) > 0 else None
-                new_challengee_time = elapsed_ms
+                new_challengee_time = actual_elapsed_ms
             
             # Update the time
             update_params = {

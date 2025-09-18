@@ -395,17 +395,29 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       );
 
       if (matchingSubmission) {
-        // Record the start time if this is the first time we see this user active
-        if (!startTimes.has(username)) {
-          startTimes.set(username, Date.now());
-          console.log(
-            `[POLLING] User ${username} started working (first poll detection)`
-          );
+        // Get the duel to find when this specific user started
+        const duel = duels.find(d => d.duelId === duelId);
+        if (!duel) {
+          console.error(`[POLLING] Could not find duel ${duelId} in state`);
+          return { submitted: false };
+        }
+
+        // Determine when this specific user clicked "Start Duel"
+        // The duel.startTime is when the first person started, but we need individual start times
+        // For now, use the duel.startTime as the baseline for both users
+        // TODO: Track individual start times in the backend
+        let userStartTime = null;
+        if (duel.startTime) {
+          userStartTime = new Date(duel.startTime).getTime();
+        } else {
+          console.error(`[POLLING] No start time for duel ${duelId}`);
+          // Fallback: use a default time of 60 seconds
+          userStartTime =
+            new Date(matchingSubmission.timestamp).getTime() - 60000;
         }
 
         const submissionTime = new Date(matchingSubmission.timestamp).getTime();
-        const startTime = startTimes.get(username);
-        const elapsedMs = submissionTime - startTime;
+        const elapsedMs = Math.max(0, submissionTime - userStartTime);
 
         console.log(
           `[POLLING] User ${username} submitted solution for duel ${duelId}, elapsed: ${elapsedMs}ms`
@@ -463,33 +475,6 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     );
   };
 
-  // Format problem display with number and title
-  const formatProblemDisplay = (
-    problemNumber,
-    problemTitle,
-    difficulty,
-    problemSlug
-  ) => {
-    const formattedDifficulty = formatDifficulty(difficulty);
-
-    if (problemNumber && problemTitle) {
-      return `${problemNumber}. ${problemTitle}`;
-    }
-    if (problemTitle) {
-      return problemTitle;
-    }
-    // For old duels without title, show a better fallback
-    if (problemSlug) {
-      // Convert slug to readable format: "two-sum" → "Two Sum"
-      const readableTitle = problemSlug
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-      return readableTitle;
-    }
-    return `${formattedDifficulty} Problem`;
-  };
-
   // Render pending duel
   const renderPendingDuel = duel => {
     const isChallenger = duel.challenger === normalizedCurrentUser;
@@ -521,17 +506,10 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             <h5 className="font-bold text-sm" style={{ fontSize: '12px' }}>
               {isChallenger
                 ? `Challenge sent to ${otherUserDisplay}`
-                : `Challenge from ${otherUserDisplay} • ${formatDifficulty(duel.difficulty)}`}
+                : `Challenge from ${otherUserDisplay}`}
             </h5>
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
-              {isChallenger
-                ? `${formatProblemDisplay(duel.problemNumber, duel.problemTitle, duel.difficulty, duel.problemSlug)} • All the best!`
-                : formatProblemDisplay(
-                    duel.problemNumber,
-                    duel.problemTitle,
-                    duel.difficulty,
-                    duel.problemSlug
-                  )}
+              {`${formatDifficulty(duel.difficulty)} Problem`}
             </p>
             {timeRemaining > 0 && (
               <p className="text-xs text-orange-600 font-bold">
@@ -621,7 +599,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
           <div>
             <h5 className="font-bold text-sm">Dueling {otherUserDisplay}</h5>
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
-              {formatDifficulty(duel.difficulty)} • Problem Hidden
+              {`${formatDifficulty(duel.difficulty)} Problem`}
             </p>
             {timeRemaining > 0 && (
               <p className="text-xs text-orange-600 font-bold">
@@ -745,15 +723,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             <div>
               <h5 className="font-bold text-sm">vs {otherUserDisplay}</h5>
               <p className="text-xs text-gray-600">
-                {formatProblemDisplay(
-                  duel.problemNumber,
-                  duel.problemTitle,
-                  duel.difficulty,
-                  duel.problemSlug
-                )}
-              </p>
-              <p className="text-xs text-gray-500">
-                {formatDifficulty(duel.difficulty)}
+                {formatDifficulty(duel.difficulty)} Problem
               </p>
             </div>
             <span
@@ -828,7 +798,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
         window.electronAPI.notifyDuelEvent({
           type: 'received',
           opponent: duel.challenger,
-          problemTitle: duel.problemTitle,
+          difficulty: duel.difficulty,
         });
       });
     }
@@ -845,9 +815,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
           <div className="text-center">
             <div className="text-6xl mb-4">🏆</div>
             <h2 className="text-3xl font-bold text-white mb-2">VICTORY!</h2>
-            <p className="text-xl text-white mb-2">
-              You won the duel against {lastWinData.problemTitle}!
-            </p>
+            <p className="text-xl text-white mb-2">You won the duel!</p>
             <p className="text-lg text-white mb-4">
               Time: {formatTime(lastWinData.time)}
             </p>
@@ -1089,14 +1057,12 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
                           </div>
                           <div className="text-right">
                             <div className="font-bold">
-                              {formatProblemDisplay(
-                                duel.problemNumber,
-                                duel.problemTitle,
-                                duel.difficulty,
-                                duel.problemSlug
-                              )}
+                              {duel.problemNumber && duel.problemTitle
+                                ? `${duel.problemNumber}. ${duel.problemTitle}`
+                                : duel.problemTitle ||
+                                  `${formatDifficulty(duel.difficulty)} Problem`}
                             </div>
-                            <div className="text-gray-600">
+                            <div className="text-gray-600 text-xs">
                               {formatDifficulty(duel.difficulty)}
                             </div>
                             {duel.xpAwarded && isWinner && (
