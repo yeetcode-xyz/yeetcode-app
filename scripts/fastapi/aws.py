@@ -1346,7 +1346,7 @@ class DuelOperations:
             if not is_challenger and normalized_username != challengee:
                 return {"success": False, "error": "User not part of this duel"}
             
-            # Get existing times
+            # Get existing times AAAAAAAAAAAAAAAAAAAA
             current_challenger_time = duel_item.get('challengerTime', {}).get('N')
             current_challengee_time = duel_item.get('challengeeTime', {}).get('N')
             
