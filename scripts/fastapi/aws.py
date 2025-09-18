@@ -676,19 +676,24 @@ class DailyProblemOperations:
                         daily_complete = True  # Default to true if user exists in the users field
             
             # Calculate streak - count consecutive completed problems from database entries
+            # Skip today if not completed to get active streak from previous days
             streak = 0
             if daily_problems:
                 normalized_username = username.lower()
                 
-                # Sort problems by date (newest first) and count consecutive completions
+                # Sort problems by date (newest first)
                 sorted_problems = sorted(daily_problems, key=lambda x: x.get('date', ''), reverse=True)
+                
+                # Check if today's problem is completed
+                today_completed = False
+                today_date = datetime.now().date().strftime('%Y-%m-%d')
                 
                 for problem in sorted_problems:
                     problem_date = problem.get('date')
                     if problem_date and 'users' in problem:
                         users_data = problem.get('users', {})
                         
-                        # Check if user completed this problem (same logic as daily_complete)
+                        # Check if user completed this problem
                         user_completed = False
                         if normalized_username in users_data:
                             user_completion = users_data[normalized_username]
@@ -699,14 +704,24 @@ class DailyProblemOperations:
                             else:
                                 user_completed = True
                         
+                        # Special handling for today's problem
+                        if problem_date == today_date:
+                            today_completed = user_completed
+                            if user_completed:
+                                streak += 1
+                            # Continue to check previous days regardless
+                            continue
+                        
+                        # For previous days, count consecutive completions
                         if user_completed:
                             streak += 1
                         else:
                             # User didn't complete this problem, streak ends
                             break
                     else:
-                        # No users data for this problem, streak ends
-                        break
+                        # No users data for this problem, only break if it's not today
+                        if problem_date != today_date:
+                            break
             
             return {
                 "success": True,
@@ -744,25 +759,40 @@ class DailyProblemOperations:
             # Normalize the DynamoDB items for consistent access
             recent_problems = [normalize_dynamodb_item(item) for item in raw_recent_problems]
             
-            # Calculate streak - count consecutive completed problems from database entries
+            # Calculate streak - count consecutive completed problems from database entries  
+            # Skip today if not completed to get active streak from previous days
             streak = 0
             normalized_username = username.lower()
             
-            # Sort problems by date (newest first) and count consecutive completions
+            # Sort problems by date (newest first)
             sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', ''), reverse=True)
+            
+            # Check if today's problem is completed
+            today_date = datetime.now().date().strftime('%Y-%m-%d')
             
             for problem in sorted_problems:
                 problem_date = problem.get('date')
                 if problem_date and 'users' in problem:
                     # Check if user completed this problem
-                    if normalized_username in problem.get('users', {}):
+                    user_completed = normalized_username in problem.get('users', {})
+                    
+                    # Special handling for today's problem
+                    if problem_date == today_date:
+                        if user_completed:
+                            streak += 1
+                        # Continue to check previous days regardless
+                        continue
+                    
+                    # For previous days, count consecutive completions
+                    if user_completed:
                         streak += 1
                     else:
                         # User didn't complete this problem, streak ends
                         break
                 else:
-                    # No users data for this problem, streak ends
-                    break
+                    # No users data for this problem, only break if it's not today
+                    if problem_date != today_date:
+                        break
             
             return {'streak': streak}
             
