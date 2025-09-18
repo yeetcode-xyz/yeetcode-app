@@ -299,8 +299,8 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
         `[POLLING] Starting LeetCode submission polling for duel ${duelId}, problem: ${problemSlug}`
       );
 
-      // Store the start time for each user to track when they actually started
-      const startTimes = new Map();
+      // Track which users have already submitted to prevent duplicate recordings
+      const submittedUsers = new Set();
 
       // Start polling every 5 seconds for both participants
       const pollingInterval = setInterval(async () => {
@@ -317,13 +317,13 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
               duelId,
               challenger,
               problemSlug,
-              startTimes
+              submittedUsers
             ),
             checkLeetCodeSubmission(
               duelId,
               challengee,
               problemSlug,
-              startTimes
+              submittedUsers
             ),
           ]);
 
@@ -383,7 +383,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     duelId,
     username,
     problemSlug,
-    startTimes
+    submittedUsers
   ) => {
     try {
       // Get recent submissions from LeetCode GraphQL API via Electron IPC
@@ -395,6 +395,14 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       );
 
       if (matchingSubmission) {
+        // Check if we've already recorded this user's submission
+        if (submittedUsers && submittedUsers.has(username)) {
+          console.log(
+            `[POLLING] User ${username} already submitted for duel ${duelId}, skipping`
+          );
+          return { submitted: false, alreadyRecorded: true };
+        }
+
         // Get the duel to find when this specific user started
         const duel = duels.find(d => d.duelId === duelId);
         if (!duel) {
@@ -426,6 +434,13 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
         // Record the submission via backend
         try {
           await recordDuelSubmission(duelId, username, Math.max(0, elapsedMs));
+          // Mark this user as having submitted to prevent duplicate recordings
+          if (submittedUsers) {
+            submittedUsers.add(username);
+            console.log(
+              `[POLLING] Marked ${username} as submitted for duel ${duelId}`
+            );
+          }
           return { submitted: true, elapsedMs };
         } catch (recordError) {
           console.error(
