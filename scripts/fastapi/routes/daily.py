@@ -105,6 +105,7 @@ async def complete_daily_problem_endpoint(
         
         # Invalidate cache to force refresh
         cache_manager.invalidate_all(CacheType.DAILY_COMPLETIONS)
+        cache_manager.invalidate_all(CacheType.DAILY_PROBLEM)
         # Also invalidate the user's daily data cache
         cache_manager.invalidate(CacheType.USER_DAILY_DATA, request.username)
         

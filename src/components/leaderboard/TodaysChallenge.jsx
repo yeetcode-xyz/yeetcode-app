@@ -51,8 +51,8 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
           slug: s.titleSlug || s.problem?.titleSlug,
           title: s.title || s.problem?.title,
           status: s.statusDisplay,
-          date: new Date(s.timestamp * 1000).toDateString(),
-          time: new Date(s.timestamp * 1000).toLocaleTimeString(),
+          date: new Date(s.timestamp).toDateString(),
+          time: new Date(s.timestamp).toLocaleTimeString(),
         }))
       );
 
@@ -60,12 +60,25 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
       // Try both titleSlug and title matching
       const recentSubmission = submissions.find(sub => {
         const isAccepted = sub.statusDisplay === 'Accepted';
-        const isToday =
-          new Date(sub.timestamp * 1000).toDateString() ===
-          new Date().toDateString();
+        const submissionDate = new Date(sub.timestamp).toDateString();
+        const todayDate = new Date().toDateString();
+        const isToday = submissionDate === todayDate;
         const slugMatch =
           (sub.titleSlug || sub.problem?.titleSlug) === problemSlug;
         const titleMatch = (sub.title || sub.problem?.title) === problemTitle;
+
+        console.log(
+          `[DAILY POLLING] Checking submission: ${sub.titleSlug || sub.problem?.titleSlug}`,
+          {
+            isAccepted,
+            submissionDate,
+            todayDate,
+            isToday,
+            slugMatch,
+            titleMatch,
+            result: isAccepted && isToday && (slugMatch || titleMatch),
+          }
+        );
 
         return isAccepted && isToday && (slugMatch || titleMatch);
       });
@@ -85,6 +98,12 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
           userData.leetUsername
         );
         if (result.success) {
+          // Clear frontend cache to ensure fresh data
+          try {
+            await window.electronAPI.clearDailyProblemCache();
+          } catch (error) {
+            console.warn('[DAILY POLLING] Failed to clear cache:', error);
+          }
           onDailyComplete(result);
         }
       }
