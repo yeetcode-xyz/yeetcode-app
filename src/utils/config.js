@@ -1,12 +1,19 @@
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Load environment variables
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+// Load environment variables from the correct location
+// In packaged apps, .env is in Resources folder
+// In development, .env is in project root
+const envPath = process.resourcesPath
+  ? path.join(process.resourcesPath, '.env') // Packaged app
+  : path.join(__dirname, '..', '..', '.env'); // Development
+
+dotenv.config({ path: envPath });
 
 const config = {
   // FastAPI Configuration
-  fastApiUrl: process.env.FASTAPI_URL,
+  // Remove trailing slash to avoid double slashes in URLs
+  fastApiUrl: (process.env.FASTAPI_URL || '').replace(/\/$/, ''),
   apiKey: process.env.YETCODE_API_KEY,
 
   // LeetCode Configuration

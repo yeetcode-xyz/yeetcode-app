@@ -25,7 +25,8 @@ const {
   createSuccessResponse,
 } = require('./utils/error-handler');
 
-const isDev = config.isDev || !app.isPackaged;
+// More reliable isDev detection - packaged apps are always production
+const isDev = app.isPackaged ? false : config.isDev || true;
 const version = '0.1.2';
 
 // ========================================
@@ -141,11 +142,20 @@ const createWindow = () => {
       mainWindow.webContents.openDevTools();
     }
   } else {
-    const builtHtmlPath = path.join(__dirname, '..', 'dist', 'index.html');
+    // In production, the dist folder is in Resources as an extraResource
+    const resourcesPath = process.resourcesPath || path.join(__dirname, '..');
+    const builtHtmlPath = path.join(resourcesPath, 'dist', 'index.html');
+
     if (fs.existsSync(builtHtmlPath)) {
       mainWindow.loadFile(builtHtmlPath);
     } else {
-      mainWindow.loadFile(path.join(__dirname, 'index.html'));
+      // Fallback: try relative to __dirname
+      const fallbackPath = path.join(__dirname, '..', 'dist', 'index.html');
+      if (fs.existsSync(fallbackPath)) {
+        mainWindow.loadFile(fallbackPath);
+      } else {
+        mainWindow.loadFile(path.join(__dirname, 'index.html'));
+      }
     }
   }
 
@@ -420,8 +430,8 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
 
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(`${fastApiUrl}/group-stats/${groupId}`, {
       headers: {
@@ -445,8 +455,8 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
 ipcMain.handle('get-user-data', async (event, username) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(`${fastApiUrl}/user-data/${username}`, {
       headers: {
@@ -471,8 +481,8 @@ ipcMain.handle('get-user-data', async (event, username) => {
 ipcMain.handle('get-user-by-email', async (event, email) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(`${fastApiUrl}/user-by-email/${email}`, {
       headers: {
@@ -497,8 +507,8 @@ ipcMain.handle('get-user-by-email', async (event, email) => {
 ipcMain.handle('leave-group', async (event, username) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.post(
       `${fastApiUrl}/leave-group`,
@@ -533,8 +543,8 @@ ipcMain.handle('update-display-name', async (event, username, displayName) => {
 
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.put(
       `${fastApiUrl}/update-display-name`,
@@ -595,8 +605,8 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
   const startTime = Date.now();
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(
       `${fastApiUrl}/daily-problem/${username}`,
@@ -669,8 +679,8 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
 ipcMain.handle('complete-daily-problem', async (event, username) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.post(
       `${fastApiUrl}/complete-daily-problem`,
@@ -713,8 +723,8 @@ ipcMain.handle('complete-daily-problem', async (event, username) => {
 ipcMain.handle('get-bounties', async (event, username, refresh = false) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const url = new URL(`${fastApiUrl}/bounties/${username}`);
     if (refresh) {
@@ -757,8 +767,8 @@ ipcMain.handle('get-cached-top-problems', async () => {
 
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(`${fastApiUrl}/top-daily-problems`, {
       headers: {
@@ -828,8 +838,8 @@ ipcMain.handle('send-magic-link', async (event, email) => {
 
     // Send email via FastAPI server
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     try {
       const response = await axios.post(
@@ -972,8 +982,8 @@ ipcMain.handle('update-user-email', async (event, leetUsername, email) => {
 
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.put(
       `${fastApiUrl}/user-data/${normalizedUsername}`,
@@ -1016,8 +1026,8 @@ ipcMain.handle('update-user-email', async (event, leetUsername, email) => {
 ipcMain.handle('get-user-duels', async (event, username) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(`${fastApiUrl}/duels/${username}`, {
       headers: {
@@ -1043,8 +1053,8 @@ ipcMain.handle('get-user-duels', async (event, username) => {
 ipcMain.handle('get-recent-duels', async (event, username) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(`${fastApiUrl}/duels/${username}`, {
       headers: {
@@ -1203,8 +1213,8 @@ ipcMain.handle(
 ipcMain.handle('accept-duel', async (event, duelId, username) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.post(
       `${fastApiUrl}/accept-duel`,
@@ -1240,8 +1250,8 @@ ipcMain.handle('accept-duel', async (event, duelId, username) => {
 ipcMain.handle('start-duel', async (event, duelId, username) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.post(
       `${fastApiUrl}/start-duel`,
@@ -1278,8 +1288,8 @@ ipcMain.handle('reject-duel', async (event, duelId) => {
 
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.post(
       `${fastApiUrl}/reject-duel`,
@@ -1313,8 +1323,8 @@ ipcMain.handle('reject-duel', async (event, duelId) => {
 const recordDuelSubmissionLogic = async (duelId, username, elapsedMs) => {
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.post(
       `${fastApiUrl}/record-duel-submission`,
@@ -1373,8 +1383,8 @@ ipcMain.handle('get-duel', async (event, duelId) => {
 
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(`${fastApiUrl}/duel/${duelId}`, {
       headers: {
@@ -1449,8 +1459,8 @@ exports.getDailyProblemStatus = async username => {
   // This is a simplified version of get-daily-problem for internal use
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.get(
       `${fastApiUrl}/daily-problem/${username}`,
@@ -1482,8 +1492,8 @@ ipcMain.handle('clear-daily-problem-cache', async () => {
 
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
 
     const response = await axios.post(
       `${fastApiUrl}/cache/clear`,
@@ -1555,8 +1565,8 @@ ipcMain.handle('get-university-leaderboard', async event => {
   console.log('[DEBUG][get-university-leaderboard] Called');
   try {
     const axios = require('axios');
-    const fastApiUrl = process.env.FASTAPI_URL;
-    const apiKey = process.env.YETCODE_API_KEY;
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
     const response = await axios.get(`${fastApiUrl}/university-leaderboard`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,

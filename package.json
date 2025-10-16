@@ -16,6 +16,7 @@
     "package:publish": "npm run build && electron-builder build --publish always",
     "package:mac-unsigned": "npm run build && electron-builder build -c.mac.identity=null --publish never",
     "make": "npm run build && electron-forge make",
+    "make:dmg": "npm run package:mac-unsigned",
     "publish": "npm run build && electron-forge publish",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
@@ -43,7 +44,16 @@
       "!scripts",
       "!*.md"
     ],
-    "extraResources": [],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      },
+      {
+        "from": "dist",
+        "to": "dist"
+      }
+    ],
     "publish": {
       "provider": "s3",
       "bucket": "yeetcode-bucket"
