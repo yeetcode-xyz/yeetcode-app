@@ -17,7 +17,6 @@ load_dotenv()
 router = APIRouter(tags=["Authentication"])
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
-HOST = os.getenv("HOST", "0.0.0.0")
 
 
 @router.post("/send-otp", response_model=EmailOTPResponse)
@@ -41,15 +40,15 @@ async def send_otp(
         )
     
     try:
-        # Skip sending email if host is 0.0.0.0 (development mode)
-        if HOST == "0.0.0.0":
-            print(f"[DEV] Skipping email send to {email} with code {request.code} (development mode)")
+        # Skip sending email if in debug mode
+        if DEBUG_MODE:
+            print(f"[DEV] Skipping email send to {email} with code {request.code} (debug mode)")
             return EmailOTPResponse(
                 success=True,
-                message="Verification code sent to your email (dev mode - no actual email sent)",
-                message_id="dev-mode-message-id"
+                message="Verification code sent to your email (debug mode - no actual email sent)",
+                message_id="debug-mode-message-id"
             )
-        
+
         # Send email with the code provided by frontend
         result = send_email_otp(email, request.code)
         
