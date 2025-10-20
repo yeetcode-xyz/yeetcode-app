@@ -514,7 +514,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       <div
         key={duel.duelId}
         className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 mb-4"
-        style={{ height: isChallenger ? '85px' : '95px' }}
+        style={{ height: isChallenger ? '85px' : '115px' }}
       >
         <div className="flex justify-between items-start mb-2">
           <div>

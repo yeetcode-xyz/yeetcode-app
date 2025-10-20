@@ -4,7 +4,9 @@ const path = require('path');
 // Load environment variables from the correct location
 // In packaged apps, .env is in Resources folder
 // In development, .env is in project root
-const envPath = process.resourcesPath
+// Check if we're in a packaged app by looking for app.asar in the path
+const isPackaged = __dirname.includes('app.asar');
+const envPath = isPackaged
   ? path.join(process.resourcesPath, '.env') // Packaged app
   : path.join(__dirname, '..', '..', '.env'); // Development
 
