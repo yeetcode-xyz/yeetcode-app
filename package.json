@@ -1,7 +1,7 @@
 {
   "name": "yeetcode-app",
   "productName": "YeetCode",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "YeetCode - Competitive Programming Practice App",
   "main": "src/index.js",
   "config": {
@@ -21,7 +21,8 @@
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "enforce-precommit-hooks": "lint-staged",
-    "prepare": "husky"
+    "prepare": "husky",
+    "bump-version": "node scripts/bump-version.js"
   },
   "lint-staged": {
     "src/**/*.{js,jsx,ts,tsx,json,css,md}": [
@@ -56,7 +57,9 @@
     ],
     "publish": {
       "provider": "s3",
-      "bucket": "yeetcode-bucket"
+      "bucket": "yeetcode-bucket",
+      "region": "us-east-1",
+      "acl": "public-read"
     },
     "mac": {
       "category": "public.app-category.developer-tools",

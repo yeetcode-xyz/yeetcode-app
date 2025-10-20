@@ -10,6 +10,7 @@ const {
 const path = require('path');
 const electronSquirrelStartup = require('electron-squirrel-startup');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
 
 const config = require('./utils/config');
 const { fastApiClient, leetCodeClient } = require('./utils/api');
@@ -27,7 +28,65 @@ const {
 
 // More reliable isDev detection - packaged apps are always production
 const isDev = app.isPackaged ? false : config.isDev || true;
-const version = '0.1.2';
+const version = '1.0.0';
+
+// ========================================
+// AUTO-UPDATER CONFIGURATION
+// ========================================
+// Configure electron-updater
+autoUpdater.autoDownload = true; // Auto-download updates silently
+autoUpdater.autoInstallOnAppQuit = true; // Auto-install when app quits
+
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  logDebug('autoUpdater', 'Checking for updates...');
+});
+
+autoUpdater.on('update-available', info => {
+  logDebug('autoUpdater', 'Update available:', info.version);
+
+  // Notify the renderer process
+  if (mainWindow) {
+    mainWindow.webContents.send('update-available', {
+      version: info.version,
+      releaseNotes: info.releaseNotes,
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', info => {
+  logDebug(
+    'autoUpdater',
+    'Update not available. Current version:',
+    info.version
+  );
+});
+
+autoUpdater.on('error', err => {
+  logError('autoUpdater', 'Error in auto-updater:', err);
+});
+
+autoUpdater.on('download-progress', progressObj => {
+  logDebug('autoUpdater', `Download progress: ${progressObj.percent}%`);
+
+  if (mainWindow) {
+    mainWindow.webContents.send('update-download-progress', {
+      percent: progressObj.percent,
+      transferred: progressObj.transferred,
+      total: progressObj.total,
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', info => {
+  logDebug('autoUpdater', 'Update downloaded:', info.version);
+
+  if (mainWindow) {
+    mainWindow.webContents.send('update-downloaded', {
+      version: info.version,
+    });
+  }
+});
 
 // ========================================
 // LEETCODE PROBLEM DETAILS CACHE
@@ -352,6 +411,22 @@ app.whenReady().then(() => {
   createWindow();
 
   startDailyChallengeChecker();
+
+  // Check for updates in production only (skip in dev)
+  if (!isDev) {
+    // Check for updates 5 seconds after app starts
+    setTimeout(() => {
+      autoUpdater.checkForUpdates();
+    }, 5000);
+
+    // Check for updates every 4 hours
+    setInterval(
+      () => {
+        autoUpdater.checkForUpdates();
+      },
+      4 * 60 * 60 * 1000
+    );
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1585,4 +1660,50 @@ ipcMain.handle('get-university-leaderboard', async event => {
     console.error('[ERROR][get-university-leaderboard]', error);
     throw error;
   }
+});
+
+// ========================================
+// AUTO-UPDATER IPC HANDLERS
+// ========================================
+
+// Get current app version
+ipcMain.handle('get-app-version', async () => {
+  return app.getVersion();
+});
+
+// Check for updates manually
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    if (isDev) {
+      return { available: false, message: 'Updates disabled in development' };
+    }
+    const result = await autoUpdater.checkForUpdates();
+    return { available: result.updateInfo.version !== app.getVersion() };
+  } catch (error) {
+    logError('check-for-updates', 'Error checking for updates:', error);
+    return { available: false, error: error.message };
+  }
+});
+
+// Download update
+ipcMain.handle('download-update', async () => {
+  try {
+    if (isDev) {
+      return { success: false, message: 'Updates disabled in development' };
+    }
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    logError('download-update', 'Error downloading update:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Install update and restart
+ipcMain.handle('install-update', async () => {
+  if (isDev) {
+    return { success: false, message: 'Updates disabled in development' };
+  }
+  autoUpdater.quitAndInstall();
+  return { success: true };
 });
