@@ -1,5 +1,6 @@
 """
 AWS DynamoDB operations for YeetCode
+Includes graceful error handling for AWS service disruptions
 """
 
 import os
@@ -14,10 +15,18 @@ from logger import debug, info, warning, error, duel_action, duel_check, submiss
 # Load environment variables
 load_dotenv()
 
-# Initialize DynamoDB
+# Initialize DynamoDB with error handling
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
-ddb = boto3.client('dynamodb', region_name=AWS_REGION)
+
+try:
+    dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
+    ddb = boto3.client('dynamodb', region_name=AWS_REGION)
+    AWS_AVAILABLE = True
+except Exception as aws_error:
+    error(f"Failed to initialize AWS DynamoDB: {aws_error}")
+    dynamodb = None
+    ddb = None
+    AWS_AVAILABLE = False
 
 # DynamoDB Table Names
 USERS_TABLE = os.getenv("USERS_TABLE")
@@ -27,6 +36,15 @@ BOUNTIES_TABLE = os.getenv("BOUNTIES_TABLE")
 GROUPS_TABLE = os.getenv("GROUPS_TABLE")
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
+
+
+def check_aws_connection():
+    """Check if AWS is available and connected"""
+    if not AWS_AVAILABLE:
+        raise Exception("AWS DynamoDB is currently unavailable. Please try again later.")
+    if not ddb:
+        raise Exception("AWS DynamoDB connection failed. Service temporarily unavailable.")
+    return True
 
 
 def normalize_dynamodb_item(item: Dict) -> Dict:
@@ -61,9 +79,11 @@ class UserOperations:
     def get_user_data(username: str) -> Optional[Dict]:
         """Get user data from DynamoDB"""
         try:
+            check_aws_connection()
+
             if not USERS_TABLE:
                 raise Exception("USERS_TABLE not configured")
-                
+
             response = ddb.get_item(
                 TableName=USERS_TABLE,
                 Key={'username': {'S': username.lower()}}

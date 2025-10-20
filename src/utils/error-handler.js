@@ -37,12 +37,29 @@ const handleAPIError = (error, context) => {
     }
   }
 
-  if (error.code === 'ECONNREFUSED') {
-    throw new Error('Connection refused - server may be down');
+  if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+    throw new Error(
+      'Unable to connect to YeetCode servers. Please check your internet connection and try again.'
+    );
   }
 
-  if (error.code === 'ETIMEDOUT') {
-    throw new Error('Request timeout - please try again');
+  if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+    throw new Error(
+      'Request timed out. The server might be experiencing high load. Please try again.'
+    );
+  }
+
+  // Check for AWS/database errors
+  if (
+    error.message &&
+    (error.message.includes('DynamoDB') ||
+      error.message.includes('AWS') ||
+      error.message.includes('unavailable') ||
+      error.message.includes('Service temporarily unavailable'))
+  ) {
+    throw new Error(
+      'Our database service is temporarily unavailable. Please try again in a few moments.'
+    );
   }
 
   throw error;

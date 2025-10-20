@@ -29,12 +29,46 @@ class FastAPIClient {
         );
       }
     } catch (error) {
-      if (error.response) {
+      // Handle network/connection errors gracefully
+      if (
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ENOTFOUND' ||
+        error.code === 'ETIMEDOUT'
+      ) {
         throw new Error(
-          error.response.data?.error || `API error: ${error.response.status}`
+          'Unable to connect to YeetCode servers. Please check your internet connection and try again.'
         );
       }
-      throw error;
+
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        throw new Error(
+          'Request timed out. The server might be experiencing high load. Please try again.'
+        );
+      }
+
+      // Handle AWS/backend errors
+      if (error.response) {
+        const errorMessage = error.response.data?.error;
+
+        // Check if it's an AWS-related error
+        if (
+          errorMessage &&
+          (errorMessage.includes('DynamoDB') ||
+            errorMessage.includes('AWS') ||
+            errorMessage.includes('unavailable') ||
+            errorMessage.includes('Service temporarily unavailable'))
+        ) {
+          throw new Error(
+            'Our database service is temporarily unavailable. Please try again in a few moments.'
+          );
+        }
+
+        // Generic API error
+        throw new Error(errorMessage || 'An error occurred. Please try again.');
+      }
+
+      // Unknown error
+      throw new Error('An unexpected error occurred. Please try again.');
     }
   }
 
