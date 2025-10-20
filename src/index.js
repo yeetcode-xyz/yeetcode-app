@@ -28,7 +28,7 @@ const {
 
 // More reliable isDev detection - packaged apps are always production
 const isDev = app.isPackaged ? false : config.isDev || true;
-const version = '1.0.0';
+const version = '1.0.1';
 
 // ========================================
 // AUTO-UPDATER CONFIGURATION

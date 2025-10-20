@@ -29,6 +29,7 @@ const INDIAN_UNIVERSITIES = [
   'K J Somaiya College of Engineering (KJSCE Mumbai)',
   'Dwarkadas J. Sanghvi College of Engineering',
   'Thadomal Shahani Engineering College (TSEC Mumbai)',
+  'Thakur College of Engineering and Technology (TCET Mumbai)',
   'Fr. Conceicao Rodrigues College of Engineering (CRCE Mumbai)',
   "Bharati Vidyapeeth's College of Engineering Delhi",
   'College of Engineering Pune (COEP)',
