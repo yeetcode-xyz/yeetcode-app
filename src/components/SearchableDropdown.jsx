@@ -8,6 +8,8 @@ const SearchableDropdown = ({
   disabled = false,
   className = '',
   compact = false,
+  minSearchLength = 0, // Minimum characters required to show results (0 = show all)
+  searchPlaceholder = 'Search...', // Custom search placeholder
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,10 +22,13 @@ const SearchableDropdown = ({
     typeof opt === 'string' ? { value: opt, label: opt } : opt
   );
 
-  // Filter options based on search term
-  const filteredOptions = normalizedOptions.filter(option =>
-    option.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter options based on search term and minimum length
+  const filteredOptions =
+    searchTerm.length >= minSearchLength
+      ? normalizedOptions.filter(option =>
+          option.label.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : [];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -140,7 +145,7 @@ const SearchableDropdown = ({
               ref={inputRef}
               type="text"
               className={`w-full ${compact ? 'px-1 py-0.5 text-sm' : 'px-2 py-1'} border border-gray-300 rounded focus:outline-none focus:border-blue-500`}
-              placeholder="Search..."
+              placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={e => {
                 setSearchTerm(e.target.value);
@@ -156,7 +161,14 @@ const SearchableDropdown = ({
             className={`${compact ? 'max-h-36' : 'max-h-48'} overflow-y-auto`}
             role="listbox"
           >
-            {filteredOptions.length === 0 ? (
+            {searchTerm.length < minSearchLength ? (
+              <li
+                className={`${compact ? 'px-2 py-1 text-sm' : 'px-3 py-2'} text-gray-500 text-center`}
+              >
+                Type at least {minSearchLength} character
+                {minSearchLength > 1 ? 's' : ''} to search
+              </li>
+            ) : filteredOptions.length === 0 ? (
               <li
                 className={`${compact ? 'px-2 py-1 text-sm' : 'px-3 py-2'} text-gray-500 text-center`}
               >

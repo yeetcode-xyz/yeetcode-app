@@ -1,29 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import SearchableDropdown from './SearchableDropdown';
-
-const UNIVERSITIES = [
-  'MIT',
-  'Stanford University',
-  'Harvard University',
-  'Carnegie Mellon University',
-  'UC Berkeley',
-  'University of Illinois Urbana-Champaign',
-  'Georgia Tech',
-  'University of Washington',
-  'University of Michigan',
-  'UCLA',
-  'Columbia University',
-  'Cornell University',
-  'University of Texas at Austin',
-  'Princeton University',
-  'Yale University',
-  'University of Pennsylvania',
-  'University of Southern California',
-  'Stony Brook University',
-  'New York University',
-  'University of California San Diego',
-  'Other',
-];
+import { getUniversities } from '../utils/universities';
 
 const OnboardingStep = ({
   animationClass,
@@ -35,6 +12,9 @@ const OnboardingStep = ({
   handleValidateLeet,
 }) => {
   const [notInUniversity, setNotInUniversity] = useState(false);
+
+  // Load universities from CSV
+  const universities = useMemo(() => getUniversities(), []);
 
   const handleNotInUniversityChange = checked => {
     setNotInUniversity(checked);
@@ -90,10 +70,12 @@ const OnboardingStep = ({
         <div>
           <label className="block text-sm font-bold mb-1">University</label>
           <SearchableDropdown
-            options={UNIVERSITIES}
+            options={universities}
             value={userData.university || ''}
             onChange={value => setUserData({ ...userData, university: value })}
-            placeholder="Select your university"
+            placeholder="Click to search for your university"
+            searchPlaceholder="Type at least 2 characters to search..."
+            minSearchLength={2}
             disabled={notInUniversity}
           />
           <div className="flex items-center gap-2 mt-2">
