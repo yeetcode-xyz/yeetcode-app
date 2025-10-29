@@ -3,15 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import XPExplainerModal from '../XPExplainerModal';
 
 const RANKS = [
-  { name: 'Script Kiddie', min: 0, max: 499 },
-  { name: 'Debugger', min: 500, max: 1499 },
-  { name: 'Stack Overflower', min: 1500, max: 3499 },
-  { name: 'Algorithm Apprentice', min: 3500, max: 6499 },
-  { name: 'Loop Guru', min: 6500, max: 11999 },
-  { name: 'Recursion Wizard', min: 12000, max: 19999 },
-  { name: 'Regex Sorcerer', min: 20000, max: 34999 },
-  { name: 'Master Yeeter', min: 35000, max: 49999 },
-  { name: '0xDEADBEEF', min: 50000, max: Infinity },
+  { name: 'Script Kiddie', min: 0, max: 1499 },
+  { name: 'Debugger', min: 1500, max: 4499 },
+  { name: 'Stack Overflower', min: 4500, max: 10499 },
+  { name: 'Algorithm Apprentice', min: 10500, max: 19499 },
+  { name: 'Loop Guru', min: 19500, max: 35999 },
+  { name: 'Recursion Wizard', min: 36000, max: 59999 },
+  { name: 'Regex Sorcerer', min: 60000, max: 104999 },
+  { name: 'Master Yeeter', min: 105000, max: 149999 },
+  { name: '0xDEADBEEF', min: 150000, max: Infinity },
 ];
 
 function getRankAndSubdivision(xp) {
@@ -27,22 +27,6 @@ function getRankAndSubdivision(xp) {
     }
   }
   return { name: 'Unranked', sub: '' };
-}
-
-function getRankAbbreviation(rankName) {
-  const abbreviations = {
-    'Script Kiddie': 'SK',
-    Debugger: 'DB',
-    'Stack Overflower': 'SO',
-    'Algorithm Apprentice': 'AA',
-    'Loop Guru': 'LG',
-    'Recursion Wizard': 'RW',
-    'Regex Sorcerer': 'RS',
-    'Master Yeeter': 'MW',
-    '0xDEADBEEF': '0x',
-    Unranked: '?',
-  };
-  return abbreviations[rankName] || '?';
 }
 
 function getRankColor(rankName) {
@@ -71,8 +55,6 @@ const FriendsLeaderboard = ({
 }) => {
   // Tab state
   const [activeTab, setActiveTab] = useState('group');
-  // Tooltip state
-  const [hoveredUser, setHoveredUser] = useState(null);
   // XP Modal state
   const [showXPModal, setShowXPModal] = useState(false);
 
@@ -190,11 +172,8 @@ const FriendsLeaderboard = ({
                 <thead className="bg-yellow-100 sticky top-0 z-10">
                   <tr className="border-b-2 border-black">
                     <th className="font-bold text-left px-4 py-2 w-12">#</th>
-                    <th className="font-bold text-left px-4 py-2 w-24">
+                    <th className="font-bold text-left px-4 py-2 w-32">
                       PLAYER
-                    </th>
-                    <th className="font-bold text-center px-4 py-2 w-16">
-                      RANK
                     </th>
                     <th className="font-bold text-center px-4 py-2 w-14">
                       EASY
@@ -274,30 +253,25 @@ const FriendsLeaderboard = ({
                               #{index + 1}
                             </motion.td>
                             <motion.td
-                              className={`px-4 py-3 w-24 ${textStyle}`}
+                              className={`px-4 py-3 w-32 ${textStyle}`}
                               layout
                             >
-                              {user.display_name || user.username}
-                            </motion.td>
-                            <motion.td
-                              className="text-center px-4 py-3 w-16"
-                              layout
-                            >
-                              {(() => {
-                                const xp = userXP;
-                                const { name: rankName, sub: rankSub } =
-                                  getRankAndSubdivision(xp);
-                                const abbr = getRankAbbreviation(rankName);
-                                const color = getRankColor(rankName);
-                                return (
-                                  <span
-                                    className={`font-bold text-xs ${color}`}
-                                    title={`${rankName} ${rankSub}`}
-                                  >
-                                    {abbr} {rankSub}
-                                  </span>
-                                );
-                              })()}
+                              <div className="flex flex-col">
+                                <span>
+                                  {user.display_name || user.username}
+                                </span>
+                                {(() => {
+                                  const xp = userXP;
+                                  const { name: rankName, sub: rankSub } =
+                                    getRankAndSubdivision(xp);
+                                  const color = getRankColor(rankName);
+                                  return (
+                                    <span className={`text-xs ${color}`}>
+                                      {rankName} {rankSub}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
                             </motion.td>
                             <motion.td
                               className={`text-center px-4 py-3 w-14 ${textStyle}`}
@@ -471,8 +445,7 @@ const FriendsLeaderboard = ({
               <thead className="bg-yellow-100 sticky top-0 z-10">
                 <tr className="border-b-2 border-black">
                   <th className="font-bold text-left px-4 py-2 w-12">#</th>
-                  <th className="font-bold text-left px-4 py-2 w-24">PLAYER</th>
-                  <th className="font-bold text-center px-4 py-2 w-16">RANK</th>
+                  <th className="font-bold text-left px-4 py-2 w-32">PLAYER</th>
                   <th className="font-bold text-center px-4 py-2 w-14">EASY</th>
                   <th className="font-bold text-center px-4 py-2 w-14">MED</th>
                   <th className="font-bold text-center px-4 py-2 w-14">HARD</th>
@@ -560,62 +533,36 @@ const FriendsLeaderboard = ({
                               #{index + 1}
                             </motion.span>
                           </motion.td>
-                          <motion.td className="px-4 py-3 w-24" layout>
+                          <motion.td className="px-4 py-3 w-32" layout>
                             <div className="flex items-center gap-2">
                               <div
                                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black ${isCurrentUser ? 'bg-blue-200 text-blue-800' : 'bg-gray-300'}`}
                               >
                                 {user.name.substring(0, 2).toUpperCase()}
                               </div>
-                              <span
-                                className={
-                                  isCurrentUser
-                                    ? 'font-semibold text-blue-700'
-                                    : ''
-                                }
-                                onMouseEnter={() =>
-                                  setHoveredUser(user.username)
-                                }
-                                onMouseLeave={() => setHoveredUser(null)}
-                                style={{
-                                  position: 'relative',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                {isCurrentUser ? 'You' : user.name}
-                                {/* Tooltip for rank */}
-                                {hoveredUser === user.username && (
-                                  <div className="absolute left-1/2 bottom-full z-50 mb-1 -translate-x-1/2 bg-black text-white text-xs rounded px-3 py-1 shadow-lg border-2 border-yellow-300 whitespace-nowrap pointer-events-none animate-fade-in-down">
-                                    {(() => {
-                                      const xp = calculateXP(user);
-                                      const { name: rankName, sub: rankSub } =
-                                        getRankAndSubdivision(xp);
-                                      return `${rankName} ${rankSub}`;
-                                    })()}
-                                  </div>
-                                )}
-                              </span>
-                            </div>
-                          </motion.td>
-                          <motion.td
-                            className="text-center px-4 py-3 w-16"
-                            layout
-                          >
-                            {(() => {
-                              const xp = calculateXP(user);
-                              const { name: rankName, sub: rankSub } =
-                                getRankAndSubdivision(xp);
-                              const abbr = getRankAbbreviation(rankName);
-                              const color = getRankColor(rankName);
-                              return (
+                              <div className="flex flex-col">
                                 <span
-                                  className={`font-bold text-xs ${color}`}
-                                  title={`${rankName} ${rankSub}`}
+                                  className={
+                                    isCurrentUser
+                                      ? 'font-semibold text-blue-700'
+                                      : ''
+                                  }
                                 >
-                                  {abbr} {rankSub}
+                                  {isCurrentUser ? 'You' : user.name}
                                 </span>
-                              );
-                            })()}
+                                {(() => {
+                                  const xp = calculateXP(user);
+                                  const { name: rankName, sub: rankSub } =
+                                    getRankAndSubdivision(xp);
+                                  const color = getRankColor(rankName);
+                                  return (
+                                    <span className={`text-xs ${color}`}>
+                                      {rankName} {rankSub}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                            </div>
                           </motion.td>
                           <motion.td
                             className={`text-center px-4 py-3 w-14 ${textStyle}`}

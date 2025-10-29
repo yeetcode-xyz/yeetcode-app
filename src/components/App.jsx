@@ -9,6 +9,15 @@ import OnboardingStep from './OnboardingStep';
 import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
 
+// Import dev config (only exists locally, gitignored)
+let devConfig = { useAutoLogin: false };
+try {
+  const imported = await import('../dev.config.js');
+  devConfig = imported.devConfig;
+} catch (e) {
+  // dev.config.js doesn't exist - that's fine, auto-login disabled
+}
+
 const APP_VERSION = '0.1.2';
 function App() {
   const [step, setStep] = useState('welcome');
@@ -46,6 +55,36 @@ function App() {
   useEffect(() => {
     const savedUserData = loadFromStorage(STORAGE_KEYS.USER_DATA);
     const savedAppState = loadFromStorage(STORAGE_KEYS.APP_STATE);
+
+    // DEV AUTO-LOGIN - ONLY WORKS IN DEVELOPMENT (npm run dev)
+    // Configure in src/dev.config.js (copy from dev.config.example.js)
+    // Production builds will NOT have import.meta.env.DEV = true, so this is skipped
+    if (import.meta.env.DEV && devConfig.useAutoLogin && devConfig.username) {
+      // Always use dev user credentials and go straight to leaderboard
+      const devUserData = {
+        email: savedUserData?.email || devConfig.email,
+        verified: true,
+        name: savedUserData?.name || devConfig.name,
+        leetUsername: devConfig.username,
+        university: savedUserData?.university || '',
+      };
+      setUserData(devUserData);
+      saveToStorage(STORAGE_KEYS.USER_DATA, devUserData);
+
+      // Always join the dev group and go to leaderboard
+      const devGroupData = { code: devConfig.groupCode, joined: true };
+      setGroupData(devGroupData);
+      setStep('leaderboard');
+      saveAppState('leaderboard', devGroupData);
+
+      console.log(
+        '🚀 Dev auto-login: ' +
+          devConfig.username +
+          ' → Group: ' +
+          devConfig.groupCode
+      );
+      return;
+    }
 
     if (savedUserData) {
       const updatedUserData = {

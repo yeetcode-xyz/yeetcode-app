@@ -4,15 +4,15 @@ import XPExplainerModal from '../XPExplainerModal';
 import RankProgressionModal from '../RankProgressionModal';
 
 const RANKS = [
-  { name: 'Script Kiddie', min: 0, max: 499 },
-  { name: 'Debugger', min: 500, max: 1499 },
-  { name: 'Stack Overflower', min: 1500, max: 3499 },
-  { name: 'Algorithm Apprentice', min: 3500, max: 6499 },
-  { name: 'Loop Guru', min: 6500, max: 11999 },
-  { name: 'Recursion Wizard', min: 12000, max: 19999 },
-  { name: 'Regex Sorcerer', min: 20000, max: 34999 },
-  { name: 'Master Yeeter', min: 35000, max: 49999 },
-  { name: '0xDEADBEEF', min: 50000, max: Infinity },
+  { name: 'Script Kiddie', min: 0, max: 1499 },
+  { name: 'Debugger', min: 1500, max: 4499 },
+  { name: 'Stack Overflower', min: 4500, max: 10499 },
+  { name: 'Algorithm Apprentice', min: 10500, max: 19499 },
+  { name: 'Loop Guru', min: 19500, max: 35999 },
+  { name: 'Recursion Wizard', min: 36000, max: 59999 },
+  { name: 'Regex Sorcerer', min: 60000, max: 104999 },
+  { name: 'Master Yeeter', min: 105000, max: 149999 },
+  { name: '0xDEADBEEF', min: 150000, max: Infinity },
 ];
 
 function getRankAndSubdivision(xp) {

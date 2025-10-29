@@ -63,6 +63,9 @@ typings/
 .env
 .env.test
 
+# Dev config (personal settings, not committed)
+src/dev.config.js
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 

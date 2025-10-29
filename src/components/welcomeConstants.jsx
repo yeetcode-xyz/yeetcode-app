@@ -58,8 +58,8 @@ export const TUTORIAL_STEPS = [
               <table className="w-full max-w-full table-fixed">
                 <thead className="bg-yellow-100 sticky top-0 z-10">
                   <tr className="border-b-2 border-black text-sm">
-                    <th className="font-bold text-left px-4 py-2 w-16">RANK</th>
-                    <th className="font-bold text-left px-4 py-2 w-32">
+                    <th className="font-bold text-left px-4 py-2 w-12">#</th>
+                    <th className="font-bold text-left px-4 py-2 w-40">
                       PLAYER
                     </th>
                     <th className="font-bold text-center px-4 py-2 w-16">
@@ -79,13 +79,18 @@ export const TUTORIAL_STEPS = [
                 </thead>
                 <tbody>
                   <tr className="border-b border-gray-200 bg-red-100">
-                    <td className="px-4 py-3 w-16 font-bold text-base">#1</td>
-                    <td className="px-4 py-3 w-32">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#1</td>
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           TA
                         </div>
-                        <span className="text-sm">Taylor</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Taylor</span>
+                          <span className="text-xs text-orange-600">
+                            Master Yeeter II
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="text-center px-4 py-3 w-16 text-base">
@@ -101,17 +106,22 @@ export const TUTORIAL_STEPS = [
                     </td>
                   </tr>
                   <tr className="border-b border-gray-200 bg-blue-100 border-l-4 border-blue-400">
-                    <td className="px-4 py-3 w-16 font-bold text-base text-blue-700">
+                    <td className="px-4 py-3 w-12 font-bold text-base text-blue-700">
                       #2
                     </td>
-                    <td className="px-4 py-3 w-32">
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-blue-200 text-blue-800">
                           YO
                         </div>
-                        <span className="text-sm font-semibold text-blue-700">
-                          You
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-blue-700">
+                            You
+                          </span>
+                          <span className="text-xs text-orange-600">
+                            Master Yeeter I
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="text-center px-4 py-3 w-16 text-base text-blue-700">
@@ -131,13 +141,18 @@ export const TUTORIAL_STEPS = [
                     </td>
                   </tr>
                   <tr className="border-b border-gray-200 bg-green-100">
-                    <td className="px-4 py-3 w-16 font-bold text-base">#3</td>
-                    <td className="px-4 py-3 w-32">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#3</td>
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           AL
                         </div>
-                        <span className="text-sm">Alex</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Alex</span>
+                          <span className="text-xs text-purple-600">
+                            Regex Sorcerer III
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="text-center px-4 py-3 w-16 text-base">98</td>
@@ -151,13 +166,18 @@ export const TUTORIAL_STEPS = [
                     </td>
                   </tr>
                   <tr className="border-b border-gray-200">
-                    <td className="px-4 py-3 w-16 font-bold text-base">#4</td>
-                    <td className="px-4 py-3 w-32">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#4</td>
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           SA
                         </div>
-                        <span className="text-sm">Sarah</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Sarah</span>
+                          <span className="text-xs text-orange-600">
+                            Master Yeeter I
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="text-center px-4 py-3 w-16 text-base">87</td>
@@ -171,13 +191,18 @@ export const TUTORIAL_STEPS = [
                     </td>
                   </tr>
                   <tr className="border-b border-gray-200">
-                    <td className="px-4 py-3 w-16 font-bold text-base">#5</td>
-                    <td className="px-4 py-3 w-32">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#5</td>
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           MI
                         </div>
-                        <span className="text-sm">Mike</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Mike</span>
+                          <span className="text-xs text-purple-700">
+                            Regex Sorcerer III
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="text-center px-4 py-3 w-16 text-base">76</td>
@@ -191,13 +216,18 @@ export const TUTORIAL_STEPS = [
                     </td>
                   </tr>
                   <tr className="border-b border-gray-200">
-                    <td className="px-4 py-3 w-16 font-bold text-base">#6</td>
-                    <td className="px-4 py-3 w-32">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#6</td>
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           EM
                         </div>
-                        <span className="text-sm">Emma</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Emma</span>
+                          <span className="text-xs text-purple-700">
+                            Regex Sorcerer II
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="text-center px-4 py-3 w-16 text-base">65</td>
@@ -211,13 +241,18 @@ export const TUTORIAL_STEPS = [
                     </td>
                   </tr>
                   <tr className="border-b border-gray-200">
-                    <td className="px-4 py-3 w-16 font-bold text-base">#7</td>
-                    <td className="px-4 py-3 w-32">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#7</td>
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           JA
                         </div>
-                        <span className="text-sm">Jake</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Jake</span>
+                          <span className="text-xs text-purple-600">
+                            Recursion Wizard III
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="text-center px-4 py-3 w-16 text-base">52</td>
@@ -239,11 +274,8 @@ export const TUTORIAL_STEPS = [
                 <thead className="bg-yellow-100 sticky top-0 z-10">
                   <tr className="border-b-2 border-black text-sm">
                     <th className="font-bold text-left px-4 py-2 w-12">#</th>
-                    <th className="font-bold text-left px-4 py-2 w-24">
+                    <th className="font-bold text-left px-4 py-2 w-40">
                       PLAYER
-                    </th>
-                    <th className="font-bold text-center px-4 py-2 w-16">
-                      RANK
                     </th>
                     <th className="font-bold text-center px-4 py-2 w-14">
                       EASY
@@ -263,18 +295,18 @@ export const TUTORIAL_STEPS = [
                 <tbody>
                   <tr className="border-b border-gray-200 bg-red-100">
                     <td className="px-4 py-3 w-12 font-bold text-base">#1</td>
-                    <td className="px-4 py-3 w-24">
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           CS
                         </div>
-                        <span className="text-sm">Chris</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Chris</span>
+                          <span className="text-xs text-purple-700">
+                            Regex Sorcerer III
+                          </span>
+                        </div>
                       </div>
-                    </td>
-                    <td className="text-center px-4 py-3 w-16">
-                      <span className="font-bold text-xs text-blue-700">
-                        LG III
-                      </span>
                     </td>
                     <td className="text-center px-4 py-3 w-14 text-base">95</td>
                     <td className="text-center px-4 py-3 w-14 text-base">48</td>
@@ -290,20 +322,20 @@ export const TUTORIAL_STEPS = [
                     <td className="px-4 py-3 w-12 font-bold text-base text-blue-700">
                       #2
                     </td>
-                    <td className="px-4 py-3 w-24">
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-blue-200 text-blue-800">
                           YO
                         </div>
-                        <span className="text-sm font-semibold text-blue-700">
-                          You
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-blue-700">
+                            You
+                          </span>
+                          <span className="text-xs text-purple-600">
+                            Recursion Wizard II
+                          </span>
+                        </div>
                       </div>
-                    </td>
-                    <td className="text-center px-4 py-3 w-16">
-                      <span className="font-bold text-xs text-blue-500">
-                        AA II
-                      </span>
                     </td>
                     <td className="text-center px-4 py-3 w-14 text-base text-blue-700 font-semibold">
                       62
@@ -323,18 +355,18 @@ export const TUTORIAL_STEPS = [
                   </tr>
                   <tr className="border-b border-gray-200 bg-green-100">
                     <td className="px-4 py-3 w-12 font-bold text-base">#3</td>
-                    <td className="px-4 py-3 w-24">
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           AM
                         </div>
-                        <span className="text-sm">Amy</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Amy</span>
+                          <span className="text-xs text-blue-700">
+                            Loop Guru III
+                          </span>
+                        </div>
                       </div>
-                    </td>
-                    <td className="text-center px-4 py-3 w-16">
-                      <span className="font-bold text-xs text-blue-600">
-                        SO III
-                      </span>
                     </td>
                     <td className="text-center px-4 py-3 w-14 text-base">51</td>
                     <td className="text-center px-4 py-3 w-14 text-base">22</td>
@@ -348,18 +380,18 @@ export const TUTORIAL_STEPS = [
                   </tr>
                   <tr className="border-b border-gray-200">
                     <td className="px-4 py-3 w-12 font-bold text-base">#4</td>
-                    <td className="px-4 py-3 w-24">
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           AL
                         </div>
-                        <span className="text-sm">Alex</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Alex</span>
+                          <span className="text-xs text-blue-700">
+                            Loop Guru II
+                          </span>
+                        </div>
                       </div>
-                    </td>
-                    <td className="text-center px-4 py-3 w-16">
-                      <span className="font-bold text-xs text-blue-600">
-                        SO II
-                      </span>
                     </td>
                     <td className="text-center px-4 py-3 w-14 text-base">44</td>
                     <td className="text-center px-4 py-3 w-14 text-base">18</td>
@@ -373,18 +405,18 @@ export const TUTORIAL_STEPS = [
                   </tr>
                   <tr className="border-b border-gray-200">
                     <td className="px-4 py-3 w-12 font-bold text-base">#5</td>
-                    <td className="px-4 py-3 w-24">
+                    <td className="px-4 py-3 w-40">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
                           JO
                         </div>
-                        <span className="text-sm">Jordan</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm">Jordan</span>
+                          <span className="text-xs text-blue-700">
+                            Loop Guru I
+                          </span>
+                        </div>
                       </div>
-                    </td>
-                    <td className="text-center px-4 py-3 w-16">
-                      <span className="font-bold text-xs text-gray-500">
-                        DB III
-                      </span>
                     </td>
                     <td className="text-center px-4 py-3 w-14 text-base">32</td>
                     <td className="text-center px-4 py-3 w-14 text-base">11</td>
