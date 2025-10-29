@@ -288,6 +288,114 @@ class UserOperations:
                 print(f"[ERROR] Failed to get users for university leaderboard: {error}")
             return {"success": False, "error": str(error)}
 
+    @staticmethod
+    def get_leaderboard() -> Dict:
+        """Get global leaderboard of users with core stats.
+
+        Returns a list of users with fields required by the UI: username, name (display name), easy, medium, hard, today, xp, group_id.
+        """
+        try:
+            check_aws_connection()
+
+            if not USERS_TABLE:
+                raise Exception("USERS_TABLE not configured")
+
+            items = []
+            last_evaluated_key = None
+
+            while True:
+                scan_params = {
+                    'TableName': USERS_TABLE,
+                    'Select': 'ALL_ATTRIBUTES'
+                }
+
+                if last_evaluated_key:
+                    scan_params['ExclusiveStartKey'] = last_evaluated_key
+
+                response = ddb.scan(**scan_params)
+                items.extend(response.get('Items', []))
+
+                last_evaluated_key = response.get('LastEvaluatedKey')
+                if not last_evaluated_key:
+                    break
+
+            # Normalize and project only relevant fields
+            users = []
+            for item in items:
+                user = normalize_dynamodb_item(item)
+                username = user.get('username', '')
+                display_name = user.get('display_name') or username
+                users.append({
+                    'username': username,
+                    'name': display_name,
+                    'easy': int(user.get('easy', 0)),
+                    'medium': int(user.get('medium', 0)),
+                    'hard': int(user.get('hard', 0)),
+                    'today': int(user.get('today', 0)) if isinstance(user.get('today', 0), int) else int(user.get('today', 0) or 0),
+                    'xp': int(user.get('xp', 0)),
+                    'group_id': user.get('group_id')
+                })
+
+            return {"success": True, "data": users}
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get leaderboard: {error}")
+            return {"success": False, "error": str(error)}
+
+    @staticmethod
+    def get_group_users(group_id: str) -> Dict:
+        """Get users belonging to a specific group by group_id."""
+        try:
+            check_aws_connection()
+
+            if not USERS_TABLE:
+                raise Exception("USERS_TABLE not configured")
+
+            items = []
+
+            # Try querying via GSI first
+            try:
+                query_params = {
+                    'TableName': USERS_TABLE,
+                    'IndexName': 'group_id-index',
+                    'KeyConditionExpression': 'group_id = :g',
+                    'ExpressionAttributeValues': {':g': {'S': group_id}}
+                }
+                result = ddb.query(**query_params)
+                items = result.get('Items', [])
+            except Exception:
+                # Fall back to scan + filter
+                scan_params = {
+                    'TableName': USERS_TABLE,
+                    'FilterExpression': 'group_id = :g',
+                    'ExpressionAttributeValues': {':g': {'S': group_id}}
+                }
+                scan_result = ddb.scan(**scan_params)
+                items = scan_result.get('Items', [])
+
+            # Normalize and project fields
+            users = []
+            for item in items:
+                user = normalize_dynamodb_item(item)
+                username = user.get('username', '')
+                display_name = user.get('display_name') or username
+                users.append({
+                    'username': username,
+                    'name': display_name,
+                    'easy': int(user.get('easy', 0)),
+                    'medium': int(user.get('medium', 0)),
+                    'hard': int(user.get('hard', 0)),
+                    'today': int(user.get('today', 0)) if isinstance(user.get('today', 0), int) else int(user.get('today', 0) or 0),
+                    'xp': int(user.get('xp', 0)),
+                    'group_id': user.get('group_id')
+                })
+
+            return {"success": True, "data": users}
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get group users: {error}")
+            return {"success": False, "error": str(error)}
+
 
 class VerificationOperations:
     """Verification code operations"""

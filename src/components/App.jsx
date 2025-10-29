@@ -66,7 +66,7 @@ function App() {
         verified: true,
         name: savedUserData?.name || devConfig.name,
         leetUsername: devConfig.username,
-        university: savedUserData?.university || '',
+        university: savedUserData?.university || devConfig.university || '',
       };
       setUserData(devUserData);
       saveToStorage(STORAGE_KEYS.USER_DATA, devUserData);
@@ -389,9 +389,16 @@ function App() {
   const fetchMyUniversityLeaderboard = async () => {
     if (!window.electronAPI || !userData.leetUsername) return;
     try {
+      console.log(
+        '[DEBUG] Fetching my university leaderboard for:',
+        userData.leetUsername,
+        'university:',
+        userData.university
+      );
       const myUniData = await window.electronAPI.getMyUniversityLeaderboard(
         userData.leetUsername
       );
+      console.log('[DEBUG] My university leaderboard response:', myUniData);
       setMyUniversityLeaderboard(myUniData.data || []);
     } catch (error) {
       console.error('Error fetching my university leaderboard:', error);
