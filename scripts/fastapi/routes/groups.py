@@ -282,8 +282,8 @@ async def get_my_university_leaderboard_endpoint(
             "total_students": len(university_users)
         }
 
-        # Cache the result for 1 minute
-        cache_manager.set(CacheType.UNIVERSITY_LEADERBOARD, response, ttl=60, cache_key=cache_key)
+        # Cache the result for 1 minute (keyed by university)
+        cache_manager.set(CacheType.UNIVERSITY_LEADERBOARD, response, identifier=cache_key, ttl=60)
 
         return response
     except Exception as error:
