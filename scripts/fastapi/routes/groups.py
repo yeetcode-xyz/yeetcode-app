@@ -235,10 +235,10 @@ async def get_my_university_leaderboard_endpoint(
     try:
         # Get the user's university first
         user_data = UserOperations.get_user_data(username)
-        if not user_data.get("success"):
+        if not user_data:
             return {"success": False, "error": "User not found"}
 
-        user_university = user_data.get("data", {}).get("university")
+        user_university = user_data.get("university")
         if not user_university or user_university == "undefined" or user_university == "" or user_university == "Other":
             return {"success": False, "error": "User not enrolled in a university"}
 
