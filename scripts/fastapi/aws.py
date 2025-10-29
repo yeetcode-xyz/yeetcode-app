@@ -1216,8 +1216,10 @@ class DuelOperations:
                     raise Exception("Wager amount must be at least 25 XP")
 
                 # Check challenger has enough XP for their wager
-                challenger_data = UserOperations.get_user(normalized_username)
-                challenger_xp = int(challenger_data.get('data', {}).get('xp', 0))
+                challenger_data = UserOperations.get_user_data(normalized_username)
+                if not challenger_data:
+                    raise Exception(f"Challenger user not found: {normalized_username}")
+                challenger_xp = int(challenger_data.get('xp', 0))
 
                 if challenger_xp < wager_amount:
                     raise Exception(f"Challenger has insufficient XP (has {challenger_xp}, needs {wager_amount})")
@@ -1300,8 +1302,10 @@ class DuelOperations:
                     raise Exception(f"Opponent wager must be at least {min_wager} XP (75% of challenger's {challenger_wager} XP)")
 
                 # Check opponent has enough XP
-                opponent_data = UserOperations.get_user(normalized_username)
-                opponent_xp = int(opponent_data.get('data', {}).get('xp', 0))
+                opponent_data = UserOperations.get_user_data(normalized_username)
+                if not opponent_data:
+                    raise Exception(f"Opponent user not found: {normalized_username}")
+                opponent_xp = int(opponent_data.get('xp', 0))
 
                 if opponent_xp < opponent_wager:
                     raise Exception(f"Opponent has insufficient XP (has {opponent_xp}, needs {opponent_wager})")
