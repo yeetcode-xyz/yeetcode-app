@@ -1544,42 +1544,35 @@ class DuelOperations:
                 should_complete_duel = False
             
             if should_complete_duel:
-                # Complete the duel
-                complete_params = {
-                    'TableName': DUELS_TABLE,
-                    'Key': {'duelId': {'S': duel_id}},
-                    'UpdateExpression': 'SET #status = :status, winner = :winner, xpAwarded = :xp, completedAt = :completed',
-                    'ExpressionAttributeNames': {'#status': 'status'},
-                    'ExpressionAttributeValues': {
-                        ':status': {'S': 'COMPLETED'},
-                        ':winner': {'S': winner} if winner else {'NULL': True},
-                        ':xp': {'N': str(xp_award)},
-                        ':completed': {'S': datetime.now(timezone.utc).isoformat()}
-                    }
-                }
-
-                ddb.update_item(**complete_params)
+                # Calculate XP before updating DynamoDB
+                total_xp_awarded = 0
 
                 # Award XP to participants
                 if is_wager and (challenger_wager > 0 or challengee_wager > 0):
-                    # Wager duel - winner takes both wagers, loser loses their wager
+                    # Wager duel - winner takes both wagers + 200 bonus, loser loses their wager
                     if winner:
                         # Determine winner and loser wagers
                         winner_wager = challenger_wager if winner == challenger else challengee_wager
                         loser = challengee if winner == challenger else challenger
                         loser_wager = challengee_wager if winner == challenger else challenger_wager
 
-                        # Winner gets their wager back + opponent's wager
-                        total_winnings = winner_wager + loser_wager
-                        UserOperations.award_xp(winner, total_winnings)
+                        # Winner gets: their wager back + opponent's wager + 200 bonus
+                        wager_winnings = winner_wager + loser_wager
+                        bonus_xp = DuelOperations.calculate_duel_xp(difficulty, True)  # 200 XP bonus
+                        total_xp_awarded = wager_winnings + bonus_xp
+
+                        UserOperations.award_xp(winner, wager_winnings)  # Award wager winnings
+                        UserOperations.award_xp(winner, bonus_xp)  # Award bonus
+
                         # Loser loses their wager (deduct XP)
                         UserOperations.award_xp(loser, -loser_wager)
-                        duel_action(f"Wager duel {duel_id} completed - {winner} won {total_winnings} XP (wagered {winner_wager}, won {loser_wager})", winner=winner)
+                        duel_action(f"Wager duel {duel_id} completed - {winner} won {total_xp_awarded} XP ({wager_winnings} wager + {bonus_xp} bonus)", winner=winner)
                     else:
                         # Tie in wager duel - both keep their XP (nobody loses)
                         duel_action(f"Wager duel {duel_id} ended in a tie - no XP transferred")
                 else:
                     # Normal duel - standard XP awards
+                    total_xp_awarded = xp_award
                     if winner:
                         UserOperations.award_xp(winner, xp_award)
                         # Award participation XP to loser
@@ -1591,14 +1584,29 @@ class DuelOperations:
                         UserOperations.award_xp(challengee, xp_award)
 
                     duel_action(f"Duel {duel_id} completed", winner=winner or 'TIE')
-            
+
+                # Update DynamoDB with completion status AFTER awarding XP
+                complete_params = {
+                    'TableName': DUELS_TABLE,
+                    'Key': {'duelId': {'S': duel_id}},
+                    'UpdateExpression': 'SET #status = :status, winner = :winner, xpAwarded = :xp, completedAt = :completed',
+                    'ExpressionAttributeNames': {'#status': 'status'},
+                    'ExpressionAttributeValues': {
+                        ':status': {'S': 'COMPLETED'},
+                        ':winner': {'S': winner} if winner else {'NULL': True},
+                        ':xp': {'N': str(total_xp_awarded)},
+                        ':completed': {'S': datetime.now(timezone.utc).isoformat()}
+                    }
+                }
+                ddb.update_item(**complete_params)
+
             duel_action(f"User {normalized_username} recorded time", duel_id=duel_id, time_ms=elapsed_ms)
             
             return {
-                "success": True, 
-                "completed": should_complete_duel, 
+                "success": True,
+                "completed": should_complete_duel,
                 "winner": winner if should_complete_duel else None,
-                "xpAwarded": xp_award if should_complete_duel else None
+                "xpAwarded": total_xp_awarded if should_complete_duel else None
             }
             
         except Exception as error:
@@ -1770,15 +1778,19 @@ class DuelOperations:
 
                             # Handle XP based on duel type
                             if is_wager and (challenger_wager > 0 or challengee_wager > 0):
-                                # Wager duel timeout - winner takes both wagers, loser loses their wager
+                                # Wager duel timeout - winner takes both wagers + 200 bonus, loser loses their wager
                                 winner_wager = challenger_wager if winner == challenger else challengee_wager
                                 loser_wager = challengee_wager if winner == challenger else challenger_wager
 
-                                total_winnings = winner_wager + loser_wager
-                                UserOperations.award_xp(winner, total_winnings)  # Winner gets their wager back + opponent's wager
+                                wager_winnings = winner_wager + loser_wager
+                                bonus_xp = DuelOperations.calculate_duel_xp(difficulty, True)  # 200 XP bonus
+                                total_xp_awarded = wager_winnings + bonus_xp
+
+                                UserOperations.award_xp(winner, wager_winnings)  # Winner gets wager winnings
+                                UserOperations.award_xp(winner, bonus_xp)  # Winner gets bonus
                                 UserOperations.award_xp(loser, -loser_wager)  # Loser loses their wager
-                                complete_params['ExpressionAttributeValues'][':xp'] = {'N': str(total_winnings)}
-                                duel_action(f"Wager duel {duel_id} completed (timeout) - {winner} won {total_winnings} XP (wagered {winner_wager}, won {loser_wager})", winner=winner, loser=loser)
+                                complete_params['ExpressionAttributeValues'][':xp'] = {'N': str(total_xp_awarded)}
+                                duel_action(f"Wager duel {duel_id} completed (timeout) - {winner} won {total_xp_awarded} XP ({wager_winnings} wager + {bonus_xp} bonus)", winner=winner, loser=loser)
                             else:
                                 # Normal duel timeout - standard XP
                                 bonus_xp = DuelOperations.calculate_duel_xp(difficulty, True)  # Winner gets bonus
