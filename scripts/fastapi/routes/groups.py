@@ -224,3 +224,67 @@ async def get_university_leaderboard_endpoint(
         return response
     except Exception as error:
         return {"success": False, "error": str(error)}
+
+
+@router.get("/my-university-leaderboard/{username}")
+async def get_my_university_leaderboard_endpoint(
+    username: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """Get individual student rankings for the user's university"""
+    try:
+        # Get the user's university first
+        user_data = UserOperations.get_user_data(username)
+        if not user_data.get("success"):
+            return {"success": False, "error": "User not found"}
+
+        user_university = user_data.get("data", {}).get("university")
+        if not user_university or user_university == "undefined" or user_university == "" or user_university == "Other":
+            return {"success": False, "error": "User not enrolled in a university"}
+
+        # Check cache first (cache key includes university)
+        cache_key = f"my_university_{user_university}"
+        cached_leaderboard = cache_manager.get(CacheType.UNIVERSITY_LEADERBOARD, cache_key)
+        if cached_leaderboard:
+            return cached_leaderboard
+
+        # Get all users from the same university
+        result = UserOperations.get_all_users_for_university_leaderboard()
+        if not result.get("success"):
+            return result
+
+        # Filter users by university and calculate XP
+        university_users = []
+        for user in result.get("data", []):
+            if user.get("university") == user_university:
+                user_xp = (user.get("easy", 0) * 100 +
+                          user.get("medium", 0) * 300 +
+                          user.get("hard", 0) * 500 +
+                          user.get("xp", 0))
+
+                university_users.append({
+                    "username": user.get("username", ""),
+                    "display_name": user.get("display_name", user.get("username", "")),
+                    "easy": user.get("easy", 0),
+                    "medium": user.get("medium", 0),
+                    "hard": user.get("hard", 0),
+                    "xp": user.get("xp", 0),
+                    "total_xp": user_xp
+                })
+
+        # Sort by total XP descending
+        university_users.sort(key=lambda x: x["total_xp"], reverse=True)
+
+        response = {
+            "success": True,
+            "data": university_users,
+            "university": user_university,
+            "total_students": len(university_users)
+        }
+
+        # Cache the result for 1 minute
+        cache_manager.set(CacheType.UNIVERSITY_LEADERBOARD, response, ttl=60, cache_key=cache_key)
+
+        return response
+    except Exception as error:
+        return {"success": False, "error": str(error)}

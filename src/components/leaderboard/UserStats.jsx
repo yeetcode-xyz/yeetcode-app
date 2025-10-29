@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import XPExplainerModal from '../XPExplainerModal';
+import RankProgressionModal from '../RankProgressionModal';
 
 const RANKS = [
   { name: 'Script Kiddie', min: 0, max: 499 },
@@ -31,6 +33,8 @@ function getRankAndSubdivision(xp) {
 
 const UserStats = ({ userData, leaderboard, dailyData }) => {
   const [showRankUp, setShowRankUp] = useState(false);
+  const [showXPModal, setShowXPModal] = useState(false);
+  const [showRankModal, setShowRankModal] = useState(false);
 
   // Find current user's stats from leaderboard (case-insensitive)
   const currentUserStats = leaderboard?.find(
@@ -85,6 +89,35 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
       if (userXP < RANKS[i].max) return RANKS[i].max + 1 - userXP;
     }
     return 0;
+  };
+
+  // Get next rank details
+  const getNextRank = () => {
+    // If in subdivision I or II, next is same rank name but higher subdivision
+    const currentRankIndex = RANKS.findIndex(
+      r => userXP >= r.min && userXP <= r.max
+    );
+
+    if (currentRankIndex === -1) return null;
+
+    const currentRank = RANKS[currentRankIndex];
+    const range = currentRank.max - currentRank.min + 1;
+    const subSize = Math.floor(range / 3);
+
+    // Check if we're in subdivision III (highest in current rank)
+    if (userXP >= currentRank.min + 2 * subSize) {
+      // Next is subdivision I of next rank
+      if (currentRankIndex < RANKS.length - 1) {
+        return { name: RANKS[currentRankIndex + 1].name, sub: 'I' };
+      }
+      return null; // Max rank reached
+    } else if (userXP >= currentRank.min + subSize) {
+      // Currently in II, next is III
+      return { name: currentRank.name, sub: 'III' };
+    } else {
+      // Currently in I, next is II
+      return { name: currentRank.name, sub: 'II' };
+    }
   };
 
   // Progress bar for current rank
@@ -183,7 +216,16 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
             <div className="text-2xl font-bold text-red-500">
               {userXP.toLocaleString()}
             </div>
-            <div className="text-sm text-gray-600">Total XP</div>
+            <div className="flex items-center justify-center gap-1 text-sm text-gray-600">
+              <span>Total XP</span>
+              <button
+                onClick={() => setShowXPModal(true)}
+                className="text-blue-500 hover:text-blue-700 transition-colors cursor-pointer font-bold"
+                title="How XP works"
+              >
+                ℹ️
+              </button>
+            </div>
           </div>
           <div className="border-t-2 border-gray-400 my-4"></div>
           <div className="grid grid-cols-3 gap-3 text-center">
@@ -203,25 +245,52 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
             </div>
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm items-center">
-              <span>Rank Progress</span>
-              <span className="font-bold flex items-center gap-1">
-                <span>{rankName}</span>
-                {rankSub && (
-                  <span className="text-xs text-gray-500">{rankSub}</span>
-                )}
-              </span>
+            <div className="text-center mb-2">
+              <div className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                <span>Current Rank</span>
+                <button
+                  onClick={() => setShowRankModal(true)}
+                  className="text-blue-500 hover:text-blue-700 transition-colors cursor-pointer text-sm"
+                  title="View rank progression"
+                >
+                  ℹ️
+                </button>
+              </div>
+              <div className="text-xl font-black text-blue-600">
+                {rankName} {rankSub}
+              </div>
+              {(() => {
+                const nextRank = getNextRank();
+                return nextRank ? (
+                  <div className="text-xs text-gray-600 mt-1">
+                    Next:{' '}
+                    <span className="font-bold text-green-600">
+                      {nextRank.name} {nextRank.sub}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-orange-600 mt-1 font-bold">
+                    Max Rank Reached! 🎉
+                  </div>
+                );
+              })()}
             </div>
-            <div className="w-full h-2 bg-gray-200 rounded-full">
+            <div className="w-full h-3 bg-gray-200 rounded-full border-2 border-gray-300">
               <div
-                className="h-2 bg-blue-500 rounded-full transition-all duration-300"
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300"
                 style={{ width: `${getRankProgress()}%` }}
               ></div>
             </div>
-            <div className="text-xs text-gray-600 text-center">
-              {getNextRankXP() > 0
-                ? `${getNextRankXP().toLocaleString()} XP to next rank`
-                : 'Max rank reached!'}
+            <div className="text-xs text-gray-700 text-center font-semibold">
+              {(() => {
+                const nextRank = getNextRank();
+                const xpNeeded = getNextRankXP();
+                return xpNeeded > 0 && nextRank
+                  ? `${xpNeeded.toLocaleString()} XP until ${nextRank.name} ${nextRank.sub}`
+                  : xpNeeded > 0
+                    ? `${xpNeeded.toLocaleString()} XP to next milestone`
+                    : 'Maximum rank achieved!';
+              })()}
             </div>
           </div>
         </div>
@@ -245,6 +314,15 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
           )}
         </AnimatePresence>
       </div>
+      <XPExplainerModal
+        isOpen={showXPModal}
+        onClose={() => setShowXPModal(false)}
+      />
+      <RankProgressionModal
+        isOpen={showRankModal}
+        onClose={() => setShowRankModal(false)}
+        userXP={userXP}
+      />
     </div>
   );
 };

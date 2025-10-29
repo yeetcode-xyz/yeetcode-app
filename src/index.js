@@ -1662,6 +1662,40 @@ ipcMain.handle('get-university-leaderboard', async event => {
   }
 });
 
+// GET MY UNIVERSITY LEADERBOARD
+ipcMain.handle('get-my-university-leaderboard', async (event, username) => {
+  console.log('[DEBUG][get-my-university-leaderboard] Called for:', username);
+  try {
+    const axios = require('axios');
+    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+    const apiKey = config.apiKey;
+    const response = await axios.get(
+      `${fastApiUrl}/my-university-leaderboard/${username}`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      }
+    );
+    if (response.data.success) {
+      return {
+        data: response.data.data || [],
+        university: response.data.university || '',
+        totalStudents: response.data.total_students || 0,
+      };
+    } else {
+      throw new Error(
+        response.data.error || 'Failed to get my university leaderboard'
+      );
+    }
+  } catch (error) {
+    console.error('[ERROR][get-my-university-leaderboard]', error);
+    throw error;
+  }
+});
+
 // ========================================
 // AUTO-UPDATER IPC HANDLERS
 // ========================================

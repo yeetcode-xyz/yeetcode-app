@@ -21,6 +21,7 @@ function App() {
   const [groupData, setGroupData] = useState({ code: '', joined: false });
   const [leaderboard, setLeaderboard] = useState([]);
   const [universityLeaderboard, setUniversityLeaderboard] = useState([]);
+  const [myUniversityLeaderboard, setMyUniversityLeaderboard] = useState([]);
   const [notifications, setNotifications] = useState([]);
 
   // Fix: Declare previousLeaderboardRef here
@@ -107,6 +108,7 @@ function App() {
   useEffect(() => {
     if (step === 'leaderboard') {
       fetchUniversityLeaderboard();
+      fetchMyUniversityLeaderboard();
     }
   }, [step]);
 
@@ -131,6 +133,7 @@ function App() {
       if (timeSinceLastRefresh >= minimumDelay) {
         fetchLeaderboard();
         fetchUniversityLeaderboard();
+        fetchMyUniversityLeaderboard();
         fetchDailyProblem();
         if (leaderboardStepRef.current) {
           leaderboardStepRef.current.refreshDuels();
@@ -344,6 +347,20 @@ function App() {
     }
   };
 
+  const fetchMyUniversityLeaderboard = async () => {
+    if (!window.electronAPI || !userData.leetUsername) return;
+    try {
+      const myUniData = await window.electronAPI.getMyUniversityLeaderboard(
+        userData.leetUsername
+      );
+      setMyUniversityLeaderboard(myUniData.data || []);
+    } catch (error) {
+      console.error('Error fetching my university leaderboard:', error);
+      // Not a critical error - user might not be in a university
+      setMyUniversityLeaderboard([]);
+    }
+  };
+
   const fetchDailyProblem = async () => {
     if (!userData?.leetUsername || !window.electronAPI) {
       setDailyData(prev => ({ ...prev, loading: false }));
@@ -373,6 +390,7 @@ function App() {
       fetchDailyProblem(),
       fetchLeaderboard(),
       fetchUniversityLeaderboard(),
+      fetchMyUniversityLeaderboard(),
     ]);
   };
 
@@ -716,6 +734,7 @@ function App() {
     setGroupData,
     leaderboard,
     universityLeaderboard,
+    myUniversityLeaderboard,
     dailyData,
     validating,
     setValidating,

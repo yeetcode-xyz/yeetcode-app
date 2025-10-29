@@ -39,6 +39,32 @@ const OnboardingStep = ({
         )}
       </div>
 
+      {/* XP Explanation Box */}
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-lg">⚡</span>
+          <h3 className="font-bold text-purple-800">How XP Works</h3>
+        </div>
+        <div className="space-y-1 text-xs text-gray-700">
+          <div className="flex items-center justify-between">
+            <span>🟢 Easy Problem</span>
+            <span className="font-bold text-green-600">100 XP</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>🟡 Medium Problem</span>
+            <span className="font-bold text-yellow-600">300 XP</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>🔴 Hard Problem</span>
+            <span className="font-bold text-red-600">500 XP</span>
+          </div>
+          <div className="flex items-center justify-between pt-1 border-t border-purple-200">
+            <span>🎯 Daily Challenge Bonus</span>
+            <span className="font-bold text-blue-600">+200 XP</span>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-bold mb-1">Your Name</label>
@@ -54,6 +80,14 @@ const OnboardingStep = ({
           <label className="block text-sm font-bold mb-1">
             LeetCode Username
           </label>
+          <p className="text-xs text-gray-600 mb-2">
+            We'll use your LeetCode username to:
+          </p>
+          <ul className="text-xs text-gray-600 mb-2 ml-4 space-y-1">
+            <li>• Track your problem-solving progress automatically</li>
+            <li>• Calculate your XP based on problems solved</li>
+            <li>• Update your leaderboard rank in real-time</li>
+          </ul>
           <input
             className="border-2 border-black rounded-lg px-3 py-2 w-full focus:border-blue-500 focus:outline-none transition-colors"
             placeholder="Your LeetCode username"
@@ -62,9 +96,27 @@ const OnboardingStep = ({
               setUserData({ ...userData, leetUsername: e.target.value })
             }
           />
-          <p className="text-xs text-gray-500 mt-1">
-            We'll verify this username exists on LeetCode
-          </p>
+          {userData.leetUsername && userData.leetUsername.trim().length > 0 && (
+            <div className="mt-2 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+              <p className="text-sm text-blue-800">
+                Is this you?{' '}
+                <button
+                  onClick={e => {
+                    e.preventDefault();
+                    window.electronAPI.openExternalUrl(
+                      `https://leetcode.com/u/${userData.leetUsername}/`
+                    );
+                  }}
+                  className="font-bold underline hover:text-blue-600 transition-colors break-all"
+                >
+                  https://leetcode.com/u/{userData.leetUsername}/
+                </button>
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                Click to verify this is your profile
+              </p>
+            </div>
+          )}
         </div>
 
         <div>

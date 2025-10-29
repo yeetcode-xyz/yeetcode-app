@@ -1066,7 +1066,21 @@ class BountyOperations:
     
     @staticmethod
     def update_bounty_progress(username: str, bounty_id: str, increment: int = 1) -> Dict:
-        """Update user's progress on a bounty and check for completion"""
+        """
+        Update user's progress on a bounty and check for completion
+
+        NOTE: Automatic progress tracking will be handled by AWS Lambda functions.
+        Lambda will detect LeetCode submissions via periodic polling and call this method
+        to update bounty progress. This method is ready for integration but is not
+        currently invoked automatically.
+
+        Future implementation:
+        - Lambda function polls LeetCode API for user submissions
+        - Compares with previous state to find new solves
+        - Matches solved problems against active bounty requirements
+        - Calls this method to increment progress for matching bounties
+        - Awards XP automatically upon bounty completion
+        """
         try:
             if not BOUNTIES_TABLE:
                 raise Exception("BOUNTIES_TABLE not configured")

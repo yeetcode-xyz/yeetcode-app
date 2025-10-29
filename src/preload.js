@@ -115,6 +115,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('get-university-leaderboard');
   },
 
+  getMyUniversityLeaderboard: username => {
+    const validatedUsername = validateInput.username(username);
+    return ipcRenderer.invoke(
+      'get-my-university-leaderboard',
+      validatedUsername
+    );
+  },
+
   // System notification for duel events
   notifyDuelEvent: ({ type, opponent, problemTitle }) => {
     return ipcRenderer.invoke('notify-duel-event', {

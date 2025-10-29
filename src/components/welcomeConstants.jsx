@@ -2,13 +2,13 @@ export const TUTORIAL_STEPS = [
   {
     title: 'Leaderboard',
     description:
-      'Compete with friends, race to take over and see how you rank. Stay motivated, refreshes every minute',
+      'Track your progress across 3 leaderboards: compete with your study group, represent your university, and climb the global rankings. Earn XP for every problem solved!',
     icon: '🏆',
-    tip: '💡 Tip: Check the leaderboard daily to stay motivated and see how you rank against friends!',
+    tip: '💡 Tip: Easy = 100 XP, Medium = 300 XP, Hard = 500 XP. Daily challenges give +200 XP bonus!',
     preview: ({ leaderboardTab, setLeaderboardTab }) => (
       <div
-        className="panel-3d bg-yellow-100 border-4 border-black rounded-xl overflow-hidden flex flex-col"
-        style={{ height: '350px' }}
+        className="panel-3d bg-yellow-100 border-4 border-black rounded-xl overflow-hidden flex flex-col mb-4"
+        style={{ height: '330px' }}
       >
         <div className="bg-blue-500 px-6 py-4 border-b-4 border-black flex-shrink-0">
           <div className="flex items-center justify-between gap-2">
@@ -19,31 +19,41 @@ export const TUTORIAL_STEPS = [
               </div>
               <div className="flex gap-2">
                 <button
-                  className={`btn-3d px-3 py-1 rounded-lg font-bold border-2 border-black focus:outline-none transition-colors text-sm ${
-                    leaderboardTab === 'friends'
+                  className={`btn-3d px-2 py-1 rounded-lg font-bold border-2 border-black focus:outline-none transition-colors text-xs ${
+                    leaderboardTab === 'group'
                       ? 'bg-yellow-300 text-black'
                       : 'bg-white text-black hover:bg-yellow-100'
                   }`}
-                  onClick={() => setLeaderboardTab('friends')}
+                  onClick={() => setLeaderboardTab('group')}
                 >
-                  Friends
+                  Group
                 </button>
                 <button
-                  className={`btn-3d px-3 py-1 rounded-lg font-bold border-2 border-black focus:outline-none transition-colors text-sm ${
-                    leaderboardTab === 'university'
+                  className={`btn-3d px-2 py-1 rounded-lg font-bold border-2 border-black focus:outline-none transition-colors text-xs ${
+                    leaderboardTab === 'myUniversity'
                       ? 'bg-yellow-300 text-black'
                       : 'bg-white text-black hover:bg-yellow-100'
                   }`}
-                  onClick={() => setLeaderboardTab('university')}
+                  onClick={() => setLeaderboardTab('myUniversity')}
                 >
-                  University
+                  My University
+                </button>
+                <button
+                  className={`btn-3d px-2 py-1 rounded-lg font-bold border-2 border-black focus:outline-none transition-colors text-xs ${
+                    leaderboardTab === 'allUniversities'
+                      ? 'bg-yellow-300 text-black'
+                      : 'bg-white text-black hover:bg-yellow-100'
+                  }`}
+                  onClick={() => setLeaderboardTab('allUniversities')}
+                >
+                  All Universities
                 </button>
               </div>
             </div>
           </div>
         </div>
         <div className="flex-1 overflow-hidden">
-          {leaderboardTab === 'friends' ? (
+          {leaderboardTab === 'group' ? (
             <div className="overflow-x-auto overflow-y-auto w-full max-w-full h-full scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
               <table className="w-full max-w-full table-fixed">
                 <thead className="bg-yellow-100 sticky top-0 z-10">
@@ -218,6 +228,172 @@ export const TUTORIAL_STEPS = [
                     </td>
                     <td className="text-center px-4 py-3 w-24 font-bold text-base text-purple-600">
                       18,300
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : leaderboardTab === 'myUniversity' ? (
+            <div className="overflow-x-auto overflow-y-auto w-full max-w-full h-full scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+              <table className="w-full max-w-full table-fixed">
+                <thead className="bg-yellow-100 sticky top-0 z-10">
+                  <tr className="border-b-2 border-black text-sm">
+                    <th className="font-bold text-left px-4 py-2 w-12">#</th>
+                    <th className="font-bold text-left px-4 py-2 w-24">
+                      PLAYER
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-16">
+                      RANK
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-14">
+                      EASY
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-14">
+                      MED
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-14">
+                      HARD
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-16">
+                      TOTAL
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-20">XP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-200 bg-red-100">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#1</td>
+                    <td className="px-4 py-3 w-24">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
+                          CS
+                        </div>
+                        <span className="text-sm">Chris</span>
+                      </div>
+                    </td>
+                    <td className="text-center px-4 py-3 w-16">
+                      <span className="font-bold text-xs text-blue-700">
+                        LG III
+                      </span>
+                    </td>
+                    <td className="text-center px-4 py-3 w-14 text-base">95</td>
+                    <td className="text-center px-4 py-3 w-14 text-base">48</td>
+                    <td className="text-center px-4 py-3 w-14 text-base">15</td>
+                    <td className="text-center px-4 py-3 w-16 font-bold text-base text-blue-600">
+                      158
+                    </td>
+                    <td className="text-center px-4 py-3 w-20 font-bold text-base text-purple-600">
+                      31,400
+                    </td>
+                  </tr>
+                  <tr className="border-b border-gray-200 bg-blue-100 border-l-4 border-blue-400">
+                    <td className="px-4 py-3 w-12 font-bold text-base text-blue-700">
+                      #2
+                    </td>
+                    <td className="px-4 py-3 w-24">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-blue-200 text-blue-800">
+                          YO
+                        </div>
+                        <span className="text-sm font-semibold text-blue-700">
+                          You
+                        </span>
+                      </div>
+                    </td>
+                    <td className="text-center px-4 py-3 w-16">
+                      <span className="font-bold text-xs text-blue-500">
+                        AA II
+                      </span>
+                    </td>
+                    <td className="text-center px-4 py-3 w-14 text-base text-blue-700 font-semibold">
+                      62
+                    </td>
+                    <td className="text-center px-4 py-3 w-14 text-base text-blue-700 font-semibold">
+                      28
+                    </td>
+                    <td className="text-center px-4 py-3 w-14 text-base text-blue-700 font-semibold">
+                      7
+                    </td>
+                    <td className="text-center px-4 py-3 w-16 font-bold text-base text-blue-600">
+                      97
+                    </td>
+                    <td className="text-center px-4 py-3 w-20 font-bold text-base text-purple-600">
+                      17,100
+                    </td>
+                  </tr>
+                  <tr className="border-b border-gray-200 bg-green-100">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#3</td>
+                    <td className="px-4 py-3 w-24">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
+                          AM
+                        </div>
+                        <span className="text-sm">Amy</span>
+                      </div>
+                    </td>
+                    <td className="text-center px-4 py-3 w-16">
+                      <span className="font-bold text-xs text-blue-600">
+                        SO III
+                      </span>
+                    </td>
+                    <td className="text-center px-4 py-3 w-14 text-base">51</td>
+                    <td className="text-center px-4 py-3 w-14 text-base">22</td>
+                    <td className="text-center px-4 py-3 w-14 text-base">5</td>
+                    <td className="text-center px-4 py-3 w-16 font-bold text-base text-blue-600">
+                      78
+                    </td>
+                    <td className="text-center px-4 py-3 w-20 font-bold text-base text-purple-600">
+                      14,200
+                    </td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#4</td>
+                    <td className="px-4 py-3 w-24">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
+                          AL
+                        </div>
+                        <span className="text-sm">Alex</span>
+                      </div>
+                    </td>
+                    <td className="text-center px-4 py-3 w-16">
+                      <span className="font-bold text-xs text-blue-600">
+                        SO II
+                      </span>
+                    </td>
+                    <td className="text-center px-4 py-3 w-14 text-base">44</td>
+                    <td className="text-center px-4 py-3 w-14 text-base">18</td>
+                    <td className="text-center px-4 py-3 w-14 text-base">3</td>
+                    <td className="text-center px-4 py-3 w-16 font-bold text-base text-blue-600">
+                      65
+                    </td>
+                    <td className="text-center px-4 py-3 w-20 font-bold text-base text-purple-600">
+                      11,300
+                    </td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="px-4 py-3 w-12 font-bold text-base">#5</td>
+                    <td className="px-4 py-3 w-24">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black bg-gray-300">
+                          JO
+                        </div>
+                        <span className="text-sm">Jordan</span>
+                      </div>
+                    </td>
+                    <td className="text-center px-4 py-3 w-16">
+                      <span className="font-bold text-xs text-gray-500">
+                        DB III
+                      </span>
+                    </td>
+                    <td className="text-center px-4 py-3 w-14 text-base">32</td>
+                    <td className="text-center px-4 py-3 w-14 text-base">11</td>
+                    <td className="text-center px-4 py-3 w-14 text-base">1</td>
+                    <td className="text-center px-4 py-3 w-16 font-bold text-base text-blue-600">
+                      44
+                    </td>
+                    <td className="text-center px-4 py-3 w-20 font-bold text-base text-purple-600">
+                      6,900
                     </td>
                   </tr>
                 </tbody>

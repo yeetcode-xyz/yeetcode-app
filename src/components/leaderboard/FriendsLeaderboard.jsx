@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import XPExplainerModal from '../XPExplainerModal';
 
 const RANKS = [
   { name: 'Script Kiddie', min: 0, max: 499 },
@@ -28,16 +29,52 @@ function getRankAndSubdivision(xp) {
   return { name: 'Unranked', sub: '' };
 }
 
+function getRankAbbreviation(rankName) {
+  const abbreviations = {
+    'Script Kiddie': 'SK',
+    Debugger: 'DB',
+    'Stack Overflower': 'SO',
+    'Algorithm Apprentice': 'AA',
+    'Loop Guru': 'LG',
+    'Recursion Wizard': 'RW',
+    'Regex Sorcerer': 'RS',
+    'Master Yeeter': 'MW',
+    '0xDEADBEEF': '0x',
+    Unranked: '?',
+  };
+  return abbreviations[rankName] || '?';
+}
+
+function getRankColor(rankName) {
+  // Color-code by rank tier
+  const colors = {
+    'Script Kiddie': 'text-gray-600',
+    Debugger: 'text-gray-500',
+    'Stack Overflower': 'text-blue-600',
+    'Algorithm Apprentice': 'text-blue-500',
+    'Loop Guru': 'text-blue-700',
+    'Recursion Wizard': 'text-purple-600',
+    'Regex Sorcerer': 'text-purple-700',
+    'Master Yeeter': 'text-orange-600',
+    '0xDEADBEEF': 'text-orange-700',
+    Unranked: 'text-gray-400',
+  };
+  return colors[rankName] || 'text-gray-400';
+}
+
 const FriendsLeaderboard = ({
   leaderboard,
   universityLeaderboard = [],
+  myUniversityLeaderboard = [],
   userData,
   notifications = [],
 }) => {
   // Tab state
-  const [activeTab, setActiveTab] = useState('friends');
+  const [activeTab, setActiveTab] = useState('group');
   // Tooltip state
   const [hoveredUser, setHoveredUser] = useState(null);
+  // XP Modal state
+  const [showXPModal, setShowXPModal] = useState(false);
 
   // XP calculation function - ensure all values are numbers
   const calculateXP = user => {
@@ -72,23 +109,33 @@ const FriendsLeaderboard = ({
             <div className="flex gap-2 ml-4">
               <button
                 className={`btn-3d shadow-md px-3 py-1 rounded-lg font-bold border-2 border-b-0 border-white focus:outline-none transition-colors text-sm ${
-                  activeTab === 'friends'
+                  activeTab === 'group'
                     ? 'bg-yellow-100 text-black'
                     : 'bg-blue-200 text-black hover:bg-yellow-200'
                 }`}
-                onClick={() => setActiveTab('friends')}
+                onClick={() => setActiveTab('group')}
               >
-                Friends
+                Group
               </button>
               <button
                 className={`btn-3d shadow-md px-3 py-1 rounded-lg font-bold border-2 border-b-0 border-white focus:outline-none transition-colors text-sm ${
-                  activeTab === 'university'
+                  activeTab === 'myUniversity'
                     ? 'bg-yellow-100 text-black'
-                    : 'bg-blue-200 text-black0 hover:bg-yellow-200'
+                    : 'bg-blue-200 text-black hover:bg-yellow-200'
                 }`}
-                onClick={() => setActiveTab('university')}
+                onClick={() => setActiveTab('myUniversity')}
               >
-                University
+                My University
+              </button>
+              <button
+                className={`btn-3d shadow-md px-3 py-1 rounded-lg font-bold border-2 border-b-0 border-white focus:outline-none transition-colors text-sm ${
+                  activeTab === 'allUniversities'
+                    ? 'bg-yellow-100 text-black'
+                    : 'bg-blue-200 text-black hover:bg-yellow-200'
+                }`}
+                onClick={() => setActiveTab('allUniversities')}
+              >
+                All Universities
               </button>
             </div>
           </div>
@@ -125,7 +172,172 @@ const FriendsLeaderboard = ({
         </div>
       </div>
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'university' ? (
+        {activeTab === 'myUniversity' ? (
+          myUniversityLeaderboard.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-lg font-bold">
+              <span>🎓 My University Leaderboard</span>
+              <span className="mt-2 text-sm text-center px-4">
+                {userData?.university &&
+                userData.university !== 'undefined' &&
+                userData.university !== ''
+                  ? 'No students from your university yet!'
+                  : 'You are not enrolled in a university'}
+              </span>
+            </div>
+          ) : (
+            <div className="h-full overflow-y-auto custom-scrollbar">
+              <table className="min-w-full table-fixed">
+                <thead className="bg-yellow-100 sticky top-0 z-10">
+                  <tr className="border-b-2 border-black">
+                    <th className="font-bold text-left px-4 py-2 w-12">#</th>
+                    <th className="font-bold text-left px-4 py-2 w-24">
+                      PLAYER
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-16">
+                      RANK
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-14">
+                      EASY
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-14">
+                      MED
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-14">
+                      HARD
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-16">
+                      TOTAL
+                    </th>
+                    <th className="font-bold text-center px-4 py-2 w-20">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>XP</span>
+                        <button
+                          onClick={() => setShowXPModal(true)}
+                          className="text-blue-500 hover:text-blue-700 transition-colors cursor-pointer text-sm"
+                          title="How XP works"
+                        >
+                          ℹ️
+                        </button>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence mode="popLayout">
+                    {myUniversityLeaderboard
+                      .sort(
+                        (a, b) =>
+                          (b.total_xp || calculateXP(b)) -
+                          (a.total_xp || calculateXP(a))
+                      )
+                      .map((user, index) => {
+                        const isCurrentUser =
+                          user.username ===
+                          userData.leetUsername?.toLowerCase();
+                        const total = user.easy + user.medium + user.hard;
+                        const userXP = user.total_xp || calculateXP(user);
+                        const bgColor =
+                          index === 0
+                            ? 'bg-red-100'
+                            : index === 1
+                              ? 'bg-blue-100'
+                              : index === 2
+                                ? 'bg-green-100'
+                                : isCurrentUser
+                                  ? 'bg-blue-50 border-l-4 border-blue-400'
+                                  : '';
+
+                        const textStyle = isCurrentUser
+                          ? 'font-semibold text-blue-700'
+                          : '';
+                        const rankStyle = isCurrentUser
+                          ? 'font-bold text-blue-700'
+                          : 'font-bold';
+
+                        return (
+                          <motion.tr
+                            key={user.username}
+                            layout
+                            initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                            transition={{
+                              layout: { duration: 0.4, ease: 'easeInOut' },
+                              default: { duration: 0.3 },
+                            }}
+                            className={`border-b border-gray-200 ${bgColor}`}
+                          >
+                            <motion.td
+                              className={`px-4 py-3 w-12 ${rankStyle}`}
+                              layout
+                            >
+                              #{index + 1}
+                            </motion.td>
+                            <motion.td
+                              className={`px-4 py-3 w-24 ${textStyle}`}
+                              layout
+                            >
+                              {user.display_name || user.username}
+                            </motion.td>
+                            <motion.td
+                              className="text-center px-4 py-3 w-16"
+                              layout
+                            >
+                              {(() => {
+                                const xp = userXP;
+                                const { name: rankName, sub: rankSub } =
+                                  getRankAndSubdivision(xp);
+                                const abbr = getRankAbbreviation(rankName);
+                                const color = getRankColor(rankName);
+                                return (
+                                  <span
+                                    className={`font-bold text-xs ${color}`}
+                                    title={`${rankName} ${rankSub}`}
+                                  >
+                                    {abbr} {rankSub}
+                                  </span>
+                                );
+                              })()}
+                            </motion.td>
+                            <motion.td
+                              className={`text-center px-4 py-3 w-14 ${textStyle}`}
+                              layout
+                            >
+                              {user.easy}
+                            </motion.td>
+                            <motion.td
+                              className={`text-center px-4 py-3 w-14 ${textStyle}`}
+                              layout
+                            >
+                              {user.medium}
+                            </motion.td>
+                            <motion.td
+                              className={`text-center px-4 py-3 w-14 ${textStyle}`}
+                              layout
+                            >
+                              {user.hard}
+                            </motion.td>
+                            <motion.td
+                              className={`text-center px-4 py-3 w-16 font-bold text-blue-600 ${textStyle}`}
+                              layout
+                            >
+                              {total}
+                            </motion.td>
+                            <motion.td
+                              className={`text-center px-4 py-3 w-20 font-bold text-red-500 ${textStyle}`}
+                              layout
+                            >
+                              {userXP.toLocaleString()}
+                            </motion.td>
+                          </motion.tr>
+                        );
+                      })}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : activeTab === 'allUniversities' ? (
           universityLeaderboard.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 text-lg font-bold">
               <span>🏫 University Leaderboard</span>
@@ -258,15 +470,27 @@ const FriendsLeaderboard = ({
             <table className="min-w-full table-fixed">
               <thead className="bg-yellow-100 sticky top-0 z-10">
                 <tr className="border-b-2 border-black">
-                  <th className="font-bold text-left px-4 py-2 w-16">RANK</th>
-                  <th className="font-bold text-left px-4 py-2 w-32">PLAYER</th>
-                  <th className="font-bold text-center px-4 py-2 w-16">EASY</th>
-                  <th className="font-bold text-center px-4 py-2 w-16">MED</th>
-                  <th className="font-bold text-center px-4 py-2 w-16">HARD</th>
-                  <th className="font-bold text-center px-4 py-2 w-20">
+                  <th className="font-bold text-left px-4 py-2 w-12">#</th>
+                  <th className="font-bold text-left px-4 py-2 w-24">PLAYER</th>
+                  <th className="font-bold text-center px-4 py-2 w-16">RANK</th>
+                  <th className="font-bold text-center px-4 py-2 w-14">EASY</th>
+                  <th className="font-bold text-center px-4 py-2 w-14">MED</th>
+                  <th className="font-bold text-center px-4 py-2 w-14">HARD</th>
+                  <th className="font-bold text-center px-4 py-2 w-16">
                     TOTAL
                   </th>
-                  <th className="font-bold text-center px-4 py-2 w-24">XP</th>
+                  <th className="font-bold text-center px-4 py-2 w-20">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>XP</span>
+                      <button
+                        onClick={() => setShowXPModal(true)}
+                        className="text-blue-500 hover:text-blue-700 transition-colors cursor-pointer text-sm"
+                        title="How XP works"
+                      >
+                        ℹ️
+                      </button>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -324,7 +548,7 @@ const FriendsLeaderboard = ({
                           className={`border-b border-gray-200 ${bgColor}`}
                         >
                           <motion.td
-                            className={`px-4 py-3 w-16 ${rankStyle}`}
+                            className={`px-4 py-3 w-12 ${rankStyle}`}
                             layout
                           >
                             <motion.span
@@ -336,7 +560,7 @@ const FriendsLeaderboard = ({
                               #{index + 1}
                             </motion.span>
                           </motion.td>
-                          <motion.td className="px-4 py-3 w-32" layout>
+                          <motion.td className="px-4 py-3 w-24" layout>
                             <div className="flex items-center gap-2">
                               <div
                                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border border-black ${isCurrentUser ? 'bg-blue-200 text-blue-800' : 'bg-gray-300'}`}
@@ -374,7 +598,27 @@ const FriendsLeaderboard = ({
                             </div>
                           </motion.td>
                           <motion.td
-                            className={`text-center px-4 py-3 w-16 ${textStyle}`}
+                            className="text-center px-4 py-3 w-16"
+                            layout
+                          >
+                            {(() => {
+                              const xp = calculateXP(user);
+                              const { name: rankName, sub: rankSub } =
+                                getRankAndSubdivision(xp);
+                              const abbr = getRankAbbreviation(rankName);
+                              const color = getRankColor(rankName);
+                              return (
+                                <span
+                                  className={`font-bold text-xs ${color}`}
+                                  title={`${rankName} ${rankSub}`}
+                                >
+                                  {abbr} {rankSub}
+                                </span>
+                              );
+                            })()}
+                          </motion.td>
+                          <motion.td
+                            className={`text-center px-4 py-3 w-14 ${textStyle}`}
                             layout
                           >
                             <motion.span
@@ -387,7 +631,7 @@ const FriendsLeaderboard = ({
                             </motion.span>
                           </motion.td>
                           <motion.td
-                            className={`text-center px-4 py-3 w-16 ${textStyle}`}
+                            className={`text-center px-4 py-3 w-14 ${textStyle}`}
                             layout
                           >
                             <motion.span
@@ -400,7 +644,7 @@ const FriendsLeaderboard = ({
                             </motion.span>
                           </motion.td>
                           <motion.td
-                            className={`text-center px-4 py-3 w-16 ${textStyle}`}
+                            className={`text-center px-4 py-3 w-14 ${textStyle}`}
                             layout
                           >
                             <motion.span
@@ -413,7 +657,7 @@ const FriendsLeaderboard = ({
                             </motion.span>
                           </motion.td>
                           <motion.td
-                            className={`text-center px-4 py-3 w-20 font-bold ${isCurrentUser ? 'text-blue-700' : 'text-blue-600'}`}
+                            className={`text-center px-4 py-3 w-16 font-bold ${isCurrentUser ? 'text-blue-700' : 'text-blue-600'}`}
                             layout
                           >
                             <motion.span
@@ -426,7 +670,7 @@ const FriendsLeaderboard = ({
                             </motion.span>
                           </motion.td>
                           <motion.td
-                            className={`text-center px-4 py-3 w-24 font-bold ${isCurrentUser ? 'text-purple-700' : 'text-purple-600'}`}
+                            className={`text-center px-4 py-3 w-20 font-bold ${isCurrentUser ? 'text-purple-700' : 'text-purple-600'}`}
                             layout
                           >
                             <motion.span
@@ -447,6 +691,10 @@ const FriendsLeaderboard = ({
           </div>
         )}
       </div>
+      <XPExplainerModal
+        isOpen={showXPModal}
+        onClose={() => setShowXPModal(false)}
+      />
     </div>
   );
 };

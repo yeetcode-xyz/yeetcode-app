@@ -15,6 +15,7 @@ const LeaderboardStep = forwardRef(
       groupData,
       leaderboard,
       universityLeaderboard,
+      myUniversityLeaderboard,
       dailyData,
       refreshIn,
       showCopySuccess,
@@ -66,6 +67,7 @@ const LeaderboardStep = forwardRef(
             <FriendsLeaderboard
               leaderboard={leaderboard}
               universityLeaderboard={universityLeaderboard}
+              myUniversityLeaderboard={myUniversityLeaderboard}
               userData={userData}
               notifications={notifications}
             />
