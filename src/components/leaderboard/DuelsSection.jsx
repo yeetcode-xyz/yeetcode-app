@@ -111,9 +111,13 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
           startDuelPolling(duel.duelId);
         }
       });
+
+      // Return the fresh duels for use in polling
+      return duelsWithCompletedFlag;
     } catch (err) {
       console.error('Error loading duels:', err);
       setError('Failed to load duels');
+      return [];
     } finally {
       setLoading(false);
       loadingRef.current = false;
@@ -413,15 +417,26 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
             ),
           ]);
 
+          // Check if any result indicates the duel is completed
+          if (results.some(r => r.duelCompleted)) {
+            duelCompleted = true;
+            console.log(
+              `[POLLING] Duel ${duelId} already completed, stopping polling`
+            );
+            clearInterval(pollingInterval);
+            pollingIntervalsRef.current.delete(duelId);
+            return;
+          }
+
           // Only refresh if a submission was detected
           if (results.some(r => r.submitted)) {
             console.log(
               `[POLLING] Submission detected, refreshing duel ${duelId}`
             );
-            await loadDuels();
+            const freshDuels = await loadDuels();
 
-            // Check if duel is now completed after refresh
-            const updatedDuel = duels.find(d => d.duelId === duelId);
+            // Check if duel is now completed after refresh using fresh data
+            const updatedDuel = freshDuels?.find(d => d.duelId === duelId);
             if (
               updatedDuel &&
               ['COMPLETED', 'TIMEOUT'].includes(updatedDuel.status)
@@ -496,6 +511,14 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
           return { submitted: false };
         }
 
+        // Check if duel is already completed - stop polling immediately
+        if (['COMPLETED', 'TIMEOUT'].includes(duel.status)) {
+          console.log(
+            `[POLLING] Duel ${duelId} already ${duel.status}, skipping submission recording`
+          );
+          return { submitted: false, duelCompleted: true };
+        }
+
         // Determine when this specific user clicked "Start Duel"
         // The duel.startTime is when the first person started, but we need individual start times
         // For now, use the duel.startTime as the baseline for both users
@@ -529,6 +552,16 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
           }
           return { submitted: true, elapsedMs };
         } catch (recordError) {
+          // Check if the error is because duel is already completed
+          if (
+            recordError.message &&
+            recordError.message.includes('Duel already completed')
+          ) {
+            console.log(
+              `[POLLING] Duel ${duelId} already completed, stopping polling`
+            );
+            return { submitted: false, duelCompleted: true };
+          }
           console.error(
             `[POLLING] Failed to record submission for ${username}:`,
             recordError
