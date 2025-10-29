@@ -30,12 +30,16 @@ export const getRecentDuels = async username => {
  * @param {string} challengerUsername - Username of challenger
  * @param {string} challengeeUsername - Username of challengee
  * @param {string} difficulty - Problem difficulty (Easy/Medium/Hard/Random)
+ * @param {boolean} isWager - Whether this is a wager duel (default: false)
+ * @param {number} wagerAmount - Challenger's wager amount in XP (required if isWager is true)
  * @returns {Promise<Object>} Created duel object
  */
 export const createDuel = async (
   challengerUsername,
   challengeeUsername,
-  difficulty
+  difficulty,
+  isWager = false,
+  wagerAmount = null
 ) => {
   if (!window.electronAPI?.createDuel) {
     throw new Error('createDuel API not available');
@@ -43,7 +47,9 @@ export const createDuel = async (
   return await window.electronAPI.createDuel(
     challengerUsername,
     challengeeUsername,
-    difficulty
+    difficulty,
+    isWager,
+    wagerAmount
   );
 };
 
@@ -51,13 +57,14 @@ export const createDuel = async (
  * Accept a pending duel
  * @param {string} duelId - ID of the duel to accept
  * @param {string} username - Username of the user accepting the duel
+ * @param {number} opponentWager - Opponent's wager amount (required for wager duels, must be >= 75% of challenger's wager)
  * @returns {Promise<Object>} Updated duel object with ACTIVE status and startTime
  */
-export const acceptDuel = async (duelId, username) => {
+export const acceptDuel = async (duelId, username, opponentWager = null) => {
   if (!window.electronAPI?.acceptDuel) {
     throw new Error('acceptDuel API not available');
   }
-  return await window.electronAPI.acceptDuel(duelId, username);
+  return await window.electronAPI.acceptDuel(duelId, username, opponentWager);
 };
 
 /**

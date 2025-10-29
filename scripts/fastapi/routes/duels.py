@@ -56,20 +56,23 @@ async def create_duel_endpoint(
     """Create a new duel"""
     try:
         if DEBUG_MODE:
-            print(f"[DEBUG] Creating duel - username: {request.username}, opponent: {request.opponent}, problem_slug: {request.problem_slug}, problem_title: {request.problem_title}, problem_number: {request.problem_number}, difficulty: {request.difficulty}")
-        
+            wager_info = f", is_wager: {request.is_wager}, wager_amount: {request.wager_amount}" if request.is_wager else ""
+            print(f"[DEBUG] Creating duel - username: {request.username}, opponent: {request.opponent}, problem_slug: {request.problem_slug}, problem_title: {request.problem_title}, problem_number: {request.problem_number}, difficulty: {request.difficulty}{wager_info}")
+
         result = DuelOperations.create_duel(
-            request.username, 
-            request.opponent, 
+            request.username,
+            request.opponent,
             request.problem_slug,
             request.problem_title,
             request.problem_number,
-            request.difficulty
+            request.difficulty,
+            request.is_wager or False,
+            request.wager_amount
         )
-        
+
         # Invalidate cache to force refresh
         cache_manager.invalidate_all(CacheType.DUELS)
-        
+
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -80,13 +83,17 @@ async def accept_duel_endpoint(
     request: DuelRequest,
     api_key: str = Depends(verify_api_key)
 ):
-    """Accept a duel"""
+    """Accept a duel. For wager duels, opponent must specify their wager amount."""
     try:
-        result = DuelOperations.accept_duel(request.username, request.duel_id)
-        
+        result = DuelOperations.accept_duel(
+            request.username,
+            request.duel_id,
+            request.wager_amount  # Opponent's wager for wager duels
+        )
+
         # Invalidate cache to force refresh
         cache_manager.invalidate_all(CacheType.DUELS)
-        
+
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}

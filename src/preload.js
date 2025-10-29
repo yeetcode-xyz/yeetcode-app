@@ -222,24 +222,65 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('get-recent-duels', validatedUsername);
   },
 
-  createDuel: (challengerUsername, challengeeUsername, difficulty) => {
+  createDuel: (
+    challengerUsername,
+    challengeeUsername,
+    difficulty,
+    isWager = false,
+    wagerAmount = null
+  ) => {
     const validatedChallenger = validateInput.username(challengerUsername);
     const validatedChallengee = validateInput.username(challengeeUsername);
     const validatedDifficulty = validateInput.difficulty(difficulty);
+
+    // Validate wager parameters if this is a wager duel
+    if (isWager) {
+      if (
+        typeof wagerAmount !== 'number' ||
+        wagerAmount < 25 ||
+        wagerAmount > 1000000
+      ) {
+        throw new Error(
+          'Invalid wager amount (must be between 25 and 1,000,000 XP)'
+        );
+      }
+    }
+
     return ipcRenderer.invoke(
       'create-duel',
       validatedChallenger,
       validatedChallengee,
-      validatedDifficulty
+      validatedDifficulty,
+      isWager,
+      wagerAmount
     );
   },
 
-  acceptDuel: (duelId, username) => {
+  acceptDuel: (duelId, username, opponentWager = null) => {
     if (typeof duelId !== 'string' || duelId.length > 100) {
       throw new Error('Invalid duel ID');
     }
     const validatedUsername = validateInput.username(username);
-    return ipcRenderer.invoke('accept-duel', duelId, validatedUsername);
+
+    // Validate opponent wager if provided
+    if (opponentWager !== null && opponentWager !== undefined) {
+      if (
+        typeof opponentWager !== 'number' ||
+        opponentWager < 25 ||
+        opponentWager > 1000000
+      ) {
+        throw new Error(
+          'Invalid opponent wager amount (must be between 25 and 1,000,000 XP)'
+        );
+      }
+    }
+
+    return ipcRenderer.invoke(
+      'accept-duel',
+      duelId,
+      validatedUsername,
+      opponentWager
+    );
   },
 
   startDuel: (duelId, username) => {

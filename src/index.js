@@ -1161,7 +1161,14 @@ ipcMain.handle('get-recent-duels', async (event, username) => {
 // Create a new duel
 ipcMain.handle(
   'create-duel',
-  async (event, challengerUsername, challengeeUsername, difficulty) => {
+  async (
+    event,
+    challengerUsername,
+    challengeeUsername,
+    difficulty,
+    isWager = false,
+    wagerAmount = null
+  ) => {
     try {
       const axios = require('axios');
       const fastApiUrl = process.env.FASTAPI_URL;
@@ -1241,16 +1248,24 @@ ipcMain.handle(
         freeProblems[Math.floor(Math.random() * freeProblems.length)];
 
       // Create duel via FastAPI (normalize usernames to lowercase)
+      const requestBody = {
+        username: challengerUsername.toLowerCase(),
+        opponent: challengeeUsername.toLowerCase(),
+        problem_slug: randomProblem.titleSlug,
+        problem_title: randomProblem.title,
+        problem_number: randomProblem.frontendQuestionId,
+        difficulty: randomProblem.difficulty, // Use the original difficulty from LeetCode
+      };
+
+      // Add wager fields if this is a wager duel
+      if (isWager && wagerAmount) {
+        requestBody.is_wager = true;
+        requestBody.wager_amount = wagerAmount;
+      }
+
       const response = await axios.post(
         `${fastApiUrl}/create-duel`,
-        {
-          username: challengerUsername.toLowerCase(),
-          opponent: challengeeUsername.toLowerCase(),
-          problem_slug: randomProblem.titleSlug,
-          problem_title: randomProblem.title,
-          problem_number: randomProblem.frontendQuestionId,
-          difficulty: randomProblem.difficulty, // Use the original difficulty from LeetCode
-        },
+        requestBody,
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -1272,6 +1287,8 @@ ipcMain.handle(
           createdAt: new Date().toISOString(),
           challengerTime: -1,
           challengeeTime: -1,
+          isWager: isWager || false,
+          wagerAmount: wagerAmount || 0,
         };
         return createdDuel;
       } else {
@@ -1285,41 +1302,51 @@ ipcMain.handle(
 );
 
 // Accept a duel
-ipcMain.handle('accept-duel', async (event, duelId, username) => {
-  try {
-    const axios = require('axios');
-    const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
-    const apiKey = config.apiKey;
+ipcMain.handle(
+  'accept-duel',
+  async (event, duelId, username, opponentWager = null) => {
+    try {
+      const axios = require('axios');
+      const fastApiUrl = config.fastApiUrl; // Already normalized, no trailing slash
+      const apiKey = config.apiKey;
 
-    const response = await axios.post(
-      `${fastApiUrl}/accept-duel`,
-      {
+      const requestBody = {
         duel_id: duelId,
         username: username,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      }
-    );
-
-    if (response.data.success) {
-      return {
-        duelId: duelId,
-        status: 'ACTIVE',
-        startTime: new Date().toISOString(),
       };
-    } else {
-      throw new Error(response.data.error || 'Failed to accept duel');
+
+      // Add opponent wager if provided (for wager duels)
+      if (opponentWager !== null && opponentWager !== undefined) {
+        requestBody.wager_amount = opponentWager;
+      }
+
+      const response = await axios.post(
+        `${fastApiUrl}/accept-duel`,
+        requestBody,
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        }
+      );
+
+      if (response.data.success) {
+        return {
+          duelId: duelId,
+          status: 'ACTIVE',
+          startTime: new Date().toISOString(),
+        };
+      } else {
+        throw new Error(response.data.error || 'Failed to accept duel');
+      }
+    } catch (error) {
+      console.error('[ERROR][accept-duel]', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('[ERROR][accept-duel]', error);
-    throw error;
   }
-});
+);
 
 // Start a duel (mark as started)
 ipcMain.handle('start-duel', async (event, duelId, username) => {

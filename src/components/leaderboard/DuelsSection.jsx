@@ -33,6 +33,12 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   const [showWinMessage, setShowWinMessage] = useState(false);
   const [lastWinData, setLastWinData] = useState(null);
 
+  // Wager duel state
+  const [duelMode, setDuelMode] = useState('normal'); // 'normal' or 'wager'
+  const [wagerAmount, setWagerAmount] = useState('');
+  const [historyTab, setHistoryTab] = useState('normal'); // 'normal' or 'gamble'
+  const [acceptingWager, setAcceptingWager] = useState({}); // Map of duelId -> wager amount being entered
+
   // Refs for component management
   const loadingRef = useRef(false); // Prevent duplicate calls
   const previousDuelsRef = useRef([]); // Track previous duels for notifications
@@ -149,13 +155,39 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       return;
     }
 
+    // Validate wager amount for wager duels
+    if (duelMode === 'wager') {
+      const wagerNum = parseInt(wagerAmount);
+      if (!wagerAmount || isNaN(wagerNum) || wagerNum < 25) {
+        setError('Wager amount must be at least 25 XP!');
+        return;
+      }
+
+      // Check if challenger has enough XP
+      const currentUserData = leaderboard.find(
+        u => u.username === normalizedCurrentUser
+      );
+      const currentUserXP = currentUserData?.xp || 0;
+      if (currentUserXP < wagerNum) {
+        setError(
+          `You don't have enough XP! (Have: ${currentUserXP}, Need: ${wagerNum})`
+        );
+        return;
+      }
+    }
+
     try {
       setActionLoading({ createDuel: true });
+
+      const isWagerDuel = duelMode === 'wager';
+      const wagerNum = isWagerDuel ? parseInt(wagerAmount) : null;
 
       const newDuel = await createDuel(
         normalizedCurrentUser,
         selectedFriend,
-        selectedDifficulty
+        selectedDifficulty,
+        isWagerDuel,
+        wagerNum
       );
 
       // Refresh duels list to get complete duel data from backend
@@ -163,8 +195,13 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
 
       setSelectedFriend('');
       setSelectedDifficulty('');
+      setWagerAmount('');
 
-      addNotification(`Challenge sent to ${selectedFriend}!`, 'success');
+      const wagerText = isWagerDuel ? ` (${wagerNum} XP wager)` : '';
+      addNotification(
+        `Challenge sent to ${selectedFriend}${wagerText}!`,
+        'success'
+      );
       if (window.electronAPI?.notifyDuelEvent) {
         window.electronAPI.notifyDuelEvent({
           type: 'sent',
@@ -173,18 +210,59 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       }
     } catch (err) {
       console.error('Error creating duel:', err);
-      setError('Failed to send challenge');
+      setError(err.message || 'Failed to send challenge');
     } finally {
       setActionLoading({ createDuel: false });
     }
   };
 
   // Handle accepting a duel
-  const handleAcceptDuel = async duelId => {
+  const handleAcceptDuel = async (duelId, duel) => {
     try {
       setActionLoading({ [`accept_${duelId}`]: true });
 
-      await acceptDuel(duelId, normalizedCurrentUser);
+      // Check if this is a wager duel and validate opponent's wager
+      let opponentWager = null;
+      if (duel.isWager) {
+        const enteredWager = acceptingWager[duelId];
+        const wagerNum = parseInt(enteredWager);
+
+        if (!enteredWager || isNaN(wagerNum)) {
+          addNotification('Please enter your wager amount!', 'error');
+          setActionLoading({ [`accept_${duelId}`]: false });
+          return;
+        }
+
+        const challengerWager = duel.wagerAmount || duel.challengerWager || 0;
+        const minWager = Math.max(25, Math.floor(challengerWager * 0.75));
+
+        if (wagerNum < minWager) {
+          addNotification(
+            `Wager must be at least ${minWager} XP (75% of challenger's ${challengerWager} XP)!`,
+            'error'
+          );
+          setActionLoading({ [`accept_${duelId}`]: false });
+          return;
+        }
+
+        // Check if opponent has enough XP
+        const currentUserData = leaderboard.find(
+          u => u.username === normalizedCurrentUser
+        );
+        const currentUserXP = currentUserData?.xp || 0;
+        if (currentUserXP < wagerNum) {
+          addNotification(
+            `You don't have enough XP! (Have: ${currentUserXP}, Need: ${wagerNum})`,
+            'error'
+          );
+          setActionLoading({ [`accept_${duelId}`]: false });
+          return;
+        }
+
+        opponentWager = wagerNum;
+      }
+
+      await acceptDuel(duelId, normalizedCurrentUser, opponentWager);
 
       // Start polling for both participants immediately after acceptance
       startDuelPolling(duelId);
@@ -192,13 +270,21 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       // Refresh duels to get the updated data
       await loadDuels();
 
+      // Clear the accepting wager state for this duel
+      setAcceptingWager(prev => {
+        const updated = { ...prev };
+        delete updated[duelId];
+        return updated;
+      });
+
+      const wagerText = opponentWager ? ` (wagering ${opponentWager} XP)` : '';
       addNotification(
-        "Duel accepted! The battle begins! We'll track your progress automatically.",
+        `Duel accepted${wagerText}! The battle begins! We'll track your progress automatically.`,
         'success'
       );
     } catch (err) {
       console.error('Error accepting duel:', err);
-      addNotification('Failed to accept duel', 'error');
+      addNotification(err.message || 'Failed to accept duel', 'error');
     } finally {
       setActionLoading({ [`accept_${duelId}`]: false });
     }
@@ -510,11 +596,17 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
       Math.floor((timeRemaining % (60 * 60 * 1000)) / (60 * 1000))
     );
 
+    const isWagerDuel = duel.isWager;
+    const challengerWager = duel.wagerAmount || duel.challengerWager || 0;
+    const minOpponentWager = Math.max(25, Math.floor(challengerWager * 0.75));
+
     return (
       <div
         key={duel.duelId}
-        className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 mb-4"
-        style={{ height: isChallenger ? '85px' : '115px' }}
+        className={`${isWagerDuel ? 'bg-orange-50 border-orange-400' : 'bg-yellow-50 border-yellow-400'} border-2 rounded-lg p-3 mb-4`}
+        style={{
+          height: isChallenger ? '85px' : isWagerDuel ? '155px' : '115px',
+        }}
       >
         <div className="flex justify-between items-start mb-2">
           <div>
@@ -522,38 +614,64 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
               {isChallenger
                 ? `Challenge sent to ${otherUserDisplay}`
                 : `Challenge from ${otherUserDisplay}`}
+              {isWagerDuel && ` 💰`}
             </h5>
             <p className="text-gray-600" style={{ fontSize: '12px' }}>
               {`${formatDifficulty(duel.difficulty)} Problem`}
             </p>
+            {isWagerDuel && (
+              <p className="text-xs text-orange-700 font-bold">
+                💰 Wager: {challengerWager} XP
+              </p>
+            )}
             {timeRemaining > 0 && (
               <p className="text-xs text-orange-600 font-bold">
                 ⏰ Expires in {hoursRemaining}h {minutesRemaining}m
               </p>
             )}
           </div>
-          <span className="text-xs bg-yellow-200 px-2 py-1 rounded font-bold">
-            PENDING
+          <span
+            className={`text-xs px-2 py-1 rounded font-bold ${isWagerDuel ? 'bg-orange-200' : 'bg-yellow-200'}`}
+          >
+            {isWagerDuel ? '💰 WAGER' : 'PENDING'}
           </span>
         </div>
 
         {!isChallenger && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleAcceptDuel(duel.duelId)}
-              disabled={actionLoading[`accept_${duel.duelId}`]}
-              className="flex-1 bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs font-bold btn-3d disabled:opacity-50"
-            >
-              {actionLoading[`accept_${duel.duelId}`] ? '⏳' : '✅'} Accept
-            </button>
-            <button
-              onClick={() => handleRejectDuel(duel.duelId)}
-              disabled={actionLoading[`reject_${duel.duelId}`]}
-              className="flex-1 bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold btn-3d disabled:opacity-50"
-            >
-              {actionLoading[`reject_${duel.duelId}`] ? '⏳' : '❌'} Reject
-            </button>
-          </div>
+          <>
+            {/* Wager input for opponent */}
+            {isWagerDuel && (
+              <input
+                type="number"
+                min={minOpponentWager}
+                value={acceptingWager[duel.duelId] || ''}
+                onChange={e =>
+                  setAcceptingWager({
+                    ...acceptingWager,
+                    [duel.duelId]: e.target.value,
+                  })
+                }
+                placeholder={`Your wager (min ${minOpponentWager} XP)`}
+                className="w-full mb-2 border-2 border-orange-400 rounded px-2 py-1 text-xs focus:border-orange-600 focus:outline-none"
+              />
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleAcceptDuel(duel.duelId, duel)}
+                disabled={actionLoading[`accept_${duel.duelId}`]}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-md text-xs font-bold btn-3d disabled:opacity-50"
+              >
+                {actionLoading[`accept_${duel.duelId}`] ? '⏳' : '✅'} Accept
+              </button>
+              <button
+                onClick={() => handleRejectDuel(duel.duelId)}
+                disabled={actionLoading[`reject_${duel.duelId}`]}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold btn-3d disabled:opacity-50"
+              >
+                {actionLoading[`reject_${duel.duelId}`] ? '⏳' : '❌'} Reject
+              </button>
+            </div>
+          </>
         )}
       </div>
     );
@@ -959,7 +1077,38 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
               <h4 className="font-bold text-lg">Challenge Friend</h4>
               <span className="text-lg">🎯</span>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
+              {/* Wager Mode Toggle */}
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-300">
+                <input
+                  type="checkbox"
+                  id="wager-mode"
+                  checked={duelMode === 'wager'}
+                  onChange={e =>
+                    setDuelMode(e.target.checked ? 'wager' : 'normal')
+                  }
+                  className="w-4 h-4 border-2 border-black rounded"
+                />
+                <label
+                  htmlFor="wager-mode"
+                  className="text-sm font-bold cursor-pointer"
+                >
+                  💰 Wager Duel (Gambling Mode)
+                </label>
+              </div>
+
+              {/* Wager Amount Input */}
+              {duelMode === 'wager' && (
+                <input
+                  type="number"
+                  min="25"
+                  value={wagerAmount}
+                  onChange={e => setWagerAmount(e.target.value)}
+                  placeholder="Your wager (min 25 XP)"
+                  className="w-full border-2 border-black rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              )}
+
               <SearchableDropdown
                 options={availableFriends.map(friend => ({
                   value: friend.username,

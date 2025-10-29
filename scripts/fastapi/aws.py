@@ -1198,18 +1198,32 @@ class DuelOperations:
             raise error
     
     @staticmethod
-    def create_duel(username: str, opponent: str, problem_slug: str, problem_title: str = None, problem_number: str = None, difficulty: str = None) -> Dict:
+    def create_duel(username: str, opponent: str, problem_slug: str, problem_title: str = None, problem_number: str = None, difficulty: str = None, is_wager: bool = False, wager_amount: int = None) -> Dict:
         """Create a new duel"""
         try:
             if not DUELS_TABLE:
                 raise Exception("DUELS_TABLE not configured")
-            
+
             import uuid
-            
+
             duel_id = str(uuid.uuid4())
             normalized_username = username.lower()
             normalized_opponent = opponent.lower()
-            
+
+            # Validate wager duel requirements
+            if is_wager:
+                if not wager_amount or wager_amount < 25:
+                    raise Exception("Wager amount must be at least 25 XP")
+
+                # Check challenger has enough XP for their wager
+                challenger_data = UserOperations.get_user(normalized_username)
+                challenger_xp = int(challenger_data.get('data', {}).get('xp', 0))
+
+                if challenger_xp < wager_amount:
+                    raise Exception(f"Challenger has insufficient XP (has {challenger_xp}, needs {wager_amount})")
+
+                # Note: Opponent XP check will happen when they accept the duel with their wager amount
+
             # Create duel record
             put_params = {
                 'TableName': DUELS_TABLE,
@@ -1225,7 +1239,7 @@ class DuelOperations:
                     'challengeeTime': {'N': '-1'}   # -1 means not started
                 }
             }
-            
+
             # Add optional fields if provided
             if difficulty:
                 put_params['Item']['difficulty'] = {'S': difficulty}
@@ -1233,43 +1247,92 @@ class DuelOperations:
                 put_params['Item']['problemTitle'] = {'S': problem_title}
             if problem_number:
                 put_params['Item']['problemNumber'] = {'S': problem_number}
-            
+
+            # Add wager fields if this is a wager duel
+            if is_wager and wager_amount:
+                put_params['Item']['isWager'] = {'S': 'Yes'}
+                put_params['Item']['challengerWager'] = {'N': str(wager_amount)}
+                # challengeeWager will be set when opponent accepts
+
             ddb.put_item(**put_params)
-            
-            duel_action(f"Created duel {duel_id}", challenger=normalized_username, challengee=normalized_opponent, problem=problem_slug)
-            
+
+            wager_info = f" (Wager: {wager_amount} XP)" if is_wager else ""
+            duel_action(f"Created duel {duel_id}{wager_info}", challenger=normalized_username, challengee=normalized_opponent, problem=problem_slug)
+
             return {"success": True, "data": {"duel_id": duel_id}}
-            
+
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to create duel: {error}")
             raise error
     
     @staticmethod
-    def accept_duel(username: str, duel_id: str) -> Dict:
-        """Accept a duel - marks as ACCEPTED, not yet started"""
+    def accept_duel(username: str, duel_id: str, opponent_wager: int = None) -> Dict:
+        """Accept a duel - marks as ACCEPTED, not yet started. For wager duels, opponent specifies their wager."""
         try:
             if not DUELS_TABLE:
                 raise Exception("DUELS_TABLE not configured")
-            
-            # Update duel status to ACCEPTED (not ACTIVE yet)
+
+            normalized_username = username.lower()
+
+            # Get duel details to check if it's a wager duel
+            get_params = {
+                'TableName': DUELS_TABLE,
+                'Key': {'duelId': {'S': duel_id}}
+            }
+            get_result = ddb.get_item(**get_params)
+
+            if 'Item' not in get_result:
+                raise Exception("Duel not found")
+
+            duel_item = get_result['Item']
+            is_wager = duel_item.get('isWager', {}).get('S') == 'Yes'
+            challenger_wager = int(duel_item.get('challengerWager', {}).get('N', 0)) if is_wager else 0
+
+            # Validate wager duel acceptance
+            if is_wager:
+                if not opponent_wager:
+                    raise Exception("Opponent must specify their wager amount for wager duels")
+
+                # Check minimum wager (75% of challenger's wager, minimum 25 XP)
+                min_wager = max(25, int(challenger_wager * 0.75))
+                if opponent_wager < min_wager:
+                    raise Exception(f"Opponent wager must be at least {min_wager} XP (75% of challenger's {challenger_wager} XP)")
+
+                # Check opponent has enough XP
+                opponent_data = UserOperations.get_user(normalized_username)
+                opponent_xp = int(opponent_data.get('data', {}).get('xp', 0))
+
+                if opponent_xp < opponent_wager:
+                    raise Exception(f"Opponent has insufficient XP (has {opponent_xp}, needs {opponent_wager})")
+
+            # Update duel status to ACCEPTED
+            update_expression = 'SET #status = :status, acceptedAt = :acceptedAt'
+            expression_values = {
+                ':status': {'S': 'ACCEPTED'},
+                ':acceptedAt': {'S': datetime.now(timezone.utc).isoformat()}
+            }
+
+            # Add opponent wager if this is a wager duel
+            if is_wager and opponent_wager:
+                update_expression += ', challengeeWager = :challengeeWager'
+                expression_values[':challengeeWager'] = {'N': str(opponent_wager)}
+
             update_params = {
                 'TableName': DUELS_TABLE,
                 'Key': {'duelId': {'S': duel_id}},
-                'UpdateExpression': 'SET #status = :status, acceptedAt = :acceptedAt',
+                'UpdateExpression': update_expression,
                 'ExpressionAttributeNames': {'#status': 'status'},
-                'ExpressionAttributeValues': {
-                    ':status': {'S': 'ACCEPTED'},
-                    ':acceptedAt': {'S': datetime.now(timezone.utc).isoformat()}
-                }
+                'ExpressionAttributeValues': expression_values
             }
-            
+
             ddb.update_item(**update_params)
-            
-            duel_action(f"User {username} accepted duel {duel_id}")
-            
+
+            wager_info = f" (wagering {opponent_wager} XP vs {challenger_wager} XP)" if is_wager else ""
+            duel_action(f"User {username} accepted duel {duel_id}{wager_info}")
+
             return {"success": True}
-            
+
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to accept duel: {error}")
@@ -1400,6 +1463,9 @@ class DuelOperations:
             challengee = duel_item.get('challengee', {}).get('S')
             current_status = duel_item.get('status', {}).get('S')
             difficulty = duel_item.get('difficulty', {}).get('S', 'Medium')  # Default to Medium if not set
+            is_wager = duel_item.get('isWager', {}).get('S') == 'Yes'
+            challenger_wager = int(duel_item.get('challengerWager', {}).get('N', 0)) if is_wager else 0
+            challengee_wager = int(duel_item.get('challengeeWager', {}).get('N', 0)) if is_wager else 0
             
             # Don't allow submissions on already completed duels
             if current_status == 'COMPLETED':
@@ -1501,21 +1567,40 @@ class DuelOperations:
                         ':completed': {'S': datetime.now(timezone.utc).isoformat()}
                     }
                 }
-                
+
                 ddb.update_item(**complete_params)
-                
+
                 # Award XP to participants
-                if winner:
-                    UserOperations.award_xp(winner, xp_award)
-                    # Award participation XP to loser
-                    loser = challengee if winner == challenger else challenger
-                    UserOperations.award_xp(loser, 25)
+                if is_wager and (challenger_wager > 0 or challengee_wager > 0):
+                    # Wager duel - winner takes both wagers, loser loses their wager
+                    if winner:
+                        # Determine winner and loser wagers
+                        winner_wager = challenger_wager if winner == challenger else challengee_wager
+                        loser = challengee if winner == challenger else challenger
+                        loser_wager = challengee_wager if winner == challenger else challenger_wager
+
+                        # Winner gets their wager back + opponent's wager
+                        total_winnings = winner_wager + loser_wager
+                        UserOperations.award_xp(winner, total_winnings)
+                        # Loser loses their wager (deduct XP)
+                        UserOperations.award_xp(loser, -loser_wager)
+                        duel_action(f"Wager duel {duel_id} completed - {winner} won {total_winnings} XP (wagered {winner_wager}, won {loser_wager})", winner=winner)
+                    else:
+                        # Tie in wager duel - both keep their XP (nobody loses)
+                        duel_action(f"Wager duel {duel_id} ended in a tie - no XP transferred")
                 else:
-                    # Tie - both get winner XP
-                    UserOperations.award_xp(challenger, xp_award)
-                    UserOperations.award_xp(challengee, xp_award)
-                
-                duel_action(f"Duel {duel_id} completed", winner=winner or 'TIE')
+                    # Normal duel - standard XP awards
+                    if winner:
+                        UserOperations.award_xp(winner, xp_award)
+                        # Award participation XP to loser
+                        loser = challengee if winner == challenger else challenger
+                        UserOperations.award_xp(loser, 25)
+                    else:
+                        # Tie - both get winner XP
+                        UserOperations.award_xp(challenger, xp_award)
+                        UserOperations.award_xp(challengee, xp_award)
+
+                    duel_action(f"Duel {duel_id} completed", winner=winner or 'TIE')
             
             duel_action(f"User {normalized_username} recorded time", duel_id=duel_id, time_ms=elapsed_ms)
             
@@ -1654,7 +1739,10 @@ class DuelOperations:
                 challengee = duel_item.get('challengee', {}).get('S')
                 difficulty = duel_item.get('difficulty', {}).get('S', 'Medium')  # Default to Medium if not set
                 start_time_str = duel_item.get('startTime', {}).get('S')
-                
+                is_wager = duel_item.get('isWager', {}).get('S') == 'Yes'
+                challenger_wager = int(duel_item.get('challengerWager', {}).get('N', 0)) if is_wager else 0
+                challengee_wager = int(duel_item.get('challengeeWager', {}).get('N', 0)) if is_wager else 0
+
                 challenger_time = duel_item.get('challengerTime', {}).get('N')
                 challengee_time = duel_item.get('challengeeTime', {}).get('N')
                 
@@ -1676,11 +1764,7 @@ class DuelOperations:
                             # Complete duel due to timeout
                             winner = challenger if challenger_completed else challengee
                             loser = challengee if challenger_completed else challenger
-                            duel_action(f"Completing duel {duel_id} due to timeout", winner=winner, loser=loser)
-                            
-                            # Calculate proper bonus XP
-                            bonus_xp = DuelOperations.calculate_duel_xp(difficulty, True)  # Winner gets bonus
-                            
+
                             complete_params = {
                                 'TableName': DUELS_TABLE,
                                 'Key': {'duelId': {'S': duel_id}},
@@ -1689,17 +1773,31 @@ class DuelOperations:
                                 'ExpressionAttributeValues': {
                                     ':status': {'S': 'COMPLETED'},
                                     ':winner': {'S': winner},
-                                    ':xp': {'N': str(bonus_xp)},
                                     ':completed': {'S': datetime.now(timezone.utc).isoformat()},
                                     ':reason': {'S': 'TIMEOUT'}
                                 }
                             }
-                            
+
+                            # Handle XP based on duel type
+                            if is_wager and (challenger_wager > 0 or challengee_wager > 0):
+                                # Wager duel timeout - winner takes both wagers, loser loses their wager
+                                winner_wager = challenger_wager if winner == challenger else challengee_wager
+                                loser_wager = challengee_wager if winner == challenger else challenger_wager
+
+                                total_winnings = winner_wager + loser_wager
+                                UserOperations.award_xp(winner, total_winnings)  # Winner gets their wager back + opponent's wager
+                                UserOperations.award_xp(loser, -loser_wager)  # Loser loses their wager
+                                complete_params['ExpressionAttributeValues'][':xp'] = {'N': str(total_winnings)}
+                                duel_action(f"Wager duel {duel_id} completed (timeout) - {winner} won {total_winnings} XP (wagered {winner_wager}, won {loser_wager})", winner=winner, loser=loser)
+                            else:
+                                # Normal duel timeout - standard XP
+                                bonus_xp = DuelOperations.calculate_duel_xp(difficulty, True)  # Winner gets bonus
+                                UserOperations.award_xp(winner, bonus_xp)  # Winner gets +200 bonus
+                                complete_params['ExpressionAttributeValues'][':xp'] = {'N': str(bonus_xp)}
+                                duel_action(f"Completing duel {duel_id} due to timeout", winner=winner, loser=loser)
+
                             ddb.update_item(**complete_params)
-                            
-                            # Award only bonus XP to winner (base XP comes from daily problem system)
-                            UserOperations.award_xp(winner, bonus_xp)  # Winner gets +200 bonus
-                            
+
                             completed_duels += 1
                             if DEBUG_MODE:
                                 print(f"[DEBUG] Completed duel {duel_id} due to timeout. Winner: {winner}")

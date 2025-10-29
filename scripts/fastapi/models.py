@@ -73,3 +73,5 @@ class DuelRequest(BaseModel):
     problem_title: Optional[str] = None
     problem_number: Optional[str] = None
     difficulty: Optional[str] = None
+    is_wager: Optional[bool] = False
+    wager_amount: Optional[int] = None
