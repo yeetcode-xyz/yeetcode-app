@@ -198,7 +198,18 @@ class UserOperations:
             if university:
                 user_params['Item']['university'] = {'S': university}
             
-            ddb.put_item(**user_params)
+            # Don't overwrite an existing user; if it exists, return it
+            try:
+                ddb.put_item(
+                    **user_params,
+                    ConditionExpression='attribute_not_exists(username)'
+                )
+            except ClientError as e:
+                # Conditional check failed means user already exists; return existing
+                if e.response.get('Error', {}).get('Code') == 'ConditionalCheckFailedException':
+                    existing = UserOperations.get_user_data(normalized_username)
+                    return existing
+                raise
             
             if DEBUG_MODE:
                 print(f"[DEBUG] Created user with username {normalized_username} and email {normalized_email}, university {university}")

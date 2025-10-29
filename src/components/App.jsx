@@ -621,22 +621,24 @@ function App() {
       // Create new user record with LeetCode username and email
       if (window.electronAPI) {
         try {
-          // Create new user record with LeetCode username
-          const createUserResult =
-            await window.electronAPI.createUserWithUsername(
-              userData.leetUsername,
-              userData.email,
-              userData.name,
-              userData.university
-            );
+          // only create if user does NOT already exist to avoid overwriting xp and stats
+          if (!existingUser || Object.keys(existingUser).length === 0) {
+            const createUserResult =
+              await window.electronAPI.createUserWithUsername(
+                userData.leetUsername,
+                userData.email,
+                userData.name,
+                userData.university
+              );
 
-          if (!createUserResult.success) {
-            console.warn('User creation failed:', createUserResult.error);
-          } else {
-            console.log(
-              'Created new user record with LeetCode username:',
-              userData.leetUsername
-            );
+            if (!createUserResult.success) {
+              console.warn('User creation failed:', createUserResult.error);
+            } else {
+              console.log(
+                'Created new user record with LeetCode username:',
+                userData.leetUsername
+              );
+            }
           }
         } catch (createUserError) {
           console.error('Error creating user record:', createUserError);
