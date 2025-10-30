@@ -5,6 +5,7 @@ import React, {
   useImperativeHandle,
   forwardRef,
 } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import SearchableDropdown from '../SearchableDropdown';
 import {
   getUserDuels,
@@ -33,10 +34,14 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   const [showWinMessage, setShowWinMessage] = useState(false);
   const [lastWinData, setLastWinData] = useState(null);
 
+  // Main tab state - 3 tabs like leaderboard
+  const [mainTab, setMainTab] = useState('normal'); // 'normal', 'wager', or 'history'
+
+  // History sorting state
+  const [historySortBy, setHistorySortBy] = useState('recent'); // 'recent', 'oldest', 'wins', 'losses'
+
   // Wager duel state
-  const [duelMode, setDuelMode] = useState('normal'); // 'normal' or 'wager'
   const [wagerAmount, setWagerAmount] = useState('');
-  const [historyTab, setHistoryTab] = useState('normal'); // 'normal' or 'gamble'
   const [acceptingWager, setAcceptingWager] = useState({}); // Map of duelId -> wager amount being entered
 
   // Refs for component management
@@ -160,7 +165,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     }
 
     // Validate wager amount for wager duels
-    if (duelMode === 'wager') {
+    if (mainTab === 'wager') {
       const wagerNum = parseInt(wagerAmount);
       if (!wagerAmount || isNaN(wagerNum) || wagerNum < 25) {
         setError('Wager amount must be at least 25 XP!');
@@ -183,7 +188,7 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     try {
       setActionLoading({ createDuel: true });
 
-      const isWagerDuel = duelMode === 'wager';
+      const isWagerDuel = mainTab === 'wager';
       const wagerNum = isWagerDuel ? parseInt(wagerAmount) : null;
 
       const newDuel = await createDuel(
@@ -1094,199 +1099,492 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
         </div>
       )}
       <div className="bg-blue-500 px-6 py-4 border-b-4 border-black">
-        <div className="flex items-center gap-2">
-          <span className="text-white text-lg">⚔️</span>
-          <h3 className="font-bold text-white text-lg">DUELS</h3>
+        {/* Header with tabs */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-4">
+            <span className="text-white text-lg">⚔️</span>
+            <h3 className="font-bold text-white text-lg">DUELS</h3>
+            {/* Main Tabs (like leaderboard) */}
+            <div className="flex gap-2 ml-4">
+              <button
+                className={`btn-3d shadow-md px-3 py-1 rounded-lg font-bold border-2 border-b-0 border-white focus:outline-none transition-colors text-sm ${
+                  mainTab === 'normal'
+                    ? 'bg-yellow-100 text-black'
+                    : 'bg-blue-200 text-black hover:bg-yellow-200'
+                }`}
+                onClick={() => setMainTab('normal')}
+              >
+                Normal Duels
+              </button>
+              <button
+                className={`btn-3d shadow-md px-3 py-1 rounded-lg font-bold border-2 border-b-0 border-white focus:outline-none transition-colors text-sm ${
+                  mainTab === 'wager'
+                    ? 'bg-yellow-100 text-black'
+                    : 'bg-blue-200 text-black hover:bg-yellow-200'
+                }`}
+                onClick={() => setMainTab('wager')}
+              >
+                💰 Wager Duels
+              </button>
+              <button
+                className={`btn-3d shadow-md px-3 py-1 rounded-lg font-bold border-2 border-b-0 border-white focus:outline-none transition-colors text-sm ${
+                  mainTab === 'history'
+                    ? 'bg-yellow-100 text-black'
+                    : 'bg-blue-200 text-black hover:bg-yellow-200'
+                }`}
+                onClick={() => setMainTab('history')}
+              >
+                History
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <div className="p-6" style={{ height: '313px' }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Challenge Friends */}
-          <div
-            className="bg-white p-4 border-2 border-black rounded-lg shadow-md"
-            style={{ height: '265px' }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-bold text-lg">Challenge Friend</h4>
-              <span className="text-lg">🎯</span>
-            </div>
-            <div className="space-y-2">
-              {/* Wager Mode Toggle */}
-              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-300">
-                <input
-                  type="checkbox"
-                  id="wager-mode"
-                  checked={duelMode === 'wager'}
-                  onChange={e =>
-                    setDuelMode(e.target.checked ? 'wager' : 'normal')
-                  }
-                  className="w-4 h-4 border-2 border-black rounded"
-                />
-                <label
-                  htmlFor="wager-mode"
-                  className="text-sm font-bold cursor-pointer"
-                >
-                  💰 Wager Duel (Gambling Mode)
-                </label>
-              </div>
 
-              {/* Wager Amount Input */}
-              {duelMode === 'wager' && (
+      <div className="p-6" style={{ height: '313px' }}>
+        {/* Normal Duels Tab */}
+        {mainTab === 'normal' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Challenge Settings */}
+            <div
+              className="bg-white p-4 border-2 border-black rounded-lg shadow-md"
+              style={{ height: '265px' }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-bold text-lg">Challenge Friend</h4>
+                <span className="text-lg">🎯</span>
+              </div>
+              <div className="space-y-2">
+                <SearchableDropdown
+                  options={availableFriends.map(friend => ({
+                    value: friend.username,
+                    label: friend.name,
+                  }))}
+                  value={selectedFriend}
+                  onChange={value => setSelectedFriend(value)}
+                  placeholder={
+                    availableFriends.length > 0
+                      ? 'Select a friend...'
+                      : 'No friends in group yet'
+                  }
+                  disabled={availableFriends.length === 0}
+                  className="font-medium"
+                  compact={true}
+                />
+                <SearchableDropdown
+                  options={[
+                    {
+                      value: 'Easy',
+                      label: 'Easy (100 XP + 200 bonus if you win)',
+                    },
+                    {
+                      value: 'Medium',
+                      label: 'Medium (300 XP + 200 bonus if you win)',
+                    },
+                    {
+                      value: 'Hard',
+                      label: 'Hard (500 XP + 200 bonus if you win)',
+                    },
+                    {
+                      value: 'Random',
+                      label: 'Random (? XP + 200 bonus if you win)',
+                    },
+                  ]}
+                  value={selectedDifficulty}
+                  onChange={value => setSelectedDifficulty(value)}
+                  placeholder="Problem difficulty..."
+                  className="font-medium"
+                  compact={true}
+                />
+              </div>
+              {error && (
+                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+              <button
+                onClick={handleSendChallenge}
+                disabled={actionLoading.createDuel}
+                className="w-full mt-3 bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50"
+              >
+                {actionLoading.createDuel ? '⏳ Sending...' : 'Send Challenge'}
+              </button>
+            </div>
+
+            {/* Active Normal Duels */}
+            <div className="bg-white p-4 border-2 border-black rounded-lg shadow-md">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-bold text-lg">Active Duels</h4>
+                <span className="text-lg">📊</span>
+              </div>
+              <div
+                className="overflow-y-auto custom-scrollbar"
+                style={{ height: '190px' }}
+              >
+                <AnimatePresence mode="popLayout">
+                  {filteredDuels
+                    .filter(
+                      d =>
+                        (d.status === 'PENDING' ||
+                          d.status === 'ACCEPTED' ||
+                          d.status === 'ACTIVE') &&
+                        !d.isWager
+                    )
+                    .map(duel => (
+                      <motion.div
+                        key={duel.duelId}
+                        layout
+                        initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                        transition={{
+                          layout: { duration: 0.3, ease: 'easeInOut' },
+                          default: { duration: 0.2 },
+                        }}
+                      >
+                        {renderDuel(duel)}
+                      </motion.div>
+                    ))}
+                </AnimatePresence>
+                {filteredDuels.filter(
+                  d =>
+                    (d.status === 'PENDING' ||
+                      d.status === 'ACCEPTED' ||
+                      d.status === 'ACTIVE') &&
+                    !d.isWager
+                ).length === 0 && (
+                  <div className="text-center text-gray-500 py-4">
+                    <div className="text-2xl mb-2">⚔️</div>
+                    <div className="text-sm">No active normal duels!</div>
+                    <div className="text-xs">
+                      Challenge a friend to get started
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wager Duels Tab */}
+        {mainTab === 'wager' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Challenge Settings */}
+            <div
+              className="bg-white p-4 border-2 border-black rounded-lg shadow-md"
+              style={{ height: '265px' }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-bold text-lg">💰 Wager Challenge</h4>
+                <span className="text-lg">🎰</span>
+              </div>
+              <div className="space-y-2">
+                {/* Wager Amount Input */}
                 <input
                   type="number"
                   min="25"
                   value={wagerAmount}
                   onChange={e => setWagerAmount(e.target.value)}
                   placeholder="Your wager (min 25 XP)"
-                  className="w-full border-2 border-black rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full border-2 border-black rounded-lg px-2 py-1 text-sm focus:border-orange-500 focus:outline-none"
                 />
-              )}
-
-              <SearchableDropdown
-                options={availableFriends.map(friend => ({
-                  value: friend.username,
-                  label: friend.name,
-                }))}
-                value={selectedFriend}
-                onChange={value => setSelectedFriend(value)}
-                placeholder={
-                  availableFriends.length > 0
-                    ? 'Select a friend...'
-                    : 'No friends in group yet'
-                }
-                disabled={availableFriends.length === 0}
-                className="font-medium"
-                compact={true}
-              />
-              <SearchableDropdown
-                options={[
-                  {
-                    value: 'Easy',
-                    label: 'Easy (100 XP + 200 bonus if you win)',
-                  },
-                  {
-                    value: 'Medium',
-                    label: 'Medium (300 XP + 200 bonus if you win)',
-                  },
-                  {
-                    value: 'Hard',
-                    label: 'Hard (500 XP + 200 bonus if you win)',
-                  },
-                  {
-                    value: 'Random',
-                    label: 'Random (? XP + 200 bonus if you win)',
-                  },
-                ]}
-                value={selectedDifficulty}
-                onChange={value => setSelectedDifficulty(value)}
-                placeholder="Problem difficulty..."
-                className="font-medium"
-                compact={true}
-              />
-            </div>
-            {error && (
-              <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
-                {error}
+                <SearchableDropdown
+                  options={availableFriends.map(friend => ({
+                    value: friend.username,
+                    label: friend.name,
+                  }))}
+                  value={selectedFriend}
+                  onChange={value => setSelectedFriend(value)}
+                  placeholder={
+                    availableFriends.length > 0
+                      ? 'Select a friend...'
+                      : 'No friends in group yet'
+                  }
+                  disabled={availableFriends.length === 0}
+                  className="font-medium"
+                  compact={true}
+                />
+                <SearchableDropdown
+                  options={[
+                    {
+                      value: 'Easy',
+                      label: 'Easy (100 XP + 200 bonus if you win)',
+                    },
+                    {
+                      value: 'Medium',
+                      label: 'Medium (300 XP + 200 bonus if you win)',
+                    },
+                    {
+                      value: 'Hard',
+                      label: 'Hard (500 XP + 200 bonus if you win)',
+                    },
+                    {
+                      value: 'Random',
+                      label: 'Random (? XP + 200 bonus if you win)',
+                    },
+                  ]}
+                  value={selectedDifficulty}
+                  onChange={value => setSelectedDifficulty(value)}
+                  placeholder="Problem difficulty..."
+                  className="font-medium"
+                  compact={true}
+                />
               </div>
-            )}
-            <button
-              onClick={handleSendChallenge}
-              disabled={actionLoading.createDuel}
-              className="w-full mt-3 bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50"
-            >
-              {actionLoading.createDuel ? '⏳ Sending...' : 'Send Challenge'}
-            </button>
-          </div>
-
-          {/* Active Duels & History */}
-          <div className="bg-white p-4 border-2 border-black rounded-lg shadow-md">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-bold text-lg">Your Duels</h4>
-              <span className="text-lg">📊</span>
+              {error && (
+                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+              <button
+                onClick={handleSendChallenge}
+                disabled={actionLoading.createDuel}
+                className="w-full mt-3 bg-orange-200 hover:bg-orange-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50"
+              >
+                {actionLoading.createDuel
+                  ? '⏳ Sending...'
+                  : 'Send Wager Challenge'}
+              </button>
             </div>
 
+            {/* Active Wager Duels */}
+            <div className="bg-white p-4 border-2 border-black rounded-lg shadow-md">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-bold text-lg">Active Wagers</h4>
+                <span className="text-lg">💰</span>
+              </div>
+              <div
+                className="overflow-y-auto custom-scrollbar"
+                style={{ height: '190px' }}
+              >
+                <AnimatePresence mode="popLayout">
+                  {filteredDuels
+                    .filter(
+                      d =>
+                        (d.status === 'PENDING' ||
+                          d.status === 'ACCEPTED' ||
+                          d.status === 'ACTIVE') &&
+                        d.isWager
+                    )
+                    .map(duel => (
+                      <motion.div
+                        key={duel.duelId}
+                        layout
+                        initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                        transition={{
+                          layout: { duration: 0.3, ease: 'easeInOut' },
+                          default: { duration: 0.2 },
+                        }}
+                      >
+                        {renderDuel(duel)}
+                      </motion.div>
+                    ))}
+                </AnimatePresence>
+                {filteredDuels.filter(
+                  d =>
+                    (d.status === 'PENDING' ||
+                      d.status === 'ACCEPTED' ||
+                      d.status === 'ACTIVE') &&
+                    d.isWager
+                ).length === 0 && (
+                  <div className="text-center text-gray-500 py-4">
+                    <div className="text-2xl mb-2">💰</div>
+                    <div className="text-sm">No active wager duels!</div>
+                    <div className="text-xs">Start a wager duel to bet XP</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* History Tab */}
+        {mainTab === 'history' && (
+          <div
+            className="bg-white p-4 border-2 border-black rounded-lg shadow-md"
+            style={{ height: '265px' }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-bold text-lg">Completed Duels</h4>
+              <div className="flex items-center gap-2">
+                {/* Sort dropdown */}
+                <select
+                  value={historySortBy}
+                  onChange={e => setHistorySortBy(e.target.value)}
+                  className="text-xs border-2 border-black rounded px-2 py-1 font-bold focus:outline-none focus:border-blue-500"
+                >
+                  <option value="recent">Most Recent</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="wins">Wins First</option>
+                  <option value="losses">Losses First</option>
+                </select>
+                <span className="text-lg">📜</span>
+              </div>
+            </div>
             <div
               className="overflow-y-auto custom-scrollbar"
-              style={{ height: '190px' }}
+              style={{ height: '195px' }}
             >
-              {/* Show active and pending duels first */}
-              {filteredDuels
-                .filter(
-                  d =>
-                    d.status === 'PENDING' ||
-                    d.status === 'ACCEPTED' ||
-                    d.status === 'ACTIVE'
-                )
-                .map(renderDuel)}
+              {/* Show completed duels */}
+              <AnimatePresence mode="popLayout">
+                {[...recentDuels]
+                  .sort((a, b) => {
+                    const aIsWin = a.winner === normalizedCurrentUser;
+                    const bIsWin = b.winner === normalizedCurrentUser;
 
-              {/* Show completed duels if any */}
-              {recentDuels.length > 0 && (
-                <>
-                  <div className="text-xs font-bold text-gray-600 mt-3 mb-2 border-b border-gray-300 pb-1">
-                    RECENT COMPLETED DUELS
-                  </div>
-                  {/* Show only recent duels from API */}
-                  {recentDuels.map(duel => {
+                    switch (historySortBy) {
+                      case 'oldest':
+                        return (
+                          new Date(a.completedAt || 0) -
+                          new Date(b.completedAt || 0)
+                        );
+                      case 'wins':
+                        if (aIsWin && !bIsWin) return -1;
+                        if (!aIsWin && bIsWin) return 1;
+                        return (
+                          new Date(b.completedAt || 0) -
+                          new Date(a.completedAt || 0)
+                        );
+                      case 'losses':
+                        if (!aIsWin && bIsWin) return -1;
+                        if (aIsWin && !bIsWin) return 1;
+                        return (
+                          new Date(b.completedAt || 0) -
+                          new Date(a.completedAt || 0)
+                        );
+                      case 'recent':
+                      default:
+                        return (
+                          new Date(b.completedAt || 0) -
+                          new Date(a.completedAt || 0)
+                        );
+                    }
+                  })
+                  .map(duel => {
                     const isWinner = duel.winner === normalizedCurrentUser;
-                    const otherUser =
-                      duel.challenger === normalizedCurrentUser
-                        ? duel.challengee
-                        : duel.challenger;
+                    const iAmChallenger =
+                      duel.challenger === normalizedCurrentUser;
+                    const otherUser = iAmChallenger
+                      ? duel.challengee
+                      : duel.challenger;
                     const otherUserDisplay =
                       leaderboard.find(u => u.username === otherUser)?.name ||
                       otherUser;
+                    const myTime = iAmChallenger
+                      ? duel.challengerTime
+                      : duel.challengeeTime;
+                    const theirTime = iAmChallenger
+                      ? duel.challengeeTime
+                      : duel.challengerTime;
+                    const myWager = duel.isWager
+                      ? iAmChallenger
+                        ? duel.challengerWager
+                        : duel.challengeeWager
+                      : null;
+                    const theirWager = duel.isWager
+                      ? iAmChallenger
+                        ? duel.challengeeWager
+                        : duel.challengerWager
+                      : null;
 
                     return (
-                      <div
+                      <motion.div
                         key={duel.duelId}
+                        layout
+                        initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                        transition={{
+                          layout: { duration: 0.3, ease: 'easeInOut' },
+                          default: { duration: 0.2 },
+                        }}
                         className={`mb-2 p-2 rounded border-2 ${
                           isWinner
                             ? 'bg-green-100 border-green-400'
-                            : 'bg-gray-100 border-gray-400'
+                            : 'bg-red-100 border-red-400'
                         }`}
                       >
-                        <div className="flex justify-between items-center text-xs">
-                          <div>
-                            <span className="font-bold">
+                        <div className="flex justify-between items-start gap-2 text-xs">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-sm mb-1">
                               {isWinner ? '🏆 WIN' : '❌ LOSS'}
-                            </span>
-                            <span className="ml-2">vs {otherUserDisplay}</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold">
+                              {duel.isWager && ' 💰'}
+                              <span className="ml-2 font-normal">
+                                vs {otherUserDisplay}
+                              </span>
+                            </div>
+                            <div
+                              className="text-gray-700 truncate"
+                              title={
+                                duel.problemNumber && duel.problemTitle
+                                  ? `${duel.problemNumber}. ${duel.problemTitle}`
+                                  : duel.problemTitle
+                              }
+                            >
                               {duel.problemNumber && duel.problemTitle
                                 ? `${duel.problemNumber}. ${duel.problemTitle}`
                                 : duel.problemTitle ||
                                   `${formatDifficulty(duel.difficulty)} Problem`}
                             </div>
-                            <div className="text-gray-600 text-xs">
+                            <div className="text-gray-500 text-xs mt-0.5">
                               {formatDifficulty(duel.difficulty)}
                             </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            {/* Show times */}
+                            <div className="text-xs space-y-0.5 whitespace-nowrap">
+                              <div
+                                className={
+                                  isWinner ? 'font-bold text-green-700' : ''
+                                }
+                              >
+                                You: {myTime ? formatTime(myTime) : 'DNF'}
+                              </div>
+                              <div
+                                className={
+                                  !isWinner && theirTime
+                                    ? 'font-bold text-red-700'
+                                    : ''
+                                }
+                              >
+                                Them:{' '}
+                                {theirTime ? formatTime(theirTime) : 'DNF'}
+                              </div>
+                            </div>
+                            {/* Show wager amounts if applicable */}
+                            {duel.isWager && (myWager || theirWager) && (
+                              <div className="mt-1 text-xs text-orange-700 font-bold border-t border-orange-300 pt-1 whitespace-nowrap">
+                                <div>Your wager: {myWager || 0} XP</div>
+                                <div>Their wager: {theirWager || 0} XP</div>
+                              </div>
+                            )}
+                            {/* Show XP awarded */}
                             {duel.xpAwarded && isWinner && (
-                              <div className="text-green-600 font-bold">
-                                +{duel.xpAwarded} XP bonus
+                              <div
+                                className={`mt-0.5 font-bold whitespace-nowrap ${duel.isWager ? 'text-orange-600' : 'text-green-600'}`}
+                              >
+                                +{duel.xpAwarded} XP
                               </div>
                             )}
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
-                </>
-              )}
-
-              {filteredDuels.length === 0 && (
-                <div className="text-center text-gray-500 py-4">
-                  <div className="text-2xl mb-2">⚔️</div>
-                  <div className="text-sm">No duels yet!</div>
+              </AnimatePresence>
+              {recentDuels.length === 0 && (
+                <div className="text-center text-gray-500 py-8">
+                  <div className="text-2xl mb-2">📜</div>
+                  <div className="text-sm">No completed duels yet!</div>
                   <div className="text-xs">
-                    Challenge a friend to get started
+                    Complete some duels to see your history
                   </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
