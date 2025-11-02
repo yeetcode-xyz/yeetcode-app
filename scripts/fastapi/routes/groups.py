@@ -194,17 +194,24 @@ async def get_university_leaderboard_endpoint(
             
             stats = university_stats[university]
             stats["students"] += 1
-            stats["easy"] += user.get("easy", 0)
-            stats["medium"] += user.get("medium", 0)
-            stats["hard"] += user.get("hard", 0)
-            stats["total"] += user.get("easy", 0) + user.get("medium", 0) + user.get("hard", 0)
-            
+
+            # Ensure all values are integers (they come as strings from DynamoDB)
+            try:
+                easy = int(user.get("easy", 0) or 0)
+                medium = int(user.get("medium", 0) or 0)
+                hard = int(user.get("hard", 0) or 0)
+                xp = int(user.get("xp", 0) or 0)
+            except (ValueError, TypeError):
+                easy = medium = hard = xp = 0
+
+            stats["easy"] += easy
+            stats["medium"] += medium
+            stats["hard"] += hard
+            stats["total"] += easy + medium + hard
+
             # Calculate XP for this user
-            user_xp = (user.get("easy", 0) * 100 + 
-                      user.get("medium", 0) * 300 + 
-                      user.get("hard", 0) * 500 + 
-                      user.get("xp", 0))
-            
+            user_xp = (easy * 100 + medium * 300 + hard * 500 + xp)
+
             stats["total_xp"] += user_xp
             
             # Track top student
@@ -257,18 +264,24 @@ async def get_my_university_leaderboard_endpoint(
         university_users = []
         for user in result.get("data", []):
             if user.get("university") == user_university:
-                user_xp = (user.get("easy", 0) * 100 +
-                          user.get("medium", 0) * 300 +
-                          user.get("hard", 0) * 500 +
-                          user.get("xp", 0))
+                # Ensure all values are integers (they come as strings from DynamoDB)
+                try:
+                    easy = int(user.get("easy", 0) or 0)
+                    medium = int(user.get("medium", 0) or 0)
+                    hard = int(user.get("hard", 0) or 0)
+                    xp = int(user.get("xp", 0) or 0)
+                except (ValueError, TypeError):
+                    easy = medium = hard = xp = 0
+
+                user_xp = (easy * 100 + medium * 300 + hard * 500 + xp)
 
                 university_users.append({
                     "username": user.get("username", ""),
                     "display_name": user.get("display_name", user.get("username", "")),
-                    "easy": user.get("easy", 0),
-                    "medium": user.get("medium", 0),
-                    "hard": user.get("hard", 0),
-                    "xp": user.get("xp", 0),
+                    "easy": easy,
+                    "medium": medium,
+                    "hard": hard,
+                    "xp": xp,
                     "total_xp": user_xp
                 })
 

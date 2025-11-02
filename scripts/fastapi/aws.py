@@ -279,11 +279,13 @@ class UserOperations:
             normalized_users = []
             for item in items:
                 user = normalize_dynamodb_item(item)
-                # Only include users with university information
-                if user.get('university'):
+                # Only include users with valid university information
+                university = user.get('university', '')
+                if university and university != 'undefined' and university != 'Other' and university.strip():
                     normalized_users.append({
                         'username': user.get('username', ''),
-                        'university': user.get('university', ''),
+                        'display_name': user.get('display_name', user.get('username', '')),
+                        'university': university,
                         'easy': user.get('easy', 0),
                         'medium': user.get('medium', 0),
                         'hard': user.get('hard', 0),
