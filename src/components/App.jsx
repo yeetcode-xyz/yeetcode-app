@@ -11,15 +11,18 @@ import LeaderboardStep from './LeaderboardStep';
 
 // Import dev config (only in dev; file is gitignored and absent in CI)
 let devConfig = { useAutoLogin: false };
-if (import.meta.env.DEV) {
-  try {
-    // Avoid bundler resolution in production builds
-    const imported = await import(/* @vite-ignore */ '../dev.config.js');
-    devConfig = imported.devConfig;
-  } catch (e) {
-    // dev.config.js doesn't exist - that's fine, auto-login disabled
+// Use dynamic import only in dev mode, wrapped to avoid top-level await
+(async () => {
+  if (import.meta.env.DEV) {
+    try {
+      // Avoid bundler resolution in production builds
+      const imported = await import(/* @vite-ignore */ '../dev.config.js');
+      devConfig = imported.devConfig;
+    } catch (e) {
+      // dev.config.js doesn't exist - that's fine, auto-login disabled
+    }
   }
-}
+})();
 
 const APP_VERSION = '0.1.2';
 function App() {
