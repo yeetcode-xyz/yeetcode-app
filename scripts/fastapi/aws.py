@@ -1109,7 +1109,12 @@ class BountyOperations:
             
             # Normalize DynamoDB data for bounties
             normalized_bounties = [normalize_dynamodb_item(bounty) for bounty in active_bounties]
-            
+
+            # Map 'id' field to 'bountyId' for frontend compatibility
+            for bounty in normalized_bounties:
+                if 'id' in bounty:
+                    bounty['bountyId'] = bounty['id']
+
             return {"success": True, "data": normalized_bounties}
             
         except Exception as error:

@@ -22,11 +22,13 @@ from routes.daily import router as daily_router
 from aws import VerificationOperations
 from routes.bounties import router as bounties_router
 from routes.duels import router as duels_router
+from routes.admin import router as admin_router
 
 # Import cache manager and AWS operations
 from cache_manager import cache_manager
 from aws import DuelOperations
 from logger import debug, info, warning, error
+from scheduler import start_scheduler, stop_scheduler, get_scheduler_status, trigger_job_manually
 
 # Lifespan event handler
 @asynccontextmanager
@@ -34,16 +36,22 @@ async def lifespan(app: FastAPI):
     """Handle startup and shutdown events"""
     # Startup
     info("Starting FastAPI server with background tasks")
-    
-    # Start background tasks
+
+    # Start the APScheduler for background jobs
+    start_scheduler()
+
+    # Start existing background tasks
     duel_task = asyncio.create_task(monitor_active_duels())
     cleanup_task = asyncio.create_task(cleanup_expired_codes_task())
-    
+
     yield
-    
+
     # Shutdown
     info("Shutting down FastAPI server")
-    
+
+    # Stop the scheduler
+    stop_scheduler()
+
     # Cancel background tasks
     duel_task.cancel()
     cleanup_task.cancel()
@@ -83,6 +91,7 @@ app.include_router(groups_router)
 app.include_router(daily_router)
 app.include_router(bounties_router)
 app.include_router(duels_router)
+app.include_router(admin_router)
 
 if DEBUG_MODE:
     print("[DEBUG] Registered routes:")
