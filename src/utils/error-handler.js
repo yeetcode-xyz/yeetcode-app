@@ -32,6 +32,12 @@ const handleAPIError = (error, context) => {
         throw new Error('Rate limit exceeded - please try again later');
       case 500:
         throw new Error('Server error - please try again later');
+      case 502:
+      case 503:
+      case 504:
+        throw new Error(
+          'Server is temporarily unavailable. Please try again in a few moments.'
+        );
       default:
         throw new Error(`API error: ${status}`);
     }
@@ -39,7 +45,7 @@ const handleAPIError = (error, context) => {
 
   if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
     throw new Error(
-      'Unable to connect to YeetCode servers. Please check your internet connection and try again.'
+      'Unable to connect to YeetCode servers. The server may be temporarily down. Please try again later.'
     );
   }
 
@@ -63,6 +69,28 @@ const handleAPIError = (error, context) => {
   }
 
   throw error;
+};
+
+const getUserFriendlyErrorMessage = error => {
+  if (!error) {
+    return 'An unknown error occurred';
+  }
+
+  // Return the message if it's already user-friendly
+  if (error.message) {
+    return error.message;
+  }
+
+  // Handle error codes
+  if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+    return 'Unable to connect to YeetCode servers. The server may be temporarily down.';
+  }
+
+  if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+    return 'Request timed out. Please check your internet connection.';
+  }
+
+  return 'An unexpected error occurred. Please try again.';
 };
 
 const createAPIResponse = (success, data = null, error = null) => {
@@ -138,6 +166,7 @@ module.exports = {
   logError,
   logDebug,
   handleAPIError,
+  getUserFriendlyErrorMessage,
   createAPIResponse,
   handleGraphQLError,
   wrapAsyncHandler,

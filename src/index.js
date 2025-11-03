@@ -523,6 +523,22 @@ ipcMain.handle('get-stats-for-group', async (event, groupId) => {
     }
   } catch (error) {
     console.error('[ERROR][get-stats-for-group]', error);
+
+    // Provide user-friendly error messages for connection issues
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      console.error('[ERROR][get-stats-for-group] Server is unreachable');
+      throw new Error(
+        'Unable to connect to YeetCode servers. The server may be temporarily down.'
+      );
+    }
+
+    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+      throw new Error(
+        'Request timed out. Please check your internet connection.'
+      );
+    }
+
+    // For other errors, return empty array to show gracefully
     return [];
   }
 });
@@ -741,11 +757,22 @@ ipcMain.handle('get-daily-problem', async (event, username) => {
     }
   } catch (error) {
     console.error('[ERROR][get-daily-problem]', error);
+
+    // Provide user-friendly error message
+    let errorMessage = error.message;
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      errorMessage =
+        'Unable to connect to YeetCode servers. The server may be temporarily down.';
+    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+      errorMessage =
+        'Request timed out. Please check your internet connection.';
+    }
+
     return {
       dailyComplete: false,
       streak: 0,
       todaysProblem: null,
-      error: error.message,
+      error: errorMessage,
     };
   }
 });
@@ -825,6 +852,22 @@ ipcMain.handle('get-bounties', async (event, username, refresh = false) => {
     }
   } catch (error) {
     console.error('[ERROR][get-bounties]', error);
+
+    // Provide user-friendly error messages for connection issues
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      console.error('[ERROR][get-bounties] Server is unreachable');
+      throw new Error(
+        'Unable to connect to YeetCode servers. The server may be temporarily down. Please try again later.'
+      );
+    }
+
+    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+      throw new Error(
+        'Request timed out. Please check your internet connection and try again.'
+      );
+    }
+
+    // For other errors, return empty array to show "No bounties" gracefully
     return [];
   }
 });

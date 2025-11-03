@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 import os
 
-from aws import UserOperations, DailyOperations, BountyOperations, ddb
+from aws import UserOperations, DailyProblemOperations, BountyOperations, ddb
 from cache_manager import cache_manager, CacheType
 
 logging.basicConfig(level=logging.INFO)
@@ -76,14 +76,23 @@ def fetch_user_stats(username: str) -> Dict:
 def check_daily_completion(username: str) -> Optional[str]:
     """Check if user completed today's daily problem"""
     try:
-        # Get today's problem slug
-        daily_result = DailyOperations.get_daily_problem()
-        if not daily_result.get("success"):
-            return None
+        # Get today's problem slug from database
+        today = datetime.utcnow().strftime("%Y-%m-%d")
 
-        daily_data = daily_result.get("data", {})
-        slug = daily_data.get("titleSlug")
-        if not slug:
+        try:
+            daily_item = ddb.get_item(
+                TableName=os.environ.get("DAILY_TABLE", "Daily"),
+                Key={"date": {"S": today}}
+            )
+
+            if "Item" not in daily_item:
+                return None
+
+            slug = daily_item["Item"].get("slug", {}).get("S")
+            if not slug:
+                return None
+        except Exception as e:
+            log.error(f"Error fetching daily problem: {e}")
             return None
 
         # Get recent submissions

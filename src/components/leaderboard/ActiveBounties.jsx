@@ -23,7 +23,8 @@ const ActiveBounties = forwardRef(({ userData }, ref) => {
       setBounties(bountiesData);
       setError(null);
     } catch (err) {
-      setError('Failed to load bounties');
+      // Use the specific error message if available, otherwise use a generic one
+      setError(err.message || 'Failed to load bounties');
       console.error('Error loading bounties:', err);
     } finally {
       setLoading(false);
