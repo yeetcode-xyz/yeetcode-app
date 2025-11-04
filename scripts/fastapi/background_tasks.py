@@ -249,6 +249,10 @@ async def update_bounty_progress():
         bounties = bounties_result.get("data", [])
         log.info(f"📦 Loaded {len(bounties)} bounties")
 
+        # Debug: Log first bounty structure if available
+        if bounties:
+            log.info(f"🔍 Sample bounty keys: {list(bounties[0].keys())}")
+
         # Get all users by scanning the users table
         response = ddb.scan(TableName=os.environ.get("TABLE_NAME", "Yeetcode_users"))
 
