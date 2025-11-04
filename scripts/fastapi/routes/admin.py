@@ -3,11 +3,44 @@ Admin routes for YeetCode FastAPI server
 Provides endpoints for managing background tasks and system operations
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse
 from auth import verify_api_key
 from scheduler import get_scheduler_status, trigger_job_manually
+import logging
+from datetime import datetime
 
 router = APIRouter(tags=["Admin"], prefix="/admin")
+
+# In-memory log storage (limited to last 500 entries)
+log_buffer = []
+MAX_LOGS = 500
+
+
+class AdminLogHandler(logging.Handler):
+    """Custom log handler that stores logs in memory for the admin dashboard"""
+
+    def emit(self, record):
+        try:
+            log_entry = {
+                "timestamp": datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S"),
+                "level": record.levelname,
+                "message": self.format(record),
+                "logger": record.name
+            }
+            log_buffer.append(log_entry)
+            # Keep only the last MAX_LOGS entries
+            if len(log_buffer) > MAX_LOGS:
+                log_buffer.pop(0)
+        except Exception:
+            self.handleError(record)
+
+
+# Add the handler to the background_tasks logger
+background_logger = logging.getLogger("background_tasks")
+admin_handler = AdminLogHandler()
+admin_handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
+background_logger.addHandler(admin_handler)
 
 
 @router.get("/scheduler/status")

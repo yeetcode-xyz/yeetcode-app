@@ -179,13 +179,17 @@ async def update_user_stats():
     log.info("🚀 Starting user stats update task...")
 
     try:
-        # Get all usernames
-        users_result = UserOperations.get_all_users()
-        if not users_result.get("success"):
+        # Get all users by scanning the users table
+        response = ddb.scan(TableName=os.environ.get("TABLE_NAME", "Yeetcode_users"))
+
+        if "Items" not in response:
             log.error("Failed to fetch users")
             return
 
-        usernames = [u.get("username") for u in users_result.get("data", [])]
+        # Extract usernames from DynamoDB items
+        from aws import normalize_dynamodb_item
+        users = [normalize_dynamodb_item(item) for item in response["Items"]]
+        usernames = [u.get("username") for u in users if u.get("username")]
         log.info(f"📊 Processing {len(usernames)} users...")
 
         # Process users with concurrency limit
@@ -245,13 +249,16 @@ async def update_bounty_progress():
         bounties = bounties_result.get("data", [])
         log.info(f"📦 Loaded {len(bounties)} bounties")
 
-        # Get all users
-        users_result = UserOperations.get_all_users()
-        if not users_result.get("success"):
+        # Get all users by scanning the users table
+        response = ddb.scan(TableName=os.environ.get("TABLE_NAME", "Yeetcode_users"))
+
+        if "Items" not in response:
             log.error("Failed to fetch users")
             return
 
-        users = users_result.get("data", [])
+        # Extract users from DynamoDB items
+        from aws import normalize_dynamodb_item
+        users = [normalize_dynamodb_item(item) for item in response["Items"]]
         log.info(f"👥 Processing {len(users)} users...")
 
         completion_count = 0
