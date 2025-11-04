@@ -9,21 +9,6 @@ import OnboardingStep from './OnboardingStep';
 import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
 
-// Import dev config (only in dev; file is gitignored and absent in CI)
-let devConfig = { useAutoLogin: false };
-// Use dynamic import only in dev mode, wrapped to avoid top-level await
-(async () => {
-  if (import.meta.env.DEV) {
-    try {
-      // Avoid bundler resolution in production builds
-      const imported = await import(/* @vite-ignore */ '../dev.config.js');
-      devConfig = imported.devConfig;
-    } catch (e) {
-      // dev.config.js doesn't exist - that's fine, auto-login disabled
-    }
-  }
-})();
-
 const APP_VERSION = '0.1.2';
 function App() {
   const [step, setStep] = useState('welcome');
@@ -38,6 +23,7 @@ function App() {
   const [universityLeaderboard, setUniversityLeaderboard] = useState([]);
   const [myUniversityLeaderboard, setMyUniversityLeaderboard] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [devConfig, setDevConfig] = useState({ useAutoLogin: false });
 
   // Fix: Declare previousLeaderboardRef here
   const previousLeaderboardRef = useRef([]);
@@ -57,6 +43,20 @@ function App() {
   const [animationClass, setAnimationClass] = useState('');
   const [refreshIn, setRefreshIn] = useState(60);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
+
+  // Load dev config asynchronously in development mode
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (async () => {
+        try {
+          const imported = await import(/* @vite-ignore */ '../dev.config.js');
+          setDevConfig(imported.devConfig);
+        } catch (e) {
+          // dev.config.js doesn't exist - that's fine, auto-login disabled
+        }
+      })();
+    }
+  }, []);
 
   useEffect(() => {
     const savedUserData = loadFromStorage(STORAGE_KEYS.USER_DATA);
@@ -107,7 +107,7 @@ function App() {
       setStep(savedAppState.step || 'welcome');
       setGroupData(savedAppState.groupData || { code: '', joined: false });
     }
-  }, []);
+  }, [devConfig]);
 
   useEffect(() => {
     if (userData.name || userData.leetUsername) {

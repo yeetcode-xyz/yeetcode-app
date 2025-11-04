@@ -11,12 +11,25 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
+    sourcemap: false, // Disable source maps in production
+    minify: 'terser', // Use terser for better compression
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.logs
+        drop_debugger: true, // Remove debugger statements
+      },
+    },
     rollupOptions: {
       input: resolve(fileURLToPath(new URL('.', import.meta.url)), 'src/index.html'),
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
         assetFileNames: '[name].[ext]',
+        manualChunks: {
+          // Split vendor chunks for better caching
+          'react-vendor': ['react', 'react-dom'],
+          'framer-vendor': ['framer-motion'],
+        },
       },
     },
   },

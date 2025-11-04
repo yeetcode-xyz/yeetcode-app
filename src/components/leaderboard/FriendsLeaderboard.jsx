@@ -223,8 +223,8 @@ const FriendsLeaderboard = ({
                               : index === 2
                                 ? 'bg-green-100'
                                 : isCurrentUser
-                                  ? 'bg-blue-50 border-l-4 border-blue-400'
-                                  : '';
+                                  ? 'bg-blue-50'
+                                  : 'bg-white';
 
                         const textStyle = isCurrentUser
                           ? 'font-semibold text-blue-700'
@@ -238,7 +238,21 @@ const FriendsLeaderboard = ({
                             key={user.username}
                             layout
                             initial={{ opacity: 0, x: -20, scale: 0.95 }}
-                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            animate={{
+                              opacity: 1,
+                              x: 0,
+                              scale: 1,
+                              backgroundColor:
+                                index === 0
+                                  ? '#fee2e2'
+                                  : index === 1
+                                    ? '#dbeafe'
+                                    : index === 2
+                                      ? '#dcfce7'
+                                      : isCurrentUser
+                                        ? '#eff6ff'
+                                        : '#ffffff',
+                            }}
                             exit={{ opacity: 0, x: 20, scale: 0.95 }}
                             transition={{
                               layout: { duration: 0.4, ease: 'easeInOut' },
@@ -250,7 +264,14 @@ const FriendsLeaderboard = ({
                               className={`px-4 py-3 w-12 ${rankStyle}`}
                               layout
                             >
-                              #{index + 1}
+                              <motion.span
+                                key={`rank-${index}`}
+                                initial={{ scale: 1.2, color: '#f59e0b' }}
+                                animate={{ scale: 1, color: '#000' }}
+                                transition={{ duration: 0.3 }}
+                              >
+                                #{index + 1}
+                              </motion.span>
                             </motion.td>
                             <motion.td
                               className={`px-4 py-3 w-32 ${textStyle}`}
@@ -277,31 +298,66 @@ const FriendsLeaderboard = ({
                               className={`text-center px-4 py-3 w-14 ${textStyle}`}
                               layout
                             >
-                              {user.easy}
+                              <motion.span
+                                key={`easy-${user.easy}`}
+                                initial={{ scale: 1.2, color: '#10b981' }}
+                                animate={{ scale: 1, color: '#000' }}
+                                transition={{ duration: 0.3 }}
+                              >
+                                {user.easy}
+                              </motion.span>
                             </motion.td>
                             <motion.td
                               className={`text-center px-4 py-3 w-14 ${textStyle}`}
                               layout
                             >
-                              {user.medium}
+                              <motion.span
+                                key={`medium-${user.medium}`}
+                                initial={{ scale: 1.2, color: '#f59e0b' }}
+                                animate={{ scale: 1, color: '#000' }}
+                                transition={{ duration: 0.3 }}
+                              >
+                                {user.medium}
+                              </motion.span>
                             </motion.td>
                             <motion.td
                               className={`text-center px-4 py-3 w-14 ${textStyle}`}
                               layout
                             >
-                              {user.hard}
+                              <motion.span
+                                key={`hard-${user.hard}`}
+                                initial={{ scale: 1.2, color: '#ef4444' }}
+                                animate={{ scale: 1, color: '#000' }}
+                                transition={{ duration: 0.3 }}
+                              >
+                                {user.hard}
+                              </motion.span>
                             </motion.td>
                             <motion.td
-                              className={`text-center px-4 py-3 w-16 font-bold text-blue-600 ${textStyle}`}
+                              className={`text-center px-4 py-3 w-16 font-bold ${isCurrentUser ? 'text-blue-700' : 'text-blue-600'}`}
                               layout
                             >
-                              {total}
+                              <motion.span
+                                key={`total-${total}`}
+                                initial={{ scale: 1.3, color: '#2563eb' }}
+                                animate={{ scale: 1, color: '#000' }}
+                                transition={{ duration: 0.4 }}
+                              >
+                                {total}
+                              </motion.span>
                             </motion.td>
                             <motion.td
-                              className={`text-center px-4 py-3 w-20 font-bold text-red-500 ${textStyle}`}
+                              className={`text-center px-4 py-3 w-20 font-bold ${isCurrentUser ? 'text-purple-700' : 'text-purple-600'}`}
                               layout
                             >
-                              {userXP.toLocaleString()}
+                              <motion.span
+                                key={`xp-${userXP}`}
+                                initial={{ scale: 1.3, color: '#7c3aed' }}
+                                animate={{ scale: 1, color: '#000' }}
+                                transition={{ duration: 0.4 }}
+                              >
+                                {userXP.toLocaleString()}
+                              </motion.span>
                             </motion.td>
                           </motion.tr>
                         );
@@ -356,14 +412,26 @@ const FriendsLeaderboard = ({
                             ? 'bg-blue-100'
                             : index === 2
                               ? 'bg-green-100'
-                              : '';
+                              : 'bg-white';
 
                       return (
                         <motion.tr
                           key={uni.university}
                           layout
                           initial={{ opacity: 0, x: -20, scale: 0.95 }}
-                          animate={{ opacity: 1, x: 0, scale: 1 }}
+                          animate={{
+                            opacity: 1,
+                            x: 0,
+                            scale: 1,
+                            backgroundColor:
+                              index === 0
+                                ? '#fee2e2'
+                                : index === 1
+                                  ? '#dbeafe'
+                                  : index === 2
+                                    ? '#dcfce7'
+                                    : '#ffffff',
+                          }}
                           exit={{ opacity: 0, x: 20, scale: 0.95 }}
                           transition={{
                             layout: { duration: 0.4, ease: 'easeInOut' },
@@ -375,7 +443,14 @@ const FriendsLeaderboard = ({
                             className="px-4 py-3 w-16 font-bold"
                             layout
                           >
-                            #{index + 1}
+                            <motion.span
+                              key={`rank-${index}`}
+                              initial={{ scale: 1.2, color: '#f59e0b' }}
+                              animate={{ scale: 1, color: '#000' }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              #{index + 1}
+                            </motion.span>
                           </motion.td>
                           <motion.td className="px-4 py-3 w-40" layout>
                             <div>
@@ -393,39 +468,81 @@ const FriendsLeaderboard = ({
                             className="text-center px-4 py-3 w-20"
                             layout
                           >
-                            {uni.students}
+                            <motion.span
+                              key={`students-${uni.students}`}
+                              initial={{ scale: 1.2, color: '#8b5cf6' }}
+                              animate={{ scale: 1, color: '#000' }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              {uni.students}
+                            </motion.span>
                           </motion.td>
                           <motion.td
                             className="text-center px-4 py-3 w-16"
                             layout
                           >
-                            {uni.easy.toLocaleString()}
+                            <motion.span
+                              key={`easy-${uni.easy}`}
+                              initial={{ scale: 1.2, color: '#10b981' }}
+                              animate={{ scale: 1, color: '#000' }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              {uni.easy.toLocaleString()}
+                            </motion.span>
                           </motion.td>
                           <motion.td
                             className="text-center px-4 py-3 w-16"
                             layout
                           >
-                            {uni.medium.toLocaleString()}
+                            <motion.span
+                              key={`medium-${uni.medium}`}
+                              initial={{ scale: 1.2, color: '#f59e0b' }}
+                              animate={{ scale: 1, color: '#000' }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              {uni.medium.toLocaleString()}
+                            </motion.span>
                           </motion.td>
                           <motion.td
                             className="text-center px-4 py-3 w-16"
                             layout
                           >
-                            {uni.hard.toLocaleString()}
+                            <motion.span
+                              key={`hard-${uni.hard}`}
+                              initial={{ scale: 1.2, color: '#ef4444' }}
+                              animate={{ scale: 1, color: '#000' }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              {uni.hard.toLocaleString()}
+                            </motion.span>
                           </motion.td>
                           <motion.td
                             className="text-center px-4 py-3 w-20 font-bold text-blue-600"
                             layout
                           >
-                            {uni.total.toLocaleString()}
+                            <motion.span
+                              key={`total-${uni.total}`}
+                              initial={{ scale: 1.3, color: '#2563eb' }}
+                              animate={{ scale: 1, color: '#000' }}
+                              transition={{ duration: 0.4 }}
+                            >
+                              {uni.total.toLocaleString()}
+                            </motion.span>
                           </motion.td>
                           <motion.td
                             className="text-center px-4 py-3 w-24 font-bold text-purple-600"
                             layout
                           >
-                            {uni.total_xp >= 10000
-                              ? `${(uni.total_xp / 1000).toFixed(1)}K`
-                              : uni.total_xp.toLocaleString()}
+                            <motion.span
+                              key={`xp-${uni.total_xp}`}
+                              initial={{ scale: 1.3, color: '#7c3aed' }}
+                              animate={{ scale: 1, color: '#000' }}
+                              transition={{ duration: 0.4 }}
+                            >
+                              {uni.total_xp >= 10000
+                                ? `${(uni.total_xp / 1000).toFixed(1)}K`
+                                : uni.total_xp.toLocaleString()}
+                            </motion.span>
                           </motion.td>
                         </motion.tr>
                       );
@@ -483,8 +600,8 @@ const FriendsLeaderboard = ({
                             : index === 2
                               ? 'bg-green-100'
                               : isCurrentUser
-                                ? 'bg-blue-50 border-l-4 border-blue-400'
-                                : '';
+                                ? 'bg-blue-50'
+                                : 'bg-white';
 
                       const textStyle = isCurrentUser
                         ? 'font-semibold text-blue-700'

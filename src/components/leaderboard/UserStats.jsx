@@ -120,6 +120,34 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
     }
   };
 
+  // Get XP needed to reach next sub-rank
+  const getXPToNextSubRank = () => {
+    const currentRankIndex = RANKS.findIndex(
+      r => userXP >= r.min && userXP <= r.max
+    );
+
+    if (currentRankIndex === -1) return 0;
+
+    const currentRank = RANKS[currentRankIndex];
+    const range = currentRank.max - currentRank.min + 1;
+    const subSize = Math.floor(range / 3);
+
+    // Check current subdivision
+    if (userXP >= currentRank.min + 2 * subSize) {
+      // Currently in III, next is next rank's I
+      if (currentRankIndex < RANKS.length - 1) {
+        return RANKS[currentRankIndex + 1].min - userXP;
+      }
+      return 0; // Max rank reached
+    } else if (userXP >= currentRank.min + subSize) {
+      // Currently in II, next is III
+      return currentRank.min + 2 * subSize - userXP;
+    } else {
+      // Currently in I, next is II
+      return currentRank.min + subSize - userXP;
+    }
+  };
+
   // Progress bar for current rank
   const getRankProgress = () => {
     for (let i = 0; i < RANKS.length; i++) {
@@ -261,12 +289,19 @@ const UserStats = ({ userData, leaderboard, dailyData }) => {
               </div>
               {(() => {
                 const nextRank = getNextRank();
+                const xpNeeded = getXPToNextSubRank();
                 return nextRank ? (
                   <div className="text-xs text-gray-600 mt-1">
                     Next:{' '}
                     <span className="font-bold text-green-600">
                       {nextRank.name} {nextRank.sub}
                     </span>
+                    {xpNeeded > 0 && (
+                      <span className="text-gray-500">
+                        {' '}
+                        in {xpNeeded.toLocaleString()} XP
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <div className="text-xs text-orange-600 mt-1 font-bold">
