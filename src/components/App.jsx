@@ -9,7 +9,7 @@ import OnboardingStep from './OnboardingStep';
 import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
 
-const APP_VERSION = '0.1.2';
+const APP_VERSION = '1.1.0';
 function App() {
   const [step, setStep] = useState('welcome');
   const [userData, setUserData] = useState({
@@ -838,9 +838,14 @@ function App() {
       style={{ fontFamily: 'Space Grotesk, sans-serif' }}
     >
       <div className="flex justify-between items-center border-b-4 border-black pb-2">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          YeetCode
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            YeetCode
+          </h1>
+          <span className="text-xs font-medium text-gray-400 self-end mb-1">
+            v{APP_VERSION}
+          </span>
+        </div>
         {step === 'leaderboard' && (
           <div className="flex items-center gap-2">
             <span
