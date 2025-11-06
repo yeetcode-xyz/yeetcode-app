@@ -1,6 +1,11 @@
 # YeetCode App
 
-**YeetCode App** is a desktop application that makes competitive programming practice fun and social. Built with Electron and React, it gamifies LeetCode practice with XP, streaks, duels, and competitive features.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+**YeetCode App** is an open-source desktop application that makes competitive programming practice fun and social. Built with Electron and React, it gamifies LeetCode practice with XP, streaks, duels, and competitive features.
+
+> 🌟 **Like this project? Give it a star!** It helps us grow and motivates continued development.
 
 ## Features
 
@@ -197,13 +202,35 @@ yeetcode-app/
 
 ## Contributing
 
-Contributions are welcome! Please:
-1. Follow the existing code style (Prettier formatting)
-2. Write tests for new features
-3. Update documentation as needed
-4. Ensure all tests pass before submitting
+We love contributions! 🎉 Please read our [Contributing Guidelines](CONTRIBUTING.md) before getting started.
+
+**Important:** Before working on any feature or fix, please open an issue to discuss it first. This helps us coordinate efforts and ensure your contribution aligns with the project's direction.
+
+Quick start for contributors:
+1. Fork the repository
+2. Open an issue to discuss your planned changes
+3. Create a feature branch
+4. Follow our [code style guidelines](CONTRIBUTING.md#code-style-guidelines)
+5. Write tests for new features
+6. Submit a pull request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold this code.
+
+## Contributors
+
+YeetCode is developed and maintained by:
+- **[Siddhant Modi](https://github.com/sidmo2006)** - Co-creator & Lead Developer
+- **[Akeenth Ramanathan](https://github.com/akeen)** - Co-creator & Lead Developer
+
+We're grateful to all our contributors who help make YeetCode better! 🙏
 
 ## License
 
-This project is private and not licensed for public use.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2025 Siddhant Modi and Akeenth Ramanathan
 
