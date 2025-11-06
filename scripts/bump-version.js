@@ -44,12 +44,25 @@ indexJs = indexJs.replace(
 fs.writeFileSync(indexJsPath, indexJs);
 console.log('✅ Updated src/index.js');
 
+// Update src/components/App.jsx
+const appJsxPath = path.join(__dirname, '..', 'src', 'components', 'App.jsx');
+let appJsx = fs.readFileSync(appJsxPath, 'utf8');
+
+// Replace the APP_VERSION line
+appJsx = appJsx.replace(
+  /const APP_VERSION = '[^']+';/,
+  `const APP_VERSION = '${newVersion}';`
+);
+
+fs.writeFileSync(appJsxPath, appJsx);
+console.log('✅ Updated src/components/App.jsx');
+
 console.log('');
 console.log('🎉 Version bumped successfully!');
 console.log('');
 console.log('Next steps:');
 console.log('  1. Review the changes');
-console.log('  2. Commit: git add package.json src/index.js');
+console.log('  2. Commit: git add package.json src/index.js src/components/App.jsx');
 console.log(`  3. Commit: git commit -m "Bump version to ${newVersion}"`);
 console.log('  4. Push: git push origin main');
 console.log('  5. Workflow will auto-deploy the new version!');
