@@ -39,8 +39,7 @@ def send_new_user_notification(username: str, email: str, display_name: str, uni
                     "value": email,
                     "inline": False
                 }
-            ],
-            "timestamp": None  # Discord will add current timestamp
+            ]
         }
 
         # Add university field if provided
