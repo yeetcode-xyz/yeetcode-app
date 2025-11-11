@@ -134,37 +134,11 @@ class UserOperations:
     
     @staticmethod
     def update_user_data(username: str, updates: Dict) -> bool:
-        """Update user data in DynamoDB"""
+        """Update user data in cache (CACHE-FIRST)"""
         try:
-            if not USERS_TABLE:
-                raise Exception("USERS_TABLE not configured")
-                
-            # Build update expression
-            update_expr = "SET "
-            expr_attrs = {}
-            expr_values = {}
-            
-            for key, value in updates.items():
-                if value is not None:
-                    update_expr += f"#{key} = :{key}, "
-                    expr_attrs[f"#{key}"] = key
-                    expr_values[f":{key}"] = value
-            
-            update_expr = update_expr.rstrip(", ")
-            
-            if not expr_values:
-                return True  # Nothing to update
-                
-            params = {
-                'TableName': USERS_TABLE,
-                'Key': {'username': {'S': username.lower()}},
-                'UpdateExpression': update_expr,
-                'ExpressionAttributeNames': expr_attrs,
-                'ExpressionAttributeValues': expr_values
-            }
-            
-            ddb.update_item(**params)
-            return True
+            # CACHE-FIRST: Use cache operations helper
+            from cache_operations import update_user_in_cache
+            return update_user_in_cache(username.lower(), updates)
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to update user data: {error}")
@@ -222,27 +196,11 @@ class UserOperations:
     
     @staticmethod
     def award_xp(username: str, xp_amount: int) -> bool:
-        """Award XP to a user"""
+        """Award XP to a user (CACHE-FIRST)"""
         try:
-            if not USERS_TABLE:
-                raise Exception("USERS_TABLE not configured")
-            
-            update_params = {
-                'TableName': USERS_TABLE,
-                'Key': {'username': {'S': username.lower()}},
-                'UpdateExpression': 'SET xp = if_not_exists(xp, :zero) + :xp',
-                'ExpressionAttributeValues': {
-                    ':zero': {'N': '0'},
-                    ':xp': {'N': str(xp_amount)}
-                }
-            }
-            
-            ddb.update_item(**update_params)
-            
-            if DEBUG_MODE:
-                print(f"[DEBUG] Awarded {xp_amount} XP to user {username}")
-            
-            return True
+            # CACHE-FIRST: Use cache operations helper
+            from cache_operations import award_xp_in_cache
+            return award_xp_in_cache(username.lower(), xp_amount)
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to award XP: {error}")
@@ -539,35 +497,25 @@ class GroupOperations:
     
     @staticmethod
     def create_group(username: str, display_name: Optional[str] = None) -> Dict:
-        """Create a new group and assign user as group leader"""
+        """Create a new group and assign user as group leader (CACHE-FIRST)"""
         try:
-            if not USERS_TABLE:
-                raise Exception("USERS_TABLE not configured")
-            
             normalized_username = username.lower()
-            
+
             # Generate a unique 5-digit group ID
             import random
             group_id = str(random.randint(10000, 99999))
-            
-            # Update user with group_id and display_name
-            update_params = {
-                'TableName': USERS_TABLE,
-                'Key': {'username': {'S': normalized_username}},
-                'UpdateExpression': 'SET group_id = :g, display_name = :name',
-                'ExpressionAttributeValues': {
-                    ':g': {'S': group_id},
-                    ':name': {'S': display_name or username}
-                }
-            }
-            
-            ddb.update_item(**update_params)
-            
-            if DEBUG_MODE:
-                print(f"[DEBUG] Created group {group_id} for user {normalized_username}")
-            
-            return {"success": True, "group_id": group_id}
-            
+
+            # CACHE-FIRST: Use cache operations helper
+            from cache_operations import create_group_in_cache
+            success = create_group_in_cache(group_id, normalized_username, display_name or username)
+
+            if success:
+                if DEBUG_MODE:
+                    print(f"[DEBUG] Created group {group_id} for user {normalized_username}")
+                return {"success": True, "group_id": group_id}
+            else:
+                raise Exception("Failed to create group in cache")
+
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to create group: {error}")
@@ -575,31 +523,21 @@ class GroupOperations:
     
     @staticmethod
     def join_group(username: str, invite_code: str, display_name: Optional[str] = None) -> Dict:
-        """Join an existing group using invite code"""
+        """Join an existing group using invite code (CACHE-FIRST)"""
         try:
-            if not USERS_TABLE:
-                raise Exception("USERS_TABLE not configured")
-            
             normalized_username = username.lower()
-            
-            # Update user with group_id and display_name
-            update_params = {
-                'TableName': USERS_TABLE,
-                'Key': {'username': {'S': normalized_username}},
-                'UpdateExpression': 'SET group_id = :g, display_name = :name',
-                'ExpressionAttributeValues': {
-                    ':g': {'S': invite_code},
-                    ':name': {'S': display_name or username}
-                }
-            }
-            
-            ddb.update_item(**update_params)
-            
-            if DEBUG_MODE:
-                print(f"[DEBUG] User {normalized_username} joined group {invite_code}")
-            
-            return {"success": True, "group_id": invite_code}
-            
+
+            # CACHE-FIRST: Use cache operations helper
+            from cache_operations import join_group_in_cache
+            success = join_group_in_cache(normalized_username, invite_code, display_name or username)
+
+            if success:
+                if DEBUG_MODE:
+                    print(f"[DEBUG] User {normalized_username} joined group {invite_code}")
+                return {"success": True, "group_id": invite_code}
+            else:
+                raise Exception("Failed to join group in cache")
+
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to join group: {error}")
@@ -607,27 +545,21 @@ class GroupOperations:
     
     @staticmethod
     def leave_group(username: str) -> Dict:
-        """Leave the current group"""
+        """Leave the current group (CACHE-FIRST)"""
         try:
-            if not USERS_TABLE:
-                raise Exception("USERS_TABLE not configured")
-            
             normalized_username = username.lower()
-            
-            # Remove group_id from user
-            update_params = {
-                'TableName': USERS_TABLE,
-                'Key': {'username': {'S': normalized_username}},
-                'UpdateExpression': 'REMOVE group_id'
-            }
-            
-            ddb.update_item(**update_params)
-            
-            if DEBUG_MODE:
-                print(f"[DEBUG] User {normalized_username} left group")
-            
-            return {"success": True}
-            
+
+            # CACHE-FIRST: Use cache operations helper
+            from cache_operations import leave_group_in_cache
+            success = leave_group_in_cache(normalized_username)
+
+            if success:
+                if DEBUG_MODE:
+                    print(f"[DEBUG] User {normalized_username} left group")
+                return {"success": True}
+            else:
+                raise Exception("Failed to leave group in cache")
+
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to leave group: {error}")
@@ -679,18 +611,11 @@ class GroupOperations:
                 normalized_username = item['username']['S'].lower()
                 display_name = item.get('display_name', {}).get('S', item['username']['S'])
                 
-                # Auto-fix missing display names
+                # Auto-fix missing display names (CACHE-FIRST)
                 if not display_name or display_name == 'undefined':
                     try:
-                        update_params = {
-                            'TableName': USERS_TABLE,
-                            'Key': {'username': {'S': normalized_username}},
-                            'UpdateExpression': 'SET display_name = :name',
-                            'ExpressionAttributeValues': {
-                                ':name': {'S': item['username']['S']}
-                            }
-                        }
-                        ddb.update_item(**update_params)
+                        from cache_operations import update_user_in_cache
+                        update_user_in_cache(normalized_username, {'display_name': item['username']['S']})
                         display_name = item['username']['S']
                     except Exception as update_error:
                         if DEBUG_MODE:
@@ -944,49 +869,24 @@ class DailyProblemOperations:
     
     @staticmethod
     def complete_daily_problem(username: str) -> Dict:
-        """Mark daily problem as completed for a user"""
+        """Mark daily problem as completed for a user (CACHE-FIRST)"""
         try:
-            if not DAILY_TABLE or not USERS_TABLE:
-                raise Exception("Tables not configured")
-            
             from datetime import datetime, timezone
-            
+
             today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
             normalized_username = username.lower()
-            
-            # Update daily problem
-            update_daily_params = {
-                'TableName': DAILY_TABLE,
-                'Key': {'date': {'S': today}},
-                'UpdateExpression': 'SET #users.#username = :completed',
-                'ExpressionAttributeNames': {
-                    '#users': 'users',
-                    '#username': normalized_username
-                },
-                'ExpressionAttributeValues': {':completed': {'BOOL': True}}
-            }
-            
-            ddb.update_item(**update_daily_params)
-            
-            # Update user stats
-            update_user_params = {
-                'TableName': USERS_TABLE,
-                'Key': {'username': {'S': normalized_username}},
-                'UpdateExpression': 'SET today = :today, xp = if_not_exists(xp, :zero) + :xp',
-                'ExpressionAttributeValues': {
-                    ':today': {'N': '1'},
-                    ':zero': {'N': '0'},
-                    ':xp': {'N': '200'}
-                }
-            }
-            
-            ddb.update_item(**update_user_params)
-            
-            if DEBUG_MODE:
-                print(f"[DEBUG] User {normalized_username} completed daily problem")
-            
-            return {"success": True}
-            
+
+            # CACHE-FIRST: Use cache operations helper
+            from cache_operations import complete_daily_in_cache
+            success = complete_daily_in_cache(normalized_username, today)
+
+            if success:
+                if DEBUG_MODE:
+                    print(f"[DEBUG] User {normalized_username} completed daily problem")
+                return {"success": True}
+            else:
+                raise Exception("Failed to complete daily problem in cache")
+
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to complete daily problem: {error}")
@@ -1243,18 +1143,14 @@ class BountyOperations:
             
             # Calculate new progress
             new_progress = min(current_progress + increment, required_count)
-            
-            # Update bounty progress in DynamoDB
-            update_params = {
-                'TableName': BOUNTIES_TABLE,
-                'Key': {'id': {'S': bounty_id}},
-                'UpdateExpression': 'SET users.#username = :progress',
-                'ExpressionAttributeNames': {'#username': normalized_username},
-                'ExpressionAttributeValues': {':progress': {'N': str(new_progress)}}
-            }
-            
-            ddb.update_item(**update_params)
-            
+
+            # CACHE-FIRST: Update bounty progress in cache
+            from cache_operations import update_bounty_in_cache
+            success = update_bounty_in_cache(bounty_id, normalized_username, new_progress)
+
+            if not success:
+                return {"success": False, "error": "Failed to update bounty progress in cache"}
+
             # Check if user just completed the bounty
             just_completed = (current_progress < required_count and new_progress >= required_count)
             
@@ -1382,7 +1278,33 @@ class DuelOperations:
                 put_params['Item']['challengerWager'] = {'N': str(wager_amount)}
                 # challengeeWager will be set when opponent accepts
 
-            ddb.put_item(**put_params)
+            # CACHE-FIRST: Create duel in cache
+            from cache_operations import create_duel_in_cache
+            # Convert DynamoDB format to plain dict for cache
+            duel_data = {
+                'duelId': duel_id,
+                'challenger': normalized_username,
+                'challengee': normalized_opponent,
+                'problemSlug': problem_slug,
+                'status': 'PENDING',
+                'createdAt': put_params['Item']['createdAt']['S'],
+                'expires_at': int(put_params['Item']['expires_at']['N']),
+                'challengerTime': -1,
+                'challengeeTime': -1
+            }
+            if difficulty:
+                duel_data['difficulty'] = difficulty
+            if problem_title:
+                duel_data['problemTitle'] = problem_title
+            if problem_number:
+                duel_data['problemNumber'] = problem_number
+            if is_wager and wager_amount:
+                duel_data['isWager'] = 'Yes'
+                duel_data['challengerWager'] = wager_amount
+
+            success = create_duel_in_cache(duel_data)
+            if not success:
+                raise Exception("Failed to create duel in cache")
 
             wager_info = f" (Wager: {wager_amount} XP)" if is_wager else ""
             duel_action(f"Created duel {duel_id}{wager_info}", challenger=normalized_username, challengee=normalized_opponent, problem=problem_slug)
@@ -1443,20 +1365,18 @@ class DuelOperations:
                 ':acceptedAt': {'S': datetime.now(timezone.utc).isoformat()}
             }
 
-            # Add opponent wager if this is a wager duel
-            if is_wager and opponent_wager:
-                update_expression += ', challengeeWager = :challengeeWager'
-                expression_values[':challengeeWager'] = {'N': str(opponent_wager)}
-
-            update_params = {
-                'TableName': DUELS_TABLE,
-                'Key': {'duelId': {'S': duel_id}},
-                'UpdateExpression': update_expression,
-                'ExpressionAttributeNames': {'#status': 'status'},
-                'ExpressionAttributeValues': expression_values
+            # CACHE-FIRST: Update duel in cache
+            from cache_operations import update_duel_in_cache
+            updates = {
+                'status': 'ACCEPTED',
+                'acceptedAt': datetime.now(timezone.utc).isoformat()
             }
+            if is_wager and opponent_wager:
+                updates['challengeeWager'] = opponent_wager
 
-            ddb.update_item(**update_params)
+            success = update_duel_in_cache(duel_id, updates)
+            if not success:
+                raise Exception("Failed to accept duel in cache")
 
             wager_info = f" (wagering {opponent_wager} XP vs {challenger_wager} XP)" if is_wager else ""
             duel_action(f"User {username} accepted duel {duel_id}{wager_info}")
@@ -1502,22 +1422,21 @@ class DuelOperations:
             else:
                 raise Exception("User is not part of this duel")
             
-            # Update the user's time to 0, set their individual start time, and set status to ACTIVE
-            update_params = {
-                'TableName': DUELS_TABLE,
-                'Key': {'duelId': {'S': duel_id}},
-                'UpdateExpression': f'SET {time_field} = :time, {start_time_field} = :userStartTime, #status = :status, startTime = if_not_exists(startTime, :startTime)',
-                'ExpressionAttributeNames': {'#status': 'status'},
-                'ExpressionAttributeValues': {
-                    ':time': {'N': '0'},
-                    ':userStartTime': {'S': current_time},
-                    ':status': {'S': 'ACTIVE'},
-                    ':startTime': {'S': current_time}
-                }
+            # CACHE-FIRST: Update duel in cache
+            from cache_operations import update_duel_in_cache
+            updates = {
+                time_field: 0,
+                start_time_field: current_time,
+                'status': 'ACTIVE'
             }
-            
-            ddb.update_item(**update_params)
-            
+            # Only set global startTime if it doesn't exist yet
+            if 'startTime' not in duel or not duel.get('startTime', {}).get('S'):
+                updates['startTime'] = current_time
+
+            success = update_duel_in_cache(duel_id, updates)
+            if not success:
+                raise Exception("Failed to start duel in cache")
+
             duel_action(f"User {username} started duel {duel_id}")
             
             return {"success": True, "message": f"Duel started for {username}"}
@@ -1529,24 +1448,19 @@ class DuelOperations:
     
     @staticmethod
     def reject_duel(duel_id: str) -> Dict:
-        """Reject a duel"""
+        """Reject a duel (CACHE-FIRST)"""
         try:
-            if not DUELS_TABLE:
-                raise Exception("DUELS_TABLE not configured")
-            
-            # Delete duel record
-            delete_params = {
-                'TableName': DUELS_TABLE,
-                'Key': {'duelId': {'S': duel_id}}
-            }
-            
-            ddb.delete_item(**delete_params)
-            
-            if DEBUG_MODE:
-                print(f"[DEBUG] Duel {duel_id} rejected and deleted")
-            
-            return {"success": True, "duel_id": duel_id}
-            
+            # CACHE-FIRST: Delete duel from cache
+            from cache_operations import delete_duel_from_cache
+            success = delete_duel_from_cache(duel_id)
+
+            if success:
+                if DEBUG_MODE:
+                    print(f"[DEBUG] Duel {duel_id} rejected and deleted")
+                return {"success": True, "duel_id": duel_id}
+            else:
+                raise Exception("Failed to delete duel from cache")
+
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to reject duel: {error}")
@@ -1649,15 +1563,16 @@ class DuelOperations:
                 new_challenger_time = int(current_challenger_time) if current_challenger_time and int(current_challenger_time) > 0 else None
                 new_challengee_time = actual_elapsed_ms
             
-            # Update the time
-            update_params = {
-                'TableName': DUELS_TABLE,
-                'Key': {'duelId': {'S': duel_id}},
-                'UpdateExpression': update_expression,
-                'ExpressionAttributeValues': expression_values
-            }
-            
-            ddb.update_item(**update_params)
+            # CACHE-FIRST: Update the time in cache
+            from cache_operations import update_duel_in_cache
+            if is_challenger:
+                time_updates = {'challengerTime': actual_elapsed_ms}
+            else:
+                time_updates = {'challengeeTime': actual_elapsed_ms}
+
+            success = update_duel_in_cache(duel_id, time_updates)
+            if not success:
+                return {"success": False, "error": "Failed to update duel time in cache"}
             
             # Check if we should complete the duel (both users have times or one user completed and timeout passed)
             should_complete_duel = False
@@ -1725,20 +1640,16 @@ class DuelOperations:
 
                     duel_action(f"Duel {duel_id} completed", winner=winner or 'TIE')
 
-                # Update DynamoDB with completion status AFTER awarding XP
-                complete_params = {
-                    'TableName': DUELS_TABLE,
-                    'Key': {'duelId': {'S': duel_id}},
-                    'UpdateExpression': 'SET #status = :status, winner = :winner, xpAwarded = :xp, completedAt = :completed',
-                    'ExpressionAttributeNames': {'#status': 'status'},
-                    'ExpressionAttributeValues': {
-                        ':status': {'S': 'COMPLETED'},
-                        ':winner': {'S': winner} if winner else {'NULL': True},
-                        ':xp': {'N': str(total_xp_awarded)},
-                        ':completed': {'S': datetime.now(timezone.utc).isoformat()}
-                    }
+                # CACHE-FIRST: Update duel with completion status AFTER awarding XP
+                completion_updates = {
+                    'status': 'COMPLETED',
+                    'winner': winner,
+                    'xpAwarded': total_xp_awarded,
+                    'completedAt': datetime.now(timezone.utc).isoformat()
                 }
-                ddb.update_item(**complete_params)
+                success = update_duel_in_cache(duel_id, completion_updates)
+                if not success:
+                    error(f"Failed to mark duel {duel_id} as completed in cache")
 
             duel_action(f"User {normalized_username} recorded time", duel_id=duel_id, time_ms=elapsed_ms)
             
@@ -1827,18 +1738,19 @@ class DuelOperations:
             if expired_duels:
                 if DEBUG_MODE:
                     print(f"[DEBUG] Found {len(expired_duels)} expired duels")
-                
-                # Delete expired duels
+
+                # CACHE-FIRST: Delete expired duels from cache
+                from cache_operations import delete_duel_from_cache
                 for duel in expired_duels:
-                    delete_params = {
-                        'TableName': DUELS_TABLE,
-                        'Key': {'duelId': duel['duelId']},
-                    }
-                    ddb.delete_item(**delete_params)
-                    
+                    duel_id = duel['duelId']['S']
+                    success = delete_duel_from_cache(duel_id)
+
                     if DEBUG_MODE:
-                        print(f"[DEBUG] Deleted expired duel: {duel['duelId']['S']} (status: {duel['status']['S']})")
-                
+                        if success:
+                            print(f"[DEBUG] Deleted expired duel: {duel_id} (status: {duel['status']['S']})")
+                        else:
+                            print(f"[WARNING] Failed to delete expired duel: {duel_id}")
+
                 if DEBUG_MODE:
                     print(f"[DEBUG] Cleaned up {len(expired_duels)} expired duels")
             
@@ -1903,19 +1815,6 @@ class DuelOperations:
                             winner = challenger if challenger_completed else challengee
                             loser = challengee if challenger_completed else challenger
 
-                            complete_params = {
-                                'TableName': DUELS_TABLE,
-                                'Key': {'duelId': {'S': duel_id}},
-                                'UpdateExpression': 'SET #status = :status, winner = :winner, xpAwarded = :xp, completedAt = :completed, completionReason = :reason',
-                                'ExpressionAttributeNames': {'#status': 'status'},
-                                'ExpressionAttributeValues': {
-                                    ':status': {'S': 'COMPLETED'},
-                                    ':winner': {'S': winner},
-                                    ':completed': {'S': datetime.now(timezone.utc).isoformat()},
-                                    ':reason': {'S': 'TIMEOUT'}
-                                }
-                            }
-
                             # Handle XP based on duel type
                             if is_wager and (challenger_wager > 0 or challengee_wager > 0):
                                 # Wager duel timeout - winner takes both wagers + 200 bonus, loser loses their wager
@@ -1929,16 +1828,26 @@ class DuelOperations:
                                 UserOperations.award_xp(winner, wager_winnings)  # Winner gets wager winnings
                                 UserOperations.award_xp(winner, bonus_xp)  # Winner gets bonus
                                 UserOperations.award_xp(loser, -loser_wager)  # Loser loses their wager
-                                complete_params['ExpressionAttributeValues'][':xp'] = {'N': str(total_xp_awarded)}
                                 duel_action(f"Wager duel {duel_id} completed (timeout) - {winner} won {total_xp_awarded} XP ({wager_winnings} wager + {bonus_xp} bonus)", winner=winner, loser=loser)
                             else:
                                 # Normal duel timeout - standard XP
                                 bonus_xp = DuelOperations.calculate_duel_xp(difficulty, True)  # Winner gets bonus
+                                total_xp_awarded = bonus_xp
                                 UserOperations.award_xp(winner, bonus_xp)  # Winner gets +200 bonus
-                                complete_params['ExpressionAttributeValues'][':xp'] = {'N': str(bonus_xp)}
                                 duel_action(f"Completing duel {duel_id} due to timeout", winner=winner, loser=loser)
 
-                            ddb.update_item(**complete_params)
+                            # CACHE-FIRST: Update duel with completion status
+                            from cache_operations import update_duel_in_cache
+                            completion_updates = {
+                                'status': 'COMPLETED',
+                                'winner': winner,
+                                'xpAwarded': total_xp_awarded,
+                                'completedAt': datetime.now(timezone.utc).isoformat(),
+                                'completionReason': 'TIMEOUT'
+                            }
+                            success = update_duel_in_cache(duel_id, completion_updates)
+                            if not success:
+                                error(f"Failed to mark duel {duel_id} as completed (timeout) in cache")
 
                             completed_duels += 1
                             if DEBUG_MODE:
@@ -1951,20 +1860,17 @@ class DuelOperations:
                     max_duel_time = 2 * 60 * 60  # 2 hours max
                     
                     if time_since_start > max_duel_time:
-                        # End duel with no winner
-                        complete_params = {
-                            'TableName': DUELS_TABLE,
-                            'Key': {'duelId': {'S': duel_id}},
-                            'UpdateExpression': 'SET #status = :status, completedAt = :completed, completionReason = :reason',
-                            'ExpressionAttributeNames': {'#status': 'status'},
-                            'ExpressionAttributeValues': {
-                                ':status': {'S': 'COMPLETED'},
-                                ':completed': {'S': datetime.now(timezone.utc).isoformat()},
-                                ':reason': {'S': 'EXPIRED'}
-                            }
+                        # CACHE-FIRST: End duel with no winner
+                        from cache_operations import update_duel_in_cache
+                        completion_updates = {
+                            'status': 'COMPLETED',
+                            'completedAt': datetime.now(timezone.utc).isoformat(),
+                            'completionReason': 'EXPIRED'
                         }
-                        
-                        ddb.update_item(**complete_params)
+                        success = update_duel_in_cache(duel_id, completion_updates)
+                        if not success:
+                            error(f"Failed to mark duel {duel_id} as expired in cache")
+
                         completed_duels += 1
                         if DEBUG_MODE:
                             print(f"[DEBUG] Expired duel {duel_id} - no winner")

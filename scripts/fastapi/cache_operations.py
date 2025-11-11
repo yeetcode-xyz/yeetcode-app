@@ -208,3 +208,183 @@ def update_bounty_in_cache(bounty_id: str, username: str, progress: int) -> bool
     except Exception as e:
         error(f"Failed to update bounty in cache: {e}")
         return False
+
+
+def create_group_in_cache(group_id: str, leader: str, display_name: str = None) -> bool:
+    """
+    Create a new group in cache
+
+    Args:
+        group_id: Group ID (5-digit code)
+        leader: Leader username
+        display_name: Display name for leader
+
+    Returns:
+        True if successful
+    """
+    try:
+        # Update user's group_id and display_name
+        updates = {"group_id": group_id}
+        if display_name:
+            updates["display_name"] = display_name
+        return update_user_in_cache(leader, updates)
+
+    except Exception as e:
+        error(f"Failed to create group in cache: {e}")
+        return False
+
+
+def join_group_in_cache(username: str, group_id: str, display_name: str = None) -> bool:
+    """
+    User joins a group in cache
+
+    Args:
+        username: Username
+        group_id: Group ID
+        display_name: Display name for user
+
+    Returns:
+        True if successful
+    """
+    try:
+        updates = {"group_id": group_id}
+        if display_name:
+            updates["display_name"] = display_name
+        return update_user_in_cache(username, updates)
+
+    except Exception as e:
+        error(f"Failed to join group in cache: {e}")
+        return False
+
+
+def leave_group_in_cache(username: str) -> bool:
+    """
+    User leaves their group in cache
+
+    Args:
+        username: Username
+
+    Returns:
+        True if successful
+    """
+    try:
+        return update_user_in_cache(username, {"group_id": ""})
+
+    except Exception as e:
+        error(f"Failed to leave group in cache: {e}")
+        return False
+
+
+def update_duel_in_cache(duel_id: str, updates: Dict) -> bool:
+    """
+    Update duel data in cache
+
+    Args:
+        duel_id: Duel ID
+        updates: Dict of fields to update
+
+    Returns:
+        True if successful
+    """
+    try:
+        cached_duels = cache_manager.get(CacheType.DUELS)
+        if not cached_duels or not cached_duels.get('success'):
+            return False
+
+        duels = cached_duels.get('data', [])
+        duel = next((d for d in duels if d.get('duelId') == duel_id), None)
+
+        if not duel:
+            return False
+
+        # Apply updates
+        for key, value in updates.items():
+            duel[key] = value
+
+        # Write back to cache
+        return cache_manager.write(
+            cache_type=CacheType.DUELS,
+            data=cached_duels,
+            wal_operation={
+                "operation": "UPDATE",
+                "table": DUELS_TABLE,
+                "key": {"duelId": duel_id},
+                "data": duel
+            }
+        )
+
+    except Exception as e:
+        error(f"Failed to update duel in cache: {e}")
+        return False
+
+
+def create_duel_in_cache(duel_data: Dict) -> bool:
+    """
+    Create a new duel in cache
+
+    Args:
+        duel_data: Complete duel data dict
+
+    Returns:
+        True if successful
+    """
+    try:
+        cached_duels = cache_manager.get(CacheType.DUELS)
+        if not cached_duels:
+            cached_duels = {"success": True, "data": []}
+
+        duels = cached_duels.get('data', [])
+        duels.append(duel_data)
+        cached_duels['data'] = duels
+
+        # Write to cache
+        return cache_manager.write(
+            cache_type=CacheType.DUELS,
+            data=cached_duels,
+            wal_operation={
+                "operation": "PUT",
+                "table": DUELS_TABLE,
+                "key": {"duelId": duel_data.get('duelId')},
+                "data": duel_data
+            }
+        )
+
+    except Exception as e:
+        error(f"Failed to create duel in cache: {e}")
+        return False
+
+
+def delete_duel_from_cache(duel_id: str) -> bool:
+    """
+    Delete a duel from cache
+
+    Args:
+        duel_id: Duel ID
+
+    Returns:
+        True if successful
+    """
+    try:
+        cached_duels = cache_manager.get(CacheType.DUELS)
+        if not cached_duels or not cached_duels.get('success'):
+            return False
+
+        duels = cached_duels.get('data', [])
+        duels = [d for d in duels if d.get('duelId') != duel_id]
+        cached_duels['data'] = duels
+
+        # Write back to cache
+        return cache_manager.write(
+            cache_type=CacheType.DUELS,
+            data=cached_duels,
+            wal_operation={
+                "operation": "DELETE",
+                "table": DUELS_TABLE,
+                "key": {"duelId": duel_id},
+                "data": {}
+            }
+        )
+
+    except Exception as e:
+        error(f"Failed to delete duel from cache: {e}")
+        return False
