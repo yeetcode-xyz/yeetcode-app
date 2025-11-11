@@ -13,6 +13,7 @@ import os
 
 from aws import UserOperations, DailyProblemOperations, BountyOperations, ddb
 from cache_manager import cache_manager, CacheType
+from cache_operations import update_user_in_cache, update_bounty_in_cache
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -144,20 +145,17 @@ async def process_single_user(username: str) -> bool:
             stats["medium"] != current_medium or
             stats["hard"] != current_hard):
 
-            ddb.update_item(
-                TableName=os.environ.get("TABLE_NAME", "Yeetcode_users"),
-                Key={"username": {"S": username.lower()}},
-                UpdateExpression="SET easy = :e, medium = :m, hard = :h",
-                ExpressionAttributeValues={
-                    ":e": {"N": str(stats["easy"])},
-                    ":m": {"N": str(stats["medium"])},
-                    ":h": {"N": str(stats["hard"])},
-                }
-            )
-            log.info(f"✅ Updated stats for {username}: {stats}")
+            # CACHE-FIRST: Write to cache instead of DB
+            success = update_user_in_cache(username.lower(), {
+                "easy": stats["easy"],
+                "medium": stats["medium"],
+                "hard": stats["hard"]
+            })
 
-            # Invalidate user cache
-            cache_manager.invalidate_all(CacheType.USERS)
+            if success:
+                log.info(f"✅ Updated stats for {username}: {stats}")
+            else:
+                log.error(f"❌ Failed to update stats in cache for {username}")
 
         # Check daily completion
         completed_slug = await asyncio.to_thread(check_daily_completion, username)
@@ -289,19 +287,20 @@ async def update_bounty_progress():
 
                 # Check if user completed the bounty
                 if user_value >= required_count:
-                    # Update bounty progress in database
+                    # CACHE-FIRST: Update bounty progress in cache
                     try:
-                        BountyOperations.update_bounty_progress(username, bounty_id, 0)
-                        completion_count += 1
-                        log.info(f"✅ {username} completed bounty {bounty_id} ({metric}: {user_value}/{required_count})")
+                        success = update_bounty_in_cache(bounty_id, username, user_value)
+                        if success:
+                            completion_count += 1
+                            log.info(f"✅ {username} completed bounty {bounty_id} ({metric}: {user_value}/{required_count})")
+                        else:
+                            log.error(f"Failed to update bounty progress in cache for {username}/{bounty_id}")
                     except Exception as e:
                         log.error(f"Error updating bounty progress for {username}/{bounty_id}: {e}")
 
         log.info(f"🏁 Bounty update complete: {completion_count} completions detected")
 
-        # Invalidate bounty caches
-        cache_manager.invalidate_all(CacheType.BOUNTIES)
-        cache_manager.invalidate_all(CacheType.BOUNTY_COMPETITIONS)
+        # No cache invalidation needed - cache is source of truth now!
 
     except Exception as e:
         log.error(f"❌ Error in update_bounty_progress: {e}")

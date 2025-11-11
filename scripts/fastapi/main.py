@@ -29,32 +29,65 @@ from cache_manager import cache_manager
 from aws import DuelOperations
 from logger import debug, info, warning, error
 from scheduler import start_scheduler, stop_scheduler, get_scheduler_status, trigger_job_manually
+from wal_manager import wal_manager
+from cache_loader import load_all_data_into_cache
+from cache_dumper import dump_cache_to_db
 
 # Lifespan event handler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown events"""
     # Startup
-    info("Starting FastAPI server with background tasks")
+    info("🚀 Starting FastAPI server with cache-first architecture")
 
-    # Start the APScheduler for background jobs
+    # 1. Initialize WAL manager and attach to cache
+    info("📝 Initializing WAL manager...")
+    cache_manager.set_wal_manager(wal_manager)
+
+    # 2. Replay WAL file if it exists (crash recovery)
+    info("🔄 Replaying WAL for crash recovery...")
+    wal_replayed = wal_manager.replay(cache_manager)
+    if wal_replayed > 0:
+        info(f"✅ Replayed {wal_replayed} WAL entries from previous session")
+
+    # 3. Load all data from DynamoDB into cache
+    info("📦 Loading data from DynamoDB into cache...")
+    load_result = await load_all_data_into_cache()
+    if load_result.get('success'):
+        info(f"✅ Loaded {load_result.get('total', 0)} items into cache")
+    else:
+        error(f"❌ Failed to load cache: {load_result.get('error')}")
+
+    # 4. Start the APScheduler for background jobs
     start_scheduler()
 
-    # Start existing background tasks
+    # 5. Start existing background tasks
     duel_task = asyncio.create_task(monitor_active_duels())
     cleanup_task = asyncio.create_task(cleanup_expired_codes_task())
+
+    info("✅ FastAPI server started successfully")
 
     yield
 
     # Shutdown
-    info("Shutting down FastAPI server")
+    info("🛑 Shutting down FastAPI server...")
 
-    # Stop the scheduler
+    # 1. Perform final cache dump to DynamoDB
+    info("💾 Performing final cache dump before shutdown...")
+    dump_result = await dump_cache_to_db()
+    if dump_result.get('success'):
+        info(f"✅ Final dump complete: {dump_result.get('entries', 0)} entries saved")
+    else:
+        error(f"⚠️ Final dump failed: {dump_result.get('error')}")
+
+    # 2. Stop the scheduler
     stop_scheduler()
 
-    # Cancel background tasks
+    # 3. Cancel background tasks
     duel_task.cancel()
     cleanup_task.cancel()
+
+    info("✅ FastAPI server shutdown complete")
 
 app = FastAPI(
     title="YeetCode Email API",

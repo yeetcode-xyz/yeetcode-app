@@ -15,6 +15,7 @@ from background_tasks import (
     update_bounty_progress,
     generate_daily_problem
 )
+from cache_dumper import dump_cache_to_db
 
 log = logging.getLogger(__name__)
 
@@ -31,16 +32,16 @@ def create_scheduler() -> AsyncIOScheduler:
 
     scheduler = AsyncIOScheduler()
 
-    # Task 1: Update user stats every 3 minutes
+    # Task 1: Update user stats every 1 minute (FASTER POLLING!)
     scheduler.add_job(
         update_user_stats,
-        trigger=IntervalTrigger(minutes=3),
+        trigger=IntervalTrigger(minutes=1),
         id='update_user_stats',
         name='Update User Stats',
         replace_existing=True,
         max_instances=1,  # Prevent overlapping runs
     )
-    log.info("✅ Scheduled: Update user stats (every 3 minutes)")
+    log.info("✅ Scheduled: Update user stats (every 1 minute)")
 
     # Task 2: Update bounty progress every 5 minutes
     scheduler.add_job(
@@ -63,6 +64,17 @@ def create_scheduler() -> AsyncIOScheduler:
         max_instances=1,
     )
     log.info("✅ Scheduled: Generate daily problem (00:00 UTC daily)")
+
+    # Task 4: Dump cache to DynamoDB every 10 minutes (NEW!)
+    scheduler.add_job(
+        dump_cache_to_db,
+        trigger=IntervalTrigger(minutes=10),
+        id='dump_cache_to_db',
+        name='Dump Cache to DynamoDB',
+        replace_existing=True,
+        max_instances=1,
+    )
+    log.info("✅ Scheduled: Dump cache to DynamoDB (every 10 minutes)")
 
     return scheduler
 
@@ -141,6 +153,8 @@ async def trigger_job_manually(job_id: str) -> dict:
             await update_bounty_progress()
         elif job_id == 'generate_daily_problem':
             await generate_daily_problem()
+        elif job_id == 'dump_cache_to_db':
+            await dump_cache_to_db()
         else:
             return {"success": False, "error": f"Unknown job ID: {job_id}"}
 

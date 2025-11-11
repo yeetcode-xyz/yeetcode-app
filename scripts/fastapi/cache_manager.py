@@ -45,6 +45,8 @@ class CacheEntry:
     data: Any
     timestamp: float
     ttl: int  # Time to live in seconds
+    dirty: bool = False  # Track if modified since last DB sync
+    last_synced: float = 0.0  # Last DB sync timestamp
 
 
 class CacheManager:
@@ -54,6 +56,7 @@ class CacheManager:
         self._refresh_thread = None
         self._stop_refresh = False
         self._last_daily_refresh = None  # Track last daily refresh
+        self._wal_manager = None  # WAL manager instance (injected later)
         
         # Cache configuration
         self._cache_config = {
@@ -368,13 +371,143 @@ class CacheManager:
                 "cache_types": {},
                 "memory_usage": "N/A"  # Could implement actual memory tracking
             }
-            
+
             for cache_type in CacheType:
                 prefix = f"{cache_type.value}:"
                 count = len([k for k in self._cache.keys() if k.startswith(prefix)])
                 stats["cache_types"][cache_type.value] = count
-            
+
             return stats
+
+    def set_wal_manager(self, wal_manager):
+        """Set WAL manager instance for cache-first writes"""
+        self._wal_manager = wal_manager
+        info("📝 WAL manager attached to cache manager")
+
+    def write(self, cache_type: CacheType, data: Any, identifier: str = "",
+              wal_operation: Optional[Dict] = None) -> bool:
+        """
+        Cache-first write with WAL logging
+
+        Args:
+            cache_type: Type of cache entry
+            data: Data to write
+            identifier: Cache entry identifier
+            wal_operation: WAL operation dict with operation, table, key, data
+
+        Returns:
+            True if successful, False otherwise
+        """
+        with self._lock:
+            try:
+                # 1. Append to WAL first (critical for crash recovery)
+                if self._wal_manager and wal_operation:
+                    wal_success = self._wal_manager.append(
+                        operation=wal_operation.get('operation', 'UPDATE'),
+                        table=wal_operation.get('table', ''),
+                        key=wal_operation.get('key', {}),
+                        data=wal_operation.get('data', {}),
+                        cache_type=cache_type.value
+                    )
+
+                    if not wal_success:
+                        error(f"Failed to write to WAL for {cache_type.value}:{identifier}")
+                        return False
+
+                # 2. Write to cache
+                key = self._get_cache_key(cache_type, identifier)
+                ttl = self._cache_config[cache_type]["ttl"]
+                entry = CacheEntry(
+                    data=data,
+                    timestamp=time.time(),
+                    ttl=ttl,
+                    dirty=True,  # Mark as dirty (needs DB sync)
+                    last_synced=0.0
+                )
+                self._cache[key] = entry
+
+                cache_operation("Write", key, ttl=ttl, dirty=True)
+                return True
+
+            except Exception as e:
+                error(f"Cache write failed: {e}")
+                return False
+
+    def _write_to_cache_internal(self, cache_type: str, data: Any, identifier: str = "",
+                                  mark_dirty: bool = False) -> None:
+        """
+        Internal method to write to cache without WAL (used by WAL replay)
+
+        Args:
+            cache_type: Cache type as string
+            data: Data to write
+            identifier: Cache entry identifier
+            mark_dirty: Whether to mark as dirty
+        """
+        with self._lock:
+            try:
+                # Convert string to CacheType enum
+                cache_type_enum = CacheType(cache_type)
+                key = self._get_cache_key(cache_type_enum, identifier)
+                ttl = self._cache_config[cache_type_enum]["ttl"]
+                entry = CacheEntry(
+                    data=data,
+                    timestamp=time.time(),
+                    ttl=ttl,
+                    dirty=mark_dirty,
+                    last_synced=0.0 if mark_dirty else time.time()
+                )
+                self._cache[key] = entry
+            except Exception as e:
+                error(f"Internal cache write failed: {e}")
+
+    def get_dirty_entries(self) -> List[Dict]:
+        """
+        Get all dirty cache entries for DB dump
+
+        Returns:
+            List of dirty entries with metadata
+        """
+        with self._lock:
+            dirty_entries = []
+
+            for key, entry in self._cache.items():
+                if entry.dirty:
+                    # Parse cache type and identifier from key
+                    parts = key.split(':', 1)
+                    cache_type = parts[0]
+                    identifier = parts[1] if len(parts) > 1 else ""
+
+                    dirty_entries.append({
+                        "cache_type": cache_type,
+                        "identifier": identifier,
+                        "data": entry.data,
+                        "timestamp": entry.timestamp,
+                        "last_synced": entry.last_synced
+                    })
+
+            return dirty_entries
+
+    def mark_synced(self, cache_type: str, identifier: str = "") -> None:
+        """
+        Mark cache entry as synced after successful DB write
+
+        Args:
+            cache_type: Cache type as string
+            identifier: Cache entry identifier
+        """
+        with self._lock:
+            try:
+                # Convert string to CacheType enum
+                cache_type_enum = CacheType(cache_type)
+                key = self._get_cache_key(cache_type_enum, identifier)
+                entry = self._cache.get(key)
+
+                if entry:
+                    entry.dirty = False
+                    entry.last_synced = time.time()
+            except Exception as e:
+                error(f"Failed to mark entry as synced: {e}")
 
 
 # Global cache manager instance
