@@ -275,6 +275,12 @@ async def update_bounty_progress():
 
             for bounty in bounties:
                 bounty_id = bounty.get("id")
+
+                # Skip bounties with missing IDs
+                if not bounty_id:
+                    log.warning(f"⚠️ Skipping bounty with missing ID. Bounty keys: {list(bounty.keys())}")
+                    continue
+
                 metric = bounty.get("metric", "total").lower()
                 required_count = bounty.get("count", 0)
 
