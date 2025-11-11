@@ -62,6 +62,10 @@ def send_new_user_notification(username: str, email: str, display_name: str, uni
 
         if response.status_code == 204:
             info(f"Discord notification sent for new user: {username}")
+        elif response.status_code == 404:
+            error(f"Discord webhook not found (404) - webhook may have been deleted or regenerated")
+        elif response.status_code == 429:
+            error(f"Discord webhook rate limited (429) - too many requests")
         else:
             error(f"Discord webhook failed with status {response.status_code}: {response.text}")
 

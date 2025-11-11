@@ -18,15 +18,16 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 # Discord webhook for notifications
-DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
+# Separate webhook for lambda/background task logs (different from account creation webhook)
+DISCORD_LAMBDA_LOGS_WEBHOOK = os.environ.get("DISCORD_LAMBDA_LOGS_WEBHOOK")
 
 
 def discord_log(message: str):
     """Send log message to Discord webhook"""
-    if not DISCORD_WEBHOOK_URL:
+    if not DISCORD_LAMBDA_LOGS_WEBHOOK:
         return
     try:
-        requests.post(DISCORD_WEBHOOK_URL, json={"content": message}, timeout=5)
+        requests.post(DISCORD_LAMBDA_LOGS_WEBHOOK, json={"content": message}, timeout=5)
     except Exception as e:
         log.error(f"❌ Failed to send Discord log: {e}")
 

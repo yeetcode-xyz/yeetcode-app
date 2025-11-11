@@ -11,6 +11,7 @@ from auth import verify_api_key
 from aws import UserOperations
 from cache_manager import cache_manager, CacheType
 from discord_webhook import send_new_user_notification
+from logger import error
 
 router = APIRouter(tags=["Users"])
 
@@ -147,8 +148,9 @@ async def create_user_with_username_endpoint(
             send_new_user_notification(username, email, display_name, university)
         except Exception as webhook_error:
             # Don't fail user creation if webhook fails
-            if DEBUG_MODE:
-                print(f"[WARNING] Discord webhook failed but user created: {webhook_error}")
+            # Always log webhook failures for visibility
+            error(f"Discord webhook failed for user {username}: {webhook_error}")
+            print(f"[ERROR] Discord webhook failed for user {username}: {webhook_error}")
 
         return {"success": True, "data": result}
     except Exception as error:
