@@ -31,9 +31,9 @@ async def get_daily_problem_endpoint(
         print(f"[DEBUG] Cached completions: {'Found' if cached_completions else 'Not found'}")
         
         if cached_problem:
-            # Have cached problem
-            problem_data = cached_problem
-            
+            # Have cached problem - extract the actual problem data
+            problem_data = cached_problem.get('data') if isinstance(cached_problem, dict) and 'data' in cached_problem else cached_problem
+
             # Check or create completions cache
             if cached_completions:
                 completions_data = cached_completions
@@ -43,8 +43,8 @@ async def get_daily_problem_endpoint(
                 completions_data = {
                     "success": True,
                     "data": {
-                        "users": problem_data.get('users', {}),
-                        "problem_date": problem_data.get('date')
+                        "users": problem_data.get('users', {}) if problem_data else {},
+                        "problem_date": problem_data.get('date') if problem_data else None
                     }
                 }
                 # Cache the completions
