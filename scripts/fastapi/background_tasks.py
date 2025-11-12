@@ -130,6 +130,11 @@ async def process_single_user(username: str) -> bool:
         # Run in thread pool to avoid blocking
         stats = await asyncio.to_thread(fetch_user_stats, username)
 
+        # Skip if stats fetch failed
+        if not stats:
+            log.warning(f"⚠️ Failed to fetch stats for {username}")
+            return False
+
         # Get existing values from DB
         user_data = UserOperations.get_user_data(username)
         if not user_data:
@@ -185,10 +190,13 @@ async def update_user_stats():
             log.error("Failed to fetch users")
             return
 
-        # Extract usernames from DynamoDB items
+        # Extract usernames from DynamoDB items (exclude verification_ entries)
         from aws import normalize_dynamodb_item
         users = [normalize_dynamodb_item(item) for item in response["Items"]]
-        usernames = [u.get("username") for u in users if u.get("username")]
+        usernames = [
+            u.get("username") for u in users
+            if u.get("username") and not u.get("username").startswith("verification_")
+        ]
         log.info(f"📊 Processing {len(usernames)} users...")
 
         # Process users with concurrency limit
