@@ -34,8 +34,9 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
 
         # If cache is empty, reload from database
         if not cached_users or not cached_users.get('success'):
-            from aws import ddb, USERS_TABLE, normalize_dynamodb_item
             import os
+            from aws import ddb, normalize_dynamodb_item
+            from logger import info
 
             table_name = os.environ.get('USERS_TABLE', 'Yeetcode_users')
             scan_result = ddb.scan(TableName=table_name)
@@ -45,7 +46,6 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
             cached_users = {"success": True, "data": normalized_users}
             cache_manager.set(CacheType.USERS, cached_users)
 
-            from logger import info
             info(f"Reloaded {len(normalized_users)} users into cache")
 
         users = cached_users.get('data', [])
