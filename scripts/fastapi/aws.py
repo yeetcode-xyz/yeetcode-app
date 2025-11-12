@@ -691,16 +691,24 @@ class DailyProblemOperations:
                 # Normalize the item to get proper field names if we found one
                 if latest_item:
                     normalized_item = normalize_dynamodb_item(latest_item)
-                    latest_problem = {
-                        'date': normalized_item.get('date'),
-                        'titleSlug': normalized_item.get('slug'),  # For LeetCode URL
-                        'title': normalized_item.get('title'),
-                        'frontendId': normalized_item.get('frontendId'),
-                        'topicTags': normalized_item.get('tags', []),  # Frontend expects topicTags
-                        'difficulty': normalized_item.get('difficulty', 'Medium'),  # Default difficulty
-                        'content': normalized_item.get('content', ''),  # Problem description
-                        'users': normalized_item.get('users', {})
-                    }
+                    slug = normalized_item.get('slug')
+
+                    # Only return problem if it has a valid slug
+                    if slug:
+                        latest_problem = {
+                            'date': normalized_item.get('date'),
+                            'titleSlug': slug,  # For LeetCode URL
+                            'title': normalized_item.get('title'),
+                            'frontendId': normalized_item.get('frontendId'),
+                            'topicTags': normalized_item.get('tags', []),  # Frontend expects topicTags
+                            'difficulty': normalized_item.get('difficulty', 'Medium'),  # Default difficulty
+                            'content': normalized_item.get('content', ''),  # Problem description
+                            'users': normalized_item.get('users', {})
+                        }
+                    else:
+                        if DEBUG_MODE:
+                            print(f"[DEBUG] Daily problem missing slug field: {normalized_item}")
+                        latest_problem = None
             except Exception as query_error:
                 if DEBUG_MODE:
                     print(f"[DEBUG] Scan failed: {query_error}")
@@ -918,17 +926,24 @@ class DailyProblemOperations:
                 normalized_problems = []
                 for item in top_problems:
                     normalized_item = normalize_dynamodb_item(item)
-                    problem = {
-                        'date': normalized_item.get('date'),
-                        'titleSlug': normalized_item.get('slug'),
-                        'title': normalized_item.get('title'),
-                        'frontendId': normalized_item.get('frontendId'),
-                        'topicTags': normalized_item.get('tags', []),
-                        'difficulty': normalized_item.get('difficulty', 'Medium'),
-                        'content': normalized_item.get('content', ''),
-                        'users': normalized_item.get('users', {})
-                    }
-                    normalized_problems.append(problem)
+                    slug = normalized_item.get('slug')
+
+                    # Only include problems with valid slugs
+                    if slug:
+                        problem = {
+                            'date': normalized_item.get('date'),
+                            'titleSlug': slug,
+                            'title': normalized_item.get('title'),
+                            'frontendId': normalized_item.get('frontendId'),
+                            'topicTags': normalized_item.get('tags', []),
+                            'difficulty': normalized_item.get('difficulty', 'Medium'),
+                            'content': normalized_item.get('content', ''),
+                            'users': normalized_item.get('users', {})
+                        }
+                        normalized_problems.append(problem)
+                    else:
+                        if DEBUG_MODE:
+                            print(f"[DEBUG] Skipping daily problem without slug: {normalized_item.get('date')}")
                 
                 if DEBUG_MODE:
                     print(f"[DEBUG] Retrieved top {len(normalized_problems)} daily problems")
