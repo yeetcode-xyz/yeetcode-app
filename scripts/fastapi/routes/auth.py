@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from dotenv import load_dotenv
 
 from models import EmailOTPRequest, EmailOTPResponse
-from auth import verify_api_key, check_rate_limit
+from auth import verify_api_key, check_rate_limit, clear_rate_limit
 from email_service import send_email_otp
 from aws import VerificationOperations
 
@@ -83,6 +83,11 @@ async def verify_code_endpoint(
     """Verify code and get user data"""
     try:
         result = VerificationOperations.verify_code_and_get_user(request.email, request.code)
+
+        # Clear rate limit on successful verification to allow immediate re-login
+        if result.get('success'):
+            clear_rate_limit(request.email)
+
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}

@@ -42,14 +42,21 @@ def check_rate_limit(email: str) -> bool:
     """Check if user has exceeded rate limit (1 request per minute)"""
     current_time = time.time()
     email_key = email.lower()
-    
+
     # Check if email exists in rate limit store
     if email_key in rate_limit_store:
         last_request_time = rate_limit_store[email_key]
         # Check if 60 seconds have passed since last request
         if current_time - last_request_time < 60:
             return False
-    
+
     # Update last request time
     rate_limit_store[email_key] = current_time
     return True
+
+
+def clear_rate_limit(email: str) -> None:
+    """Clear rate limit for an email (called after successful verification)"""
+    email_key = email.lower()
+    if email_key in rate_limit_store:
+        del rate_limit_store[email_key]

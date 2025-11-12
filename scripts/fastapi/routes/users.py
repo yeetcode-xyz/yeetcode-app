@@ -83,11 +83,13 @@ async def get_user_data_endpoint(
     try:
         # Check cache first for user data
         cached_users = cache_manager.get(CacheType.USERS)
-        if cached_users:
-            user_data = cached_users.get('data', {}).get(username)
+        if cached_users and cached_users.get('success'):
+            users = cached_users.get('data', [])
+            # Search through list of users to find matching username
+            user_data = next((u for u in users if u.get('username') == username), None)
             if user_data:
                 return {"success": True, "data": user_data}
-        
+
         # Fallback to database
         user_data = UserOperations.get_user_data(username)
         if user_data:
