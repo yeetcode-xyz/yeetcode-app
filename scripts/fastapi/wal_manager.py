@@ -250,3 +250,4 @@ class WALManager:
 
 # Global WAL manager instance
 wal_manager = WALManager()
+

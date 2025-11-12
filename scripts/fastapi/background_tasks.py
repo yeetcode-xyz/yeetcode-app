@@ -430,3 +430,4 @@ async def generate_daily_problem():
     except Exception as e:
         log.error(f"❌ Error generating daily problem: {e}")
         discord_log(f"❌ Error generating daily problem: {e}")
+

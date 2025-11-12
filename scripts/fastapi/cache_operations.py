@@ -388,3 +388,4 @@ def delete_duel_from_cache(duel_id: str) -> bool:
     except Exception as e:
         error(f"Failed to delete duel from cache: {e}")
         return False
+

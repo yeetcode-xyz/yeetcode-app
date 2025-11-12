@@ -511,4 +511,4 @@ class CacheManager:
 
 
 # Global cache manager instance
-cache_manager = CacheManager() 
+cache_manager = CacheManager()

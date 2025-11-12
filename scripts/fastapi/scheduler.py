@@ -166,3 +166,4 @@ async def trigger_job_manually(job_id: str) -> dict:
     except Exception as e:
         log.error(f"Error executing job {job_id}: {e}")
         return {"success": False, "error": str(e)}
+
