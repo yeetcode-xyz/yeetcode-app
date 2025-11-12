@@ -40,15 +40,6 @@ async def send_otp(
         )
     
     try:
-        # Skip sending email if in debug mode
-        if DEBUG_MODE:
-            print(f"[DEV] Skipping email send to {email} with code {request.code} (debug mode)")
-            return EmailOTPResponse(
-                success=True,
-                message="Verification code sent to your email (debug mode - no actual email sent)",
-                message_id="debug-mode-message-id"
-            )
-
         # Send email with the code provided by frontend
         result = send_email_otp(email, request.code)
         
