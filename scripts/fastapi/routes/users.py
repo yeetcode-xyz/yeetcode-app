@@ -63,12 +63,12 @@ async def update_user_endpoint(
             updates['email'] = {'S': user_data.email.lower()}
         if user_data.group_id is not None:
             updates['group_id'] = {'S': user_data.group_id}
-            
+
         success = UserOperations.update_user_data(username, updates)
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.USERS)
-        
+
+        # NOTE: Do NOT invalidate cache - update_user_data() uses cache-first writes
+        # The cache is automatically updated, no need to invalidate
+
         return {"success": success, "message": "User updated successfully"}
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -110,16 +110,16 @@ async def update_user_data_endpoint(
     try:
         # Build update expression dynamically
         updates = {}
-        
+
         for key, value in user_data.items():
             if key != 'username':  # Don't update username
                 updates[key] = {'S': str(value)} if isinstance(value, str) else {'N': str(value)}
-        
+
         success = UserOperations.update_user_data(username, updates)
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.USERS)
-        
+
+        # NOTE: Do NOT invalidate cache - update_user_data() uses cache-first writes
+        # The cache is automatically updated, no need to invalidate
+
         return {"success": success}
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -173,12 +173,12 @@ async def award_xp_endpoint(
         
         if not username or xp_amount <= 0:
             return {"success": False, "error": "Username and positive XP amount required"}
-        
+
         success = UserOperations.award_xp(username, xp_amount)
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.USERS)
-        
+
+        # NOTE: Do NOT invalidate cache - award_xp() uses cache-first writes
+        # The cache is automatically updated, no need to invalidate
+
         return {"success": success, "message": f"Awarded {xp_amount} XP to {username}"}
     except Exception as error:
         return {"success": False, "error": str(error)}
