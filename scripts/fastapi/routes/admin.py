@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from auth import verify_api_key
 from scheduler import get_scheduler_status, trigger_job_manually
 import logging
+import os
 from datetime import datetime
 
 router = APIRouter(tags=["Admin"], prefix="/admin")
@@ -89,3 +90,26 @@ async def trigger_daily_problem(
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
+
+
+@router.get("/logs", response_class=HTMLResponse)
+async def serve_log_viewer(
+    api_key: str = Depends(verify_api_key)
+):
+    """Serve the interactive log viewer for fastapi.log"""
+    try:
+        html_path = os.path.join(os.path.dirname(__file__), "../static/log_viewer.html")
+
+        if not os.path.exists(html_path):
+            return HTMLResponse(
+                content="<h1>Log viewer not found</h1><p>File: {}</p>".format(html_path),
+                status_code=404
+            )
+
+        with open(html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except Exception as error:
+        return HTMLResponse(
+            content=f"<h1>Error loading log viewer</h1><p>{str(error)}</p>",
+            status_code=500
+        )
