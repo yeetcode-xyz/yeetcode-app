@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YeetCode Log Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            line-height: 1.6;
+            overflow: hidden;
+        }
+
+        html {
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #3e3e42;
+        }
+
+        h1 {
+            color: #4ec9b0;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            color: #9cdcfe;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        input[type="text"], input[type="file"], select {
+            background: #3c3c3c;
+            border: 1px solid #555;
+            color: #d4d4d4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        button.secondary {
+            background: #3e3e42;
+        }
+
+        button.secondary:hover {
+            background: #4e4e52;
+        }
+
+        .stats {
+            background: #252526;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #3e3e42;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-label {
+            color: #858585;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            color: #4ec9b0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-size: 13px;
+        }
+
+        .log-line {
+            padding: 6px 10px;
+            border-left: 3px solid transparent;
+            margin-bottom: 2px;
+            border-radius: 2px;
+            transition: background 0.1s;
+        }
+
+        .log-line:hover {
+            background: #2d2d30;
+        }
+
+        .log-line.DEBUG { border-left-color: #808080; color: #808080; }
+        .log-line.INFO { border-left-color: #4ec9b0; }
+        .log-line.WARNING { border-left-color: #dcdcaa; color: #dcdcaa; }
+        .log-line.ERROR { border-left-color: #f48771; color: #f48771; }
+        .log-line.CACHE { border-left-color: #569cd6; color: #569cd6; }
+        .log-line.SCHEDULER { border-left-color: #c586c0; }
+        .log-line.BACKGROUND { border-left-color: #ce9178; }
+        .log-line.APSCHEDULER { border-left-color: #4fc1ff; }
+
+        .log-line.highlight {
+            background: #373737;
+            font-weight: 600;
+        }
+
+        .timestamp {
+            color: #858585;
+            margin-right: 10px;
+        }
+
+        .level {
+            font-weight: 600;
+            margin-right: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .level.DEBUG { background: #3e3e42; color: #808080; }
+        .level.INFO { background: #0e4429; color: #4ec9b0; }
+        .level.WARNING { background: #4a3c1f; color: #dcdcaa; }
+        .level.ERROR { background: #5a1e1e; color: #f48771; }
+        .level.CACHE { background: #1e3a5a; color: #569cd6; }
+
+        .message {
+            word-break: break-word;
+        }
+
+        .repeat-count {
+            background: #3e3e42;
+            color: #dcdcaa;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+
+        .repeat-count:hover {
+            background: #4e4e52;
+        }
+
+        .log-line.collapsed {
+            opacity: 0.8;
+        }
+
+        .expanded-logs {
+            margin-left: 40px;
+            border-left: 2px solid #3e3e42;
+            padding-left: 10px;
+            margin-top: 5px;
+        }
+
+        .username {
+            color: #9cdcfe;
+            font-weight: 600;
+        }
+
+        .emoji {
+            margin-right: 5px;
+        }
+
+        .no-logs {
+            text-align: center;
+            padding: 40px;
+            color: #858585;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #3e3e42;
+            border-top-color: #4ec9b0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .performance-info {
+            background: #1e3a5a;
+            color: #569cd6;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4e4e4e;
+        }
+
+        .filter-info {
+            background: #252526;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #3e3e42;
+        }
+
+        .filter-info span {
+            color: #858585;
+            font-size: 12px;
+        }
+
+        .filter-info strong {
+            color: #4ec9b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 YeetCode FastAPI Log Viewer</h1>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>Search / Filter</label>
+                    <input type="text" id="searchInput" placeholder="Search logs...">
+                </div>
+
+                <div class="control-group">
+                    <label>Username Filter</label>
+                    <input type="text" id="usernameFilter" placeholder="Filter by username...">
+                </div>
+
+                <div class="control-group">
+                    <label>Date/Time Filter</label>
+                    <input type="text" id="timeFilter" placeholder="e.g., 2025-11-13 19:">
+                </div>
+
+                <div class="control-group">
+                    <button id="refreshBtn" style="margin-top: 23px;">🔄 Refresh Logs</button>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showDebug" checked>
+                    <label for="showDebug">DEBUG</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showInfo" checked>
+                    <label for="showInfo">INFO</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showWarning" checked>
+                    <label for="showWarning">WARNING</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showError" checked>
+                    <label for="showError">ERROR</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showCache" checked>
+                    <label for="showCache">CACHE</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="onlyErrors">
+                    <label for="onlyErrors">Errors Only</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="onlyWarnings">
+                    <label for="onlyWarnings">Warnings Only</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="collapseRepeats" checked>
+                    <label for="collapseRepeats">Collapse Repeats</label>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="clearBtn">Clear Filters</button>
+                <button id="loadAllBtn" class="secondary" style="display: none;">Load All Logs</button>
+                <button id="exportBtn" class="secondary">Export Filtered Logs</button>
+                <button id="analyzeBtn" class="secondary">Analyze Logs</button>
+                <button id="helpBtn" class="secondary">How to Use</button>
+            </div>
+
+            <div id="helpText" style="display: none; margin-top: 15px; padding: 15px; background: #2d2d30; border-radius: 4px; border-left: 3px solid #4ec9b0;">
+                <strong style="color: #4ec9b0;">📖 Quick Guide</strong>
+                <ul style="margin: 10px 0 0 20px; color: #d4d4d4; line-height: 1.8;">
+                    <li><strong>Auto-load:</strong> Logs are automatically loaded from <code style="background: #1e1e1e; padding: 2px 6px; border-radius: 3px;">fastapi.log</code></li>
+                    <li><strong>Refresh:</strong> Click the 🔄 Refresh button to reload latest logs</li>
+                    <li><strong>Search:</strong> Type any text to filter (e.g., "timeout", "ERROR", "sidmo2006")</li>
+                    <li><strong>Username filter:</strong> See logs for specific users</li>
+                    <li><strong>Time filter:</strong> Use patterns like "2025-11-13 19:3" to see specific time ranges</li>
+                    <li><strong>Quick filters:</strong> Toggle log levels or use "Errors Only" / "Warnings Only"</li>
+                    <li><strong>Export:</strong> Download filtered logs to share or analyze further</li>
+                    <li><strong>Analyze:</strong> Get detailed statistics about the loaded logs</li>
+                </ul>
+            </div>
+        </header>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-item">
+                <span class="stat-label">Total Lines</span>
+                <span class="stat-value" id="statTotal">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Errors</span>
+                <span class="stat-value" id="statErrors">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Warnings</span>
+                <span class="stat-value" id="statWarnings">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Users Updated</span>
+                <span class="stat-value" id="statUsers">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Daily Completions</span>
+                <span class="stat-value" id="statDaily">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Cache Operations</span>
+                <span class="stat-value" id="statCache">0</span>
+            </div>
+        </div>
+
+        <div class="performance-info" id="performanceInfo">
+            <span class="loading-spinner"></span>
+            <span id="performanceText">Processing logs...</span>
+        </div>
+
+        <div class="filter-info" id="filterInfo" style="display: none;">
+            <span>Showing <strong id="visibleCount">0</strong> of <strong id="totalCount">0</strong> lines</span>
+            <span id="filterStatus"></span>
+        </div>
+
+        <div class="log-container" id="logContainer">
+            <div class="no-logs">
+                ⏳ Loading logs from server...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allLogs = [];
+        let filteredLogs = [];
+        let displayedLogs = [];
+        let currentOffset = 0;
+        const BATCH_SIZE = 100; // Load 100 logs at a time
+        let isLoading = false;
+
+        const searchInput = document.getElementById('searchInput');
+        const usernameFilter = document.getElementById('usernameFilter');
+        const timeFilter = document.getElementById('timeFilter');
+        const logContainer = document.getElementById('logContainer');
+        const statsDiv = document.getElementById('stats');
+        const filterInfo = document.getElementById('filterInfo');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        // Get API key from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const apiKey = urlParams.get('api_key');
+
+        // Auto-load logs from API
+        async function loadLogsFromAPI() {
+            const perfInfo = document.getElementById('performanceInfo');
+            const perfText = document.getElementById('performanceText');
+            perfInfo.style.display = 'block';
+            perfText.textContent = 'Loading logs from server...';
+
+            try {
+                const response = await fetch(`/admin/logs/content?api_key=${apiKey}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load logs');
+                }
+
+                const startTime = performance.now();
+                perfText.textContent = 'Parsing logs...';
+
+                // Parse logs in chunks to avoid blocking UI
+                await parseLogs(data.content);
+
+                const parseTime = (performance.now() - startTime) / 1000;
+                perfText.textContent = `Parsed ${allLogs.length.toLocaleString()} lines in ${parseTime.toFixed(2)}s`;
+
+                updateStats();
+                filterLogs();
+
+                // Hide loading after 2 seconds
+                setTimeout(() => {
+                    perfInfo.style.display = 'none';
+                }, 2000);
+            } catch (error) {
+                perfInfo.style.display = 'block';
+                perfText.textContent = `Error loading logs: ${error.message}`;
+                console.error('Failed to load logs:', error);
+            }
+        }
+
+        // Load logs on page load
+        if (apiKey) {
+            loadLogsFromAPI();
+        } else {
+            document.getElementById('performanceInfo').style.display = 'block';
+            document.getElementById('performanceText').textContent = 'Error: No API key provided in URL';
+        }
+
+        // Refresh button handler
+        refreshBtn.addEventListener('click', loadLogsFromAPI);
+
+        // Parse logs with chunked processing
+        async function parseLogs(content) {
+            const lines = content.split('\n').filter(line => line.trim());
+            allLogs = [];
+
+            const CHUNK_SIZE = 5000; // Process 5000 lines at a time
+            const chunks = Math.ceil(lines.length / CHUNK_SIZE);
+
+            for (let i = 0; i < chunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, lines.length);
+                const chunk = lines.slice(start, end);
+
+                const parsedChunk = chunk.map((line, idx) => {
+                    const index = start + idx;
+                    const logObj = {
+                        raw: line,
+                        index,
+                        timestamp: '',
+                        level: 'INFO',
+                        message: line,
+                        username: null
+                    };
+
+                    // Parse timestamp (2025-11-13 19:33:54,463)
+                    const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})/);
+                    if (timestampMatch) {
+                        logObj.timestamp = timestampMatch[1];
+                    }
+
+                    // Detect level (optimized with single pass)
+                    if (line.includes('ERROR') || line.includes('Error')) {
+                        logObj.level = 'ERROR';
+                    } else if (line.includes('WARNING') || line.includes('Warning')) {
+                        logObj.level = 'WARNING';
+                    } else if (line.includes('[DEBUG]') || line.includes('DEBUG')) {
+                        logObj.level = 'DEBUG';
+                    } else if (line.includes('[CACHE]')) {
+                        logObj.level = 'CACHE';
+                    } else if (line.includes('INFO:scheduler')) {
+                        logObj.level = 'SCHEDULER';
+                    } else if (line.includes('INFO:background_tasks')) {
+                        logObj.level = 'BACKGROUND';
+                    } else if (line.includes('INFO:apscheduler')) {
+                        logObj.level = 'APSCHEDULER';
+                    }
+
+                    // Extract username if present (lazy matching)
+                    if (line.includes('stats for ') || line.includes('completed daily')) {
+                        const usernameMatch = line.match(/(?:for|user) ([a-z0-9_]+):/i) ||
+                                             line.match(/([a-z0-9_]+) completed daily/i) ||
+                                             line.match(/Updated stats for ([a-z0-9_]+):/);
+                        if (usernameMatch) {
+                            logObj.username = usernameMatch[1];
+                        }
+                    }
+
+                    return logObj;
+                });
+
+                allLogs = allLogs.concat(parsedChunk);
+
+                // Yield to browser every chunk
+                if (i < chunks - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            }
+
+            statsDiv.style.display = 'grid';
+            filterInfo.style.display = 'flex';
+        }
+
+        // Update statistics
+        function updateStats() {
+            const errors = allLogs.filter(l => l.level === 'ERROR').length;
+            const warnings = allLogs.filter(l => l.level === 'WARNING').length;
+            const userUpdates = allLogs.filter(l => l.message.includes('Updated stats for')).length;
+            const dailyCompletions = allLogs.filter(l => l.message.includes('completed daily problem')).length;
+            const cacheOps = allLogs.filter(l => l.level === 'CACHE').length;
+
+            document.getElementById('statTotal').textContent = allLogs.length;
+            document.getElementById('statErrors').textContent = errors;
+            document.getElementById('statWarnings').textContent = warnings;
+            document.getElementById('statUsers').textContent = userUpdates;
+            document.getElementById('statDaily').textContent = dailyCompletions;
+            document.getElementById('statCache').textContent = cacheOps;
+        }
+
+        // Filter logs
+        function filterLogs() {
+            const search = searchInput.value.toLowerCase();
+            const username = usernameFilter.value.toLowerCase();
+            const time = timeFilter.value;
+
+            const showDebug = document.getElementById('showDebug').checked;
+            const showInfo = document.getElementById('showInfo').checked;
+            const showWarning = document.getElementById('showWarning').checked;
+            const showError = document.getElementById('showError').checked;
+            const showCache = document.getElementById('showCache').checked;
+            const onlyErrors = document.getElementById('onlyErrors').checked;
+            const onlyWarnings = document.getElementById('onlyWarnings').checked;
+
+            let filtered = allLogs.filter(log => {
+                // Text search
+                if (search && !log.raw.toLowerCase().includes(search)) return false;
+
+                // Username filter
+                if (username && (!log.username || !log.username.toLowerCase().includes(username))) return false;
+
+                // Time filter
+                if (time && !log.timestamp.includes(time)) return false;
+
+                // Error/Warning only filters
+                if (onlyErrors && log.level !== 'ERROR') return false;
+                if (onlyWarnings && log.level !== 'WARNING') return false;
+
+                // Level filters
+                if (!showDebug && log.level === 'DEBUG') return false;
+                if (!showInfo && (log.level === 'INFO' || log.level === 'SCHEDULER' || log.level === 'BACKGROUND' || log.level === 'APSCHEDULER')) return false;
+                if (!showWarning && log.level === 'WARNING') return false;
+                if (!showError && log.level === 'ERROR') return false;
+                if (!showCache && log.level === 'CACHE') return false;
+
+                return true;
+            });
+
+            // Apply collapse to entire filtered set
+            filteredLogs = collapseRepeats(filtered);
+
+            renderLogs();
+        }
+
+        // Render a single log line
+        function renderLogLine(log) {
+            const levelClass = log.level;
+            const timestampHtml = log.timestamp ? `<span class="timestamp">${log.timestamp}</span>` : '';
+            const levelHtml = `<span class="level ${levelClass}">${log.level}</span>`;
+
+            let message = log.message;
+
+            // Highlight usernames
+            if (log.username) {
+                message = message.replace(new RegExp(log.username, 'gi'), `<span class="username">${log.username}</span>`);
+            }
+
+            // Highlight search terms
+            const search = searchInput.value;
+            if (search) {
+                const regex = new RegExp(`(${search})`, 'gi');
+                message = message.replace(regex, '<span class="highlight">$1</span>');
+            }
+
+            // Add repeat count if present
+            let repeatBadge = '';
+            if (log.repeatCount && log.repeatCount > 1) {
+                repeatBadge = `<span class="repeat-count" title="Click to expand ${log.repeatCount} repeated lines">×${log.repeatCount}</span>`;
+            }
+
+            return `<div class="log-line ${levelClass} ${log.repeatCount > 1 ? 'collapsed' : ''}" data-index="${log.index}">${timestampHtml}${levelHtml}<span class="message">${message}</span>${repeatBadge}</div>`;
+        }
+
+        // Collapse repeated logs
+        function collapseRepeats(logs) {
+            const collapseEnabled = document.getElementById('collapseRepeats').checked;
+            if (!collapseEnabled) return logs;
+
+            const collapsed = [];
+            let i = 0;
+
+            while (i < logs.length) {
+                const current = logs[i];
+                let count = 1;
+                let repeats = [current];
+
+                // Look ahead for identical messages
+                while (i + count < logs.length) {
+                    const next = logs[i + count];
+                    // Compare message content (ignoring timestamp)
+                    if (next.message === current.message && next.level === current.level) {
+                        count++;
+                        repeats.push(next);
+                    } else {
+                        break;
+                    }
+                }
+
+                // Add collapsed entry
+                collapsed.push({
+                    ...current,
+                    repeatCount: count,
+                    repeats: count > 1 ? repeats : null
+                });
+
+                i += count;
+            }
+
+            return collapsed;
+        }
+
+        // Render logs with virtual scrolling
+        function renderLogs(reset = true) {
+            if (reset) {
+                currentOffset = 0;
+                displayedLogs = [];
+                logContainer.innerHTML = '';
+            }
+
+            if (filteredLogs.length === 0) {
+                logContainer.innerHTML = '<div class="no-logs">No logs match the current filters</div>';
+                document.getElementById('visibleCount').textContent = '0';
+                document.getElementById('totalCount').textContent = allLogs.length;
+                return;
+            }
+
+            // Load next batch (already collapsed in filterLogs)
+            const nextBatch = filteredLogs.slice(currentOffset, currentOffset + BATCH_SIZE);
+            displayedLogs = displayedLogs.concat(nextBatch);
+            currentOffset += nextBatch.length;
+
+            // Render batch
+            const html = nextBatch.map(renderLogLine).join('');
+
+            if (reset) {
+                logContainer.innerHTML = html;
+            } else {
+                logContainer.insertAdjacentHTML('beforeend', html);
+            }
+
+            // Add loading indicator if more logs available
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.remove();
+            }
+
+            if (currentOffset < filteredLogs.length) {
+                logContainer.insertAdjacentHTML('beforeend',
+                    `<div id="loadingIndicator" class="no-logs" style="padding: 20px;">
+                        Showing ${currentOffset} of ${filteredLogs.length} logs. Scroll for more...
+                    </div>`);
+                document.getElementById('loadAllBtn').style.display = 'inline-block';
+            } else {
+                document.getElementById('loadAllBtn').style.display = 'none';
+            }
+
+            document.getElementById('visibleCount').textContent = currentOffset;
+            document.getElementById('totalCount').textContent = allLogs.length;
+
+            const activeFilters = [];
+            if (searchInput.value) activeFilters.push('search');
+            if (usernameFilter.value) activeFilters.push('username');
+            if (timeFilter.value) activeFilters.push('time');
+            if (document.getElementById('onlyErrors').checked) activeFilters.push('errors');
+            if (document.getElementById('onlyWarnings').checked) activeFilters.push('warnings');
+
+            document.getElementById('filterStatus').textContent =
+                activeFilters.length > 0 ? `Active filters: ${activeFilters.join(', ')}` : '';
+        }
+
+        // Infinite scroll handler
+        function handleScroll() {
+            if (isLoading) return;
+
+            const scrollTop = logContainer.scrollTop;
+            const scrollHeight = logContainer.scrollHeight;
+            const clientHeight = logContainer.clientHeight;
+
+            // Load more when 200px from bottom
+            if (scrollTop + clientHeight >= scrollHeight - 200) {
+                if (currentOffset < filteredLogs.length) {
+                    isLoading = true;
+                    setTimeout(() => {
+                        renderLogs(false);
+                        isLoading = false;
+                    }, 50); // Small delay to prevent too many renders
+                }
+            }
+        }
+
+        // Add scroll listener
+        logContainer.addEventListener('scroll', handleScroll);
+
+        // Event listeners
+        searchInput.addEventListener('input', filterLogs);
+        usernameFilter.addEventListener('input', filterLogs);
+        timeFilter.addEventListener('input', filterLogs);
+        document.getElementById('showDebug').addEventListener('change', filterLogs);
+        document.getElementById('showInfo').addEventListener('change', filterLogs);
+        document.getElementById('showWarning').addEventListener('change', filterLogs);
+        document.getElementById('showError').addEventListener('change', filterLogs);
+        document.getElementById('showCache').addEventListener('change', filterLogs);
+        document.getElementById('onlyErrors').addEventListener('change', filterLogs);
+        document.getElementById('onlyWarnings').addEventListener('change', filterLogs);
+        document.getElementById('collapseRepeats').addEventListener('change', () => {
+            // Re-render with new collapse setting
+            renderLogs(true);
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            searchInput.value = '';
+            usernameFilter.value = '';
+            timeFilter.value = '';
+            document.getElementById('showDebug').checked = true;
+            document.getElementById('showInfo').checked = true;
+            document.getElementById('showWarning').checked = true;
+            document.getElementById('showError').checked = true;
+            document.getElementById('showCache').checked = true;
+            document.getElementById('onlyErrors').checked = false;
+            document.getElementById('onlyWarnings').checked = false;
+            filterLogs();
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const text = filteredLogs.map(l => l.raw).join('\n');
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `filtered_logs_${Date.now()}.log`;
+            a.click();
+        });
+
+        document.getElementById('analyzeBtn').addEventListener('click', () => {
+            if (allLogs.length === 0) {
+                alert('Please load a log file first!');
+                return;
+            }
+
+            const analysis = {
+                totalLines: allLogs.length,
+                errors: allLogs.filter(l => l.level === 'ERROR'),
+                warnings: allLogs.filter(l => l.level === 'WARNING'),
+                userStats: {},
+                dailyCompletions: [],
+                cacheOps: allLogs.filter(l => l.level === 'CACHE').length,
+                timeouts: allLogs.filter(l => l.message.includes('timeout')).length,
+                bountySkips: allLogs.filter(l => l.message.includes('Skipping bounty')).length
+            };
+
+            // Analyze by user
+            allLogs.forEach(log => {
+                if (log.username) {
+                    if (!analysis.userStats[log.username]) {
+                        analysis.userStats[log.username] = 0;
+                    }
+                    analysis.userStats[log.username]++;
+                }
+
+                if (log.message.includes('completed daily problem')) {
+                    analysis.dailyCompletions.push(log.username);
+                }
+            });
+
+            const topUsers = Object.entries(analysis.userStats)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([user, count]) => `  ${user}: ${count} mentions`)
+                .join('\n');
+
+            console.log('📊 Log Analysis:', analysis);
+            alert(`📊 Log Analysis Complete!\n\n` +
+                `Total Lines: ${analysis.totalLines}\n` +
+                `Errors: ${analysis.errors.length}\n` +
+                `Warnings: ${analysis.warnings.length}\n` +
+                `Users Processed: ${Object.keys(analysis.userStats).length}\n` +
+                `Daily Completions: ${analysis.dailyCompletions.length}\n` +
+                `Cache Operations: ${analysis.cacheOps}\n` +
+                `Timeouts: ${analysis.timeouts}\n` +
+                `Bounty Skips: ${analysis.bountySkips}\n\n` +
+                `Top 5 Users:\n${topUsers}\n\n` +
+                `See console for full details.`);
+        });
+
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            const helpText = document.getElementById('helpText');
+            helpText.style.display = helpText.style.display === 'none' ? 'block' : 'none';
+        });
+
+        document.getElementById('loadAllBtn').addEventListener('click', () => {
+            // Load all remaining logs at once
+            const remaining = filteredLogs.length - currentOffset;
+            if (remaining > 0) {
+                const confirmLoad = confirm(`Load all ${remaining.toLocaleString()} remaining logs? This may take a moment.`);
+                if (confirmLoad) {
+                    const startTime = performance.now();
+                    currentOffset = filteredLogs.length; // Set to end
+                    const html = filteredLogs.slice(displayedLogs.length).map(renderLogLine).join('');
+                    const loadingIndicator = document.getElementById('loadingIndicator');
+                    if (loadingIndicator) loadingIndicator.remove();
+                    logContainer.insertAdjacentHTML('beforeend', html);
+                    displayedLogs = filteredLogs;
+                    document.getElementById('loadAllBtn').style.display = 'none';
+                    document.getElementById('visibleCount').textContent = filteredLogs.length;
+                    const loadTime = (performance.now() - startTime) / 1000;
+                    console.log(`Loaded ${remaining.toLocaleString()} logs in ${loadTime.toFixed(2)}s`);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

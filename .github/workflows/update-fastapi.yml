@@ -2,7 +2,7 @@ name: Deploy FastAPI (auto, diff-aware)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
     paths:
       - 'scripts/fastapi/**'
 
@@ -18,7 +18,23 @@ jobs:
         with:
           fetch-depth: 2
 
-      # 2️⃣ Figure out what changed
+      # 2️⃣ Detect environment (main = prod, dev = dev)
+      - name: Detect environment
+        id: env
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "port=6969" >> $GITHUB_OUTPUT
+            echo "deploy_dir=yeetcode-api" >> $GITHUB_OUTPUT
+            echo "log_file=fastapi.log" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "port=42069" >> $GITHUB_OUTPUT
+            echo "deploy_dir=yeetcode-api-dev" >> $GITHUB_OUTPUT
+            echo "log_file=fastapi-dev.log" >> $GITHUB_OUTPUT
+          fi
+
+      # 3️⃣ Figure out what changed
       - name: Detect FastAPI changes
         id: diff
         run: |
@@ -69,20 +85,19 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 -q -o StrictHostKeyChecking=no \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e
-            cd ~/yeetcode-api
+
+            # Detect environment from branch
+            ENV="${{ steps.env.outputs.environment }}"
+            DEPLOY_DIR="${{ steps.env.outputs.deploy_dir }}"
+            LOG_FILE="${{ steps.env.outputs.log_file }}"
+            PORT="${{ steps.env.outputs.port }}"
+
+            # Navigate to correct deployment directory
+            cd ~/$DEPLOY_DIR
 
             # unpack files
             tar -xzf ~/changed-files.tgz -C .
             rm ~/changed-files.tgz
-
-            # load env safely
-            if [ -f .env ]; then
-              # Strip comments, normalize “KEY = VALUE” to “KEY=VALUE”, then export
-              export $(grep -v '^\s*#' .env \
-                        | sed 's/[[:space:]]*=[[:space:]]*/=/g' \
-                        | xargs)
-            fi
-
 
             # reinstall if needed
             if grep -q '^requirements.txt$' ~/changed.txt; then
@@ -91,10 +106,17 @@ jobs:
               pip install -r requirements.txt
             fi
 
-            # restart the app
-            pkill -f 'python3 main.py' || true
+            # restart the app (kill by port to avoid cross-killing)
+            PID=$(lsof -ti:$PORT) || true
+            if [ -n "$PID" ]; then
+              kill $PID
+              sleep 2
+            fi
+
             source .venv/bin/activate
-            nohup python3 main.py > fastapi.log 2>&1 &
+            nohup python3 main.py --env $ENV > $LOG_FILE 2>&1 &
+
+            echo "✅ Deployed $ENV environment to ~/$DEPLOY_DIR (port $PORT)"
           EOF
 
       # 7️⃣ Notify Discord on success
@@ -103,13 +125,20 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           CHANGES: ${{ steps.diff.outputs.changed_files }}
+          ENV: ${{ steps.env.outputs.environment }}
+          PORT: ${{ steps.env.outputs.port }}
         run: |
           [ -z "$WEBHOOK" ] && exit 0
           if [ -z "$CHANGES" ]; then
-            CONTENT='🔕 No FastAPI files changed—deploy skipped.'
+            CONTENT="🔕 No FastAPI files changed—deploy skipped ($ENV)."
           else
             ESC=$(printf '%s' "$CHANGES" | sed 's/"/\\"/g')
-            CONTENT="✅ FastAPI deployed with changed files:\n\`\`\`\n$ESC\n\`\`\`"
+            if [ "$ENV" = "prod" ]; then
+              EMOJI="✅"
+            else
+              EMOJI="🚧"
+            fi
+            CONTENT="$EMOJI FastAPI **$ENV** deployed (port $PORT):\n\`\`\`\n$ESC\n\`\`\`"
           fi
           curl -s -X POST -H "Content-Type: application/json" \
                -d "{\"content\":\"$CONTENT\"}" \
@@ -120,8 +149,9 @@ jobs:
         if: failure()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          ENV: ${{ steps.env.outputs.environment }}
         run: |
           [ -z "$WEBHOOK" ] && exit 0
           curl -s -X POST -H "Content-Type: application/json" \
-               -d '{"content":"❌ FastAPI deploy failed."}' \
+               -d "{\"content\":\"❌ FastAPI **$ENV** deploy failed.\"}" \
                "$WEBHOOK"

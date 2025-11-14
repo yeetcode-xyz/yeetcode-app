@@ -4,6 +4,8 @@ FastAPI server for YeetCode email OTP functionality
 """
 
 import os
+import sys
+import argparse
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -11,8 +13,21 @@ from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Parse command line arguments for environment selection
+parser = argparse.ArgumentParser(description='YeetCode FastAPI Server')
+parser.add_argument('--env', type=str, default='prod', choices=['prod', 'dev'],
+                    help='Environment to run (prod or dev)')
+args, unknown = parser.parse_known_args()
+
+# Load environment-specific .env file
+env_file = f'.env.{args.env}'
+if os.path.exists(env_file):
+    load_dotenv(env_file)
+    print(f"✅ Loaded environment from {env_file}")
+else:
+    # Fallback to default .env
+    load_dotenv()
+    print(f"⚠️ {env_file} not found, using default .env")
 
 # Import routers
 from routes.auth import router as auth_router

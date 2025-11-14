@@ -3,14 +3,25 @@ Admin routes for YeetCode FastAPI server
 Provides endpoints for managing background tasks and system operations
 """
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from auth import verify_api_key
 from scheduler import get_scheduler_status, trigger_job_manually
 import logging
+import os
 from datetime import datetime
 
 router = APIRouter(tags=["Admin"], prefix="/admin")
+
+# Simple query parameter authentication for browser access
+def verify_api_key_query(api_key: str = Query(...)):
+    """Verify API key from query parameter for browser-friendly endpoints"""
+    expected_key = os.getenv("YETCODE_API_KEY")
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="Server configuration error")
+    if api_key != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return api_key
 
 # In-memory log storage (limited to last 500 entries)
 log_buffer = []
@@ -87,5 +98,54 @@ async def trigger_daily_problem(
     try:
         result = await trigger_job_manually('generate_daily_problem')
         return result
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@router.get("/logs", response_class=HTMLResponse)
+async def serve_log_viewer(
+    api_key: str = Depends(verify_api_key_query)
+):
+    """Serve the interactive log viewer for fastapi.log
+
+    Access via: /admin/logs?api_key=YOUR_API_KEY
+    """
+    try:
+        html_path = os.path.join(os.path.dirname(__file__), "../static/log_viewer.html")
+
+        if not os.path.exists(html_path):
+            return HTMLResponse(
+                content="<h1>Log viewer not found</h1><p>File: {}</p>".format(html_path),
+                status_code=404
+            )
+
+        with open(html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except Exception as error:
+        return HTMLResponse(
+            content=f"<h1>Error loading log viewer</h1><p>{str(error)}</p>",
+            status_code=500
+        )
+
+
+@router.get("/logs/content")
+async def get_log_content(
+    api_key: str = Depends(verify_api_key_query)
+):
+    """Get the raw fastapi.log file content
+
+    Access via: /admin/logs/content?api_key=YOUR_API_KEY
+    """
+    try:
+        # Log file is in the parent directory (scripts/fastapi/../fastapi.log)
+        log_path = os.path.join(os.path.dirname(__file__), "../fastapi.log")
+
+        if not os.path.exists(log_path):
+            raise HTTPException(status_code=404, detail=f"Log file not found at {log_path}")
+
+        with open(log_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        return {"success": True, "content": content, "path": log_path}
     except Exception as error:
         return {"success": False, "error": str(error)}
