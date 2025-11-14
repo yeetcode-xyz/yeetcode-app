@@ -126,3 +126,26 @@ async def serve_log_viewer(
             content=f"<h1>Error loading log viewer</h1><p>{str(error)}</p>",
             status_code=500
         )
+
+
+@router.get("/logs/content")
+async def get_log_content(
+    api_key: str = Depends(verify_api_key_query)
+):
+    """Get the raw fastapi.log file content
+
+    Access via: /admin/logs/content?api_key=YOUR_API_KEY
+    """
+    try:
+        # Log file is in the parent directory (scripts/fastapi/../fastapi.log)
+        log_path = os.path.join(os.path.dirname(__file__), "../fastapi.log")
+
+        if not os.path.exists(log_path):
+            raise HTTPException(status_code=404, detail=f"Log file not found at {log_path}")
+
+        with open(log_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        return {"success": True, "content": content, "path": log_path}
+    except Exception as error:
+        return {"success": False, "error": str(error)}

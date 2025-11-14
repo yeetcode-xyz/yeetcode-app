@@ -329,12 +329,6 @@
 
             <div class="controls">
                 <div class="control-group">
-                    <label>Load Log File</label>
-                    <input type="file" id="fileInput" accept=".log,.txt">
-                    <span style="color: #858585; font-size: 11px; margin-top: 4px;">Production logs: /root/yeetcode-api/fastapi.log</span>
-                </div>
-
-                <div class="control-group">
                     <label>Search / Filter</label>
                     <input type="text" id="searchInput" placeholder="Search logs...">
                 </div>
@@ -347,6 +341,10 @@
                 <div class="control-group">
                     <label>Date/Time Filter</label>
                     <input type="text" id="timeFilter" placeholder="e.g., 2025-11-13 19:">
+                </div>
+
+                <div class="control-group">
+                    <button id="refreshBtn" style="margin-top: 23px;">🔄 Refresh Logs</button>
                 </div>
             </div>
 
@@ -396,7 +394,8 @@
             <div id="helpText" style="display: none; margin-top: 15px; padding: 15px; background: #2d2d30; border-radius: 4px; border-left: 3px solid #4ec9b0;">
                 <strong style="color: #4ec9b0;">📖 Quick Guide</strong>
                 <ul style="margin: 10px 0 0 20px; color: #d4d4d4; line-height: 1.8;">
-                    <li><strong>Production logs:</strong> Download from server: <code style="background: #1e1e1e; padding: 2px 6px; border-radius: 3px;">/root/yeetcode-api/fastapi.log</code></li>
+                    <li><strong>Auto-load:</strong> Logs are automatically loaded from <code style="background: #1e1e1e; padding: 2px 6px; border-radius: 3px;">fastapi.log</code></li>
+                    <li><strong>Refresh:</strong> Click the 🔄 Refresh button to reload latest logs</li>
                     <li><strong>Search:</strong> Type any text to filter (e.g., "timeout", "ERROR", "sidmo2006")</li>
                     <li><strong>Username filter:</strong> See logs for specific users</li>
                     <li><strong>Time filter:</strong> Use patterns like "2025-11-13 19:3" to see specific time ranges</li>
@@ -446,7 +445,7 @@
 
         <div class="log-container" id="logContainer">
             <div class="no-logs">
-                📁 Load a log file to get started
+                ⏳ Loading logs from server...
             </div>
         </div>
     </div>
@@ -459,34 +458,38 @@
         const BATCH_SIZE = 100; // Load 100 logs at a time
         let isLoading = false;
 
-        const fileInput = document.getElementById('fileInput');
         const searchInput = document.getElementById('searchInput');
         const usernameFilter = document.getElementById('usernameFilter');
         const timeFilter = document.getElementById('timeFilter');
         const logContainer = document.getElementById('logContainer');
         const statsDiv = document.getElementById('stats');
         const filterInfo = document.getElementById('filterInfo');
+        const refreshBtn = document.getElementById('refreshBtn');
 
-        // Load file
-        fileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+        // Get API key from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const apiKey = urlParams.get('api_key');
 
-            // Show loading indicator
+        // Auto-load logs from API
+        async function loadLogsFromAPI() {
             const perfInfo = document.getElementById('performanceInfo');
             const perfText = document.getElementById('performanceText');
             perfInfo.style.display = 'block';
-            perfText.textContent = `Loading ${(file.size / 1024 / 1024).toFixed(2)} MB...`;
+            perfText.textContent = 'Loading logs from server...';
 
-            const reader = new FileReader();
-            reader.onload = async (event) => {
+            try {
+                const response = await fetch(`/admin/logs/content?api_key=${apiKey}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load logs');
+                }
+
                 const startTime = performance.now();
-                const content = event.target.result;
-
                 perfText.textContent = 'Parsing logs...';
 
                 // Parse logs in chunks to avoid blocking UI
-                await parseLogs(content);
+                await parseLogs(data.content);
 
                 const parseTime = (performance.now() - startTime) / 1000;
                 perfText.textContent = `Parsed ${allLogs.length.toLocaleString()} lines in ${parseTime.toFixed(2)}s`;
@@ -498,9 +501,23 @@
                 setTimeout(() => {
                     perfInfo.style.display = 'none';
                 }, 2000);
-            };
-            reader.readAsText(file);
-        });
+            } catch (error) {
+                perfInfo.style.display = 'block';
+                perfText.textContent = `Error loading logs: ${error.message}`;
+                console.error('Failed to load logs:', error);
+            }
+        }
+
+        // Load logs on page load
+        if (apiKey) {
+            loadLogsFromAPI();
+        } else {
+            document.getElementById('performanceInfo').style.display = 'block';
+            document.getElementById('performanceText').textContent = 'Error: No API key provided in URL';
+        }
+
+        // Refresh button handler
+        refreshBtn.addEventListener('click', loadLogsFromAPI);
 
         // Parse logs with chunked processing
         async function parseLogs(content) {
