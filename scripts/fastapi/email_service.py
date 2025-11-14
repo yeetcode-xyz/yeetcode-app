@@ -1,3 +1,4 @@
+# Deployment timestamp: 2024-12-19 00:00:00 UTC
 """
 Email operations for YeetCode using Resend
 """

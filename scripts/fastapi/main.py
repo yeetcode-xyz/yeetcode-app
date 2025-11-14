@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Deployment timestamp: 2024-12-19 00:00:00 UTC
 """
 FastAPI server for YeetCode email OTP functionality
 """
@@ -105,8 +106,8 @@ async def lifespan(app: FastAPI):
     info("✅ FastAPI server shutdown complete")
 
 app = FastAPI(
-    title="YeetCode Email API",
-    description="FastAPI server for handling email OTP functionality",
+    title="YeetCode API",
+    description="FastAPI server for handling all yeetcode functionality",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -152,7 +153,7 @@ if DEBUG_MODE:
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    return {"message": "YeetCode Email API is running", "timestamp": datetime.now().isoformat()}
+    return {"message": "YeetCode API is running", "timestamp": datetime.now().isoformat()}
 
 
 
