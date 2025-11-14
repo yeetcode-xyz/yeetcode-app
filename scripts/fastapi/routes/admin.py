@@ -3,7 +3,7 @@ Admin routes for YeetCode FastAPI server
 Provides endpoints for managing background tasks and system operations
 """
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from auth import verify_api_key
 from scheduler import get_scheduler_status, trigger_job_manually
@@ -12,6 +12,16 @@ import os
 from datetime import datetime
 
 router = APIRouter(tags=["Admin"], prefix="/admin")
+
+# Simple query parameter authentication for browser access
+def verify_api_key_query(api_key: str = Query(...)):
+    """Verify API key from query parameter for browser-friendly endpoints"""
+    expected_key = os.getenv("YETCODE_API_KEY")
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="Server configuration error")
+    if api_key != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return api_key
 
 # In-memory log storage (limited to last 500 entries)
 log_buffer = []
@@ -94,9 +104,12 @@ async def trigger_daily_problem(
 
 @router.get("/logs", response_class=HTMLResponse)
 async def serve_log_viewer(
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key_query)
 ):
-    """Serve the interactive log viewer for fastapi.log"""
+    """Serve the interactive log viewer for fastapi.log
+
+    Access via: /admin/logs?api_key=YOUR_API_KEY
+    """
     try:
         html_path = os.path.join(os.path.dirname(__file__), "../static/log_viewer.html")
 
