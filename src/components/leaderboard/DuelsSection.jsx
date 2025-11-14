@@ -15,6 +15,9 @@ import {
   startDuel,
   rejectDuel,
   recordDuelSubmission,
+  searchUser,
+  sendInvite,
+  generateDuelLink,
 } from '../../services/duels';
 import { fetchRecentSubmissions } from '../../services/leetcode';
 
@@ -43,6 +46,19 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
   // Wager duel state
   const [wagerAmount, setWagerAmount] = useState('');
   const [acceptingWager, setAcceptingWager] = useState({}); // Map of duelId -> wager amount being entered
+
+  // Email invite state
+  const [inviteEmail, setInviteEmail] = useState('');
+
+  // "Anyone" mode state
+  const [duelMode, setDuelMode] = useState('group'); // 'group' or 'anyone'
+  const [searchUsername, setSearchUsername] = useState('');
+  const [searchResult, setSearchResult] = useState(null); // {exists_on_yeetcode: bool, exists_on_leetcode: bool}
+  const [searching, setSearching] = useState(false);
+
+  // Duel link generation state
+  const [generatedLink, setGeneratedLink] = useState(null); // {invite_url, token, expires_at}
+  const [generatingLink, setGeneratingLink] = useState(false);
 
   // Refs for component management
   const loadingRef = useRef(false); // Prevent duplicate calls
@@ -150,10 +166,220 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
     }, 5000);
   };
 
+  // Handle generating a duel invite link
+  const handleGenerateLink = async () => {
+    if (!selectedDifficulty) {
+      setError('Please select a problem difficulty first!');
+      return;
+    }
+
+    setError('');
+    setGeneratingLink(true);
+
+    try {
+      const isWager = mainTab === 'wager';
+      const wagerNum = isWager ? parseInt(wagerAmount) : null;
+
+      // Validate wager amount for wager duels
+      if (isWager) {
+        if (!wagerAmount || isNaN(wagerNum) || wagerNum < 25) {
+          setError('Wager amount must be at least 25 XP!');
+          setGeneratingLink(false);
+          return;
+        }
+
+        // Check if challenger has enough XP
+        const currentUserData = leaderboard.find(
+          u => u.username === normalizedCurrentUser
+        );
+        const currentUserXP = currentUserData?.xp || 0;
+        if (currentUserXP < wagerNum) {
+          setError(
+            `You don't have enough XP! (Have: ${currentUserXP}, Need: ${wagerNum})`
+          );
+          setGeneratingLink(false);
+          return;
+        }
+      }
+
+      const result = await generateDuelLink(
+        normalizedCurrentUser,
+        selectedDifficulty,
+        isWager,
+        wagerNum
+      );
+
+      setGeneratedLink(result);
+      addNotification('Duel link generated! Copy and share it.', 'success');
+    } catch (err) {
+      console.error('Error generating link:', err);
+      setError(err.message || 'Failed to generate link');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  // Handle copying link to clipboard
+  const handleCopyLink = async () => {
+    if (!generatedLink?.invite_url) return;
+
+    try {
+      await navigator.clipboard.writeText(generatedLink.invite_url);
+      addNotification('Link copied to clipboard!', 'success');
+    } catch (err) {
+      console.error('Error copying link:', err);
+      setError('Failed to copy link. Please copy manually.');
+    }
+  };
+
+  // Handle searching for a user
+  const handleSearchUser = async () => {
+    if (!searchUsername.trim()) {
+      setError('Please enter a username to search!');
+      return;
+    }
+
+    setError('');
+    setSearching(true);
+    setSearchResult(null);
+
+    try {
+      const result = await searchUser(searchUsername.trim());
+      setSearchResult(result);
+
+      if (result.exists_on_yeetcode) {
+        // User found on YeetCode, proceed with normal duel creation
+        setSelectedFriend(searchUsername.trim().toLowerCase());
+      } else if (!result.exists_on_leetcode) {
+        setError('Username not found on LeetCode');
+      }
+      // If exists on LeetCode but not YeetCode, show email input (handled in UI)
+    } catch (err) {
+      console.error('Error searching user:', err);
+      setError(err.message || 'Failed to search user');
+    } finally {
+      setSearching(false);
+    }
+  };
+
   // Handle creating a new duel
   const handleSendChallenge = async () => {
     setError('');
 
+    // Handle "Anyone" mode
+    if (duelMode === 'anyone') {
+      // If user is on YeetCode, proceed with normal duel
+      if (searchResult?.exists_on_yeetcode && searchUsername) {
+        if (!selectedDifficulty) {
+          setError('Please select a problem difficulty!');
+          return;
+        }
+
+        // Disable wager duels for invites
+        if (mainTab === 'wager') {
+          setError(
+            'Wager duels are only available for users already on YeetCode'
+          );
+          return;
+        }
+
+        try {
+          setActionLoading({ createDuel: true });
+
+          const opponentUsername = searchUsername.trim().toLowerCase();
+          const newDuel = await createDuel(
+            normalizedCurrentUser,
+            opponentUsername,
+            selectedDifficulty,
+            false,
+            null
+          );
+
+          await loadDuels();
+
+          setSelectedFriend('');
+          setSearchUsername('');
+          setSearchResult(null);
+          setSelectedDifficulty('');
+
+          addNotification(`Challenge sent to ${opponentUsername}!`, 'success');
+          if (window.electronAPI?.notifyDuelEvent) {
+            window.electronAPI.notifyDuelEvent({
+              type: 'sent',
+              opponent: opponentUsername,
+            });
+          }
+        } catch (err) {
+          console.error('Error creating duel:', err);
+          setError(err.message || 'Failed to send challenge');
+        } finally {
+          setActionLoading({ createDuel: false });
+        }
+        return;
+      }
+
+      // If user exists on LeetCode but not YeetCode, send invite
+      if (
+        searchResult?.exists_on_leetcode &&
+        !searchResult?.exists_on_yeetcode
+      ) {
+        if (!inviteEmail.trim()) {
+          setError('Please enter an email address to invite this user!');
+          return;
+        }
+
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(inviteEmail)) {
+          setError('Please enter a valid email address!');
+          return;
+        }
+
+        // Disable wager duels for invites
+        if (mainTab === 'wager') {
+          setError(
+            'Wager duels are only available for users already on YeetCode'
+          );
+          return;
+        }
+
+        try {
+          setActionLoading({ sendInvite: true });
+
+          await sendInvite(
+            normalizedCurrentUser,
+            searchUsername.trim(),
+            inviteEmail.trim()
+          );
+
+          setInviteEmail('');
+          setSearchUsername('');
+          setSearchResult(null);
+          setSelectedDifficulty('');
+
+          addNotification(
+            `Invite sent to ${inviteEmail}! They'll receive an email to join YeetCode.`,
+            'success'
+          );
+        } catch (err) {
+          console.error('Error sending invite:', err);
+          setError(err.message || 'Failed to send invite');
+        } finally {
+          setActionLoading({ sendInvite: false });
+        }
+        return;
+      }
+
+      // If no search result yet, prompt to search
+      if (!searchResult) {
+        setError('Please search for a user first!');
+        return;
+      }
+
+      return;
+    }
+
+    // Regular group member challenge flow
     if (!selectedFriend) {
       setError('Please select a friend to challenge!');
       return;
@@ -1151,26 +1377,108 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
               style={{ height: '265px' }}
             >
               <div className="flex items-center justify-between mb-3">
-                <h4 className="font-bold text-lg">Challenge Friend</h4>
-                <span className="text-lg">🎯</span>
+                <h4 className="font-bold text-lg">Challenge</h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setDuelMode('group');
+                      setSearchUsername('');
+                      setSearchResult(null);
+                      setInviteEmail('');
+                    }}
+                    className={`text-xs px-2 py-1 rounded border border-black font-bold ${
+                      duelMode === 'group'
+                        ? 'bg-blue-200 text-black'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Group Members
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDuelMode('anyone');
+                      setSelectedFriend('');
+                      setSearchUsername('');
+                      setSearchResult(null);
+                      setInviteEmail('');
+                    }}
+                    className={`text-xs px-2 py-1 rounded border border-black font-bold ${
+                      duelMode === 'anyone'
+                        ? 'bg-blue-200 text-black'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Anyone
+                  </button>
+                  <span className="text-lg">🎯</span>
+                </div>
               </div>
               <div className="space-y-2">
-                <SearchableDropdown
-                  options={availableFriends.map(friend => ({
-                    value: friend.username,
-                    label: friend.name,
-                  }))}
-                  value={selectedFriend}
-                  onChange={value => setSelectedFriend(value)}
-                  placeholder={
-                    availableFriends.length > 0
-                      ? 'Select a friend...'
-                      : 'No friends in group yet'
-                  }
-                  disabled={availableFriends.length === 0}
-                  className="font-medium"
-                  compact={true}
-                />
+                {duelMode === 'anyone' ? (
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={searchUsername}
+                        onChange={e => setSearchUsername(e.target.value)}
+                        onKeyPress={e => {
+                          if (e.key === 'Enter') {
+                            handleSearchUser();
+                          }
+                        }}
+                        placeholder="Enter LeetCode username..."
+                        className="flex-1 border-2 border-black rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={handleSearchUser}
+                        disabled={searching}
+                        className="px-3 py-1 bg-blue-200 hover:bg-blue-400 text-black rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50 text-sm"
+                      >
+                        {searching ? '⏳' : 'Search'}
+                      </button>
+                    </div>
+                    {searchResult && (
+                      <>
+                        {searchResult.exists_on_yeetcode ? (
+                          <div className="p-2 bg-green-100 border border-green-300 rounded text-green-700 text-sm">
+                            ✓ User found on YeetCode! You can challenge them.
+                          </div>
+                        ) : searchResult.exists_on_leetcode ? (
+                          <>
+                            <div className="p-2 bg-yellow-100 border border-yellow-300 rounded text-yellow-700 text-sm">
+                              This user isn't on YeetCode yet. Enter their email
+                              to invite them:
+                            </div>
+                            <input
+                              type="email"
+                              value={inviteEmail}
+                              onChange={e => setInviteEmail(e.target.value)}
+                              placeholder="Email address..."
+                              className="w-full border-2 border-black rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                            />
+                          </>
+                        ) : null}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <SearchableDropdown
+                    options={availableFriends.map(friend => ({
+                      value: friend.username,
+                      label: friend.name,
+                    }))}
+                    value={selectedFriend}
+                    onChange={value => setSelectedFriend(value)}
+                    placeholder={
+                      availableFriends.length > 0
+                        ? 'Select a friend...'
+                        : 'No friends in group yet'
+                    }
+                    disabled={availableFriends.length === 0}
+                    className="font-medium"
+                    compact={true}
+                  />
+                )}
                 <SearchableDropdown
                   options={[
                     {
@@ -1191,7 +1499,10 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
                     },
                   ]}
                   value={selectedDifficulty}
-                  onChange={value => setSelectedDifficulty(value)}
+                  onChange={value => {
+                    setSelectedDifficulty(value);
+                    setGeneratedLink(null); // Clear link when difficulty changes
+                  }}
                   placeholder="Problem difficulty..."
                   className="font-medium"
                   compact={true}
@@ -1202,13 +1513,67 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
                   {error}
                 </div>
               )}
-              <button
-                onClick={handleSendChallenge}
-                disabled={actionLoading.createDuel}
-                className="w-full mt-3 bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50"
-              >
-                {actionLoading.createDuel ? '⏳ Sending...' : 'Send Challenge'}
-              </button>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleSendChallenge}
+                  disabled={
+                    actionLoading.createDuel ||
+                    actionLoading.sendInvite ||
+                    searching
+                  }
+                  className="flex-1 bg-blue-200 hover:bg-blue-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50"
+                >
+                  {actionLoading.createDuel || actionLoading.sendInvite
+                    ? '⏳ Sending...'
+                    : duelMode === 'anyone' && searchResult?.exists_on_yeetcode
+                      ? 'Send Challenge'
+                      : duelMode === 'anyone' &&
+                          searchResult?.exists_on_leetcode &&
+                          !searchResult?.exists_on_yeetcode
+                        ? 'Send Invite'
+                        : duelMode === 'anyone'
+                          ? 'Search First'
+                          : 'Send Challenge'}
+                </button>
+                <button
+                  onClick={handleGenerateLink}
+                  disabled={
+                    generatingLink ||
+                    !selectedDifficulty ||
+                    (mainTab === 'wager' &&
+                      (!wagerAmount || parseInt(wagerAmount) < 25))
+                  }
+                  className="px-3 py-2 bg-green-200 hover:bg-green-400 text-black rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50 text-sm"
+                  title="Generate shareable link"
+                >
+                  {generatingLink ? '⏳' : '🔗'}
+                </button>
+              </div>
+              {generatedLink && (
+                <div className="mt-2 p-2 bg-green-50 border border-green-300 rounded">
+                  <div className="text-xs text-gray-600 mb-1">
+                    Shareable Duel Link:
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={generatedLink.invite_url}
+                      readOnly
+                      className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                    />
+                    <button
+                      onClick={handleCopyLink}
+                      className="px-2 py-1 bg-blue-200 hover:bg-blue-400 text-black rounded border border-black font-bold text-xs"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Expires:{' '}
+                    {new Date(generatedLink.expires_at).toLocaleDateString()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Active Normal Duels */}
@@ -1324,7 +1689,10 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
                     },
                   ]}
                   value={selectedDifficulty}
-                  onChange={value => setSelectedDifficulty(value)}
+                  onChange={value => {
+                    setSelectedDifficulty(value);
+                    setGeneratedLink(null); // Clear link when difficulty changes
+                  }}
                   placeholder="Problem difficulty..."
                   className="font-medium"
                   compact={true}
@@ -1335,15 +1703,55 @@ const DuelsSection = forwardRef(({ leaderboard = [], userData }, ref) => {
                   {error}
                 </div>
               )}
-              <button
-                onClick={handleSendChallenge}
-                disabled={actionLoading.createDuel}
-                className="w-full mt-3 bg-orange-200 hover:bg-orange-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50"
-              >
-                {actionLoading.createDuel
-                  ? '⏳ Sending...'
-                  : 'Send Wager Challenge'}
-              </button>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleSendChallenge}
+                  disabled={actionLoading.createDuel}
+                  className="flex-1 bg-orange-200 hover:bg-orange-400 text-black px-4 py-2 rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50"
+                >
+                  {actionLoading.createDuel
+                    ? '⏳ Sending...'
+                    : 'Send Wager Challenge'}
+                </button>
+                <button
+                  onClick={handleGenerateLink}
+                  disabled={
+                    generatingLink ||
+                    !selectedDifficulty ||
+                    !wagerAmount ||
+                    parseInt(wagerAmount) < 25
+                  }
+                  className="px-3 py-2 bg-green-200 hover:bg-green-400 text-black rounded-lg border-2 border-black font-bold btn-3d disabled:opacity-50 text-sm"
+                  title="Generate shareable link"
+                >
+                  {generatingLink ? '⏳' : '🔗'}
+                </button>
+              </div>
+              {generatedLink && (
+                <div className="mt-2 p-2 bg-green-50 border border-green-300 rounded">
+                  <div className="text-xs text-gray-600 mb-1">
+                    Shareable Duel Link:
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={generatedLink.invite_url}
+                      readOnly
+                      className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                    />
+                    <button
+                      onClick={handleCopyLink}
+                      className="px-2 py-1 bg-blue-200 hover:bg-blue-400 text-black rounded border border-black font-bold text-xs"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Expires:{' '}
+                    {new Date(generatedLink.expires_at).toLocaleDateString()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Active Wager Duels */}

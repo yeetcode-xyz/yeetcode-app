@@ -3,12 +3,14 @@ Authentication routes
 """
 
 import os
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 from models import EmailOTPRequest, EmailOTPResponse
 from auth import verify_api_key, check_rate_limit, clear_rate_limit
-from email_service import send_email_otp
+from email_service import send_email_otp, send_yeetcode_invite
 from aws import VerificationOperations
 
 # Load environment variables
@@ -91,5 +93,65 @@ async def verify_code_endpoint(
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
+
+
+class SendInviteRequest(BaseModel):
+    challenger_username: str
+    challengee_username: str
+    challengee_email: str
+
+
+@router.post("/send-invite")
+async def send_invite_endpoint(
+    request: SendInviteRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Send YeetCode invite email with rate limiting
+    
+    - Rate limit: 1 request per minute per email
+    - Requires valid API key in Authorization header
+    """
+    email = request.challengee_email.lower()
+    
+    # Validate email format
+    email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_regex, email):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid email format"
+        )
+    
+    # Check rate limit
+    if not check_rate_limit(email):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please wait 60 seconds before sending another invite."
+        )
+    
+    try:
+        # Send invite email
+        result = send_yeetcode_invite(
+            recipient_email=email,
+            challenger_username=request.challenger_username,
+            challengee_username=request.challengee_username
+        )
+        
+        if DEBUG_MODE:
+            print(f"[DEBUG] Invite email sent successfully to {email}")
+        
+        return {
+            "success": True,
+            "message": "Invite email sent successfully",
+            "message_id": result.get("messageId")
+        }
+        
+    except Exception as error:
+        if DEBUG_MODE:
+            print(f"[ERROR] Failed to send invite email to {email}: {error}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send invite email: {str(error)}"
+        )
 
 

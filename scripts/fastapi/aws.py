@@ -5,8 +5,9 @@ Includes graceful error handling for AWS service disruptions
 
 import os
 import time
+import secrets
 import boto3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, List, Any
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
@@ -1896,3 +1897,112 @@ class DuelOperations:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to handle duel timeouts: {error}")
             return {"success": False, "error": str(error)}
+
+
+class DuelInviteLinkOperations:
+    """Operations for managing duel invite links"""
+    
+    @staticmethod
+    def generate_duel_link(
+        challenger_username: str,
+        difficulty: str,
+        is_wager: bool = False,
+        wager_amount: int = None
+    ) -> Dict:
+        """Generate a shareable duel invite link"""
+        try:
+            check_aws_connection()
+            
+            if not USERS_TABLE:
+                raise Exception("USERS_TABLE not configured")
+            
+            # Generate secure token
+            token = secrets.token_urlsafe(32)
+            
+            # Calculate expiration (7 days from now)
+            expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+            ttl = int(expires_at.timestamp())
+            
+            # Store invite link info in USERS_TABLE with prefix (similar to verification codes)
+            invite_key = f"duel_invite_{token}"
+            
+            invite_data = {
+                'username': {'S': invite_key},
+                'challenger_username': {'S': challenger_username.lower()},
+                'difficulty': {'S': difficulty},
+                'is_wager': {'S': 'Yes' if is_wager else 'No'},
+                'wager_amount': {'N': str(wager_amount) if wager_amount else '0'},
+                'created_at': {'S': datetime.now(timezone.utc).isoformat()},
+                'expires_at': {'S': expires_at.isoformat()},
+                'ttl': {'N': str(ttl)}
+            }
+            
+            ddb.put_item(
+                TableName=USERS_TABLE,
+                Item=invite_data
+            )
+            
+            # Generate shareable link
+            invite_url = f"https://yeetcode.xyz/duel/{token}"
+            
+            if DEBUG_MODE:
+                print(f"[DEBUG] Generated duel invite link: {token} for {challenger_username}")
+            
+            return {
+                "success": True,
+                "token": token,
+                "invite_url": invite_url,
+                "expires_at": expires_at.isoformat()
+            }
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to generate duel link: {error}")
+            raise error
+    
+    @staticmethod
+    def get_duel_link_info(token: str) -> Optional[Dict]:
+        """Get duel invite link information by token"""
+        try:
+            check_aws_connection()
+            
+            if not USERS_TABLE:
+                raise Exception("USERS_TABLE not configured")
+            
+            invite_key = f"duel_invite_{token}"
+            
+            response = ddb.get_item(
+                TableName=USERS_TABLE,
+                Key={'username': {'S': invite_key}}
+            )
+            
+            if 'Item' not in response:
+                return None
+            
+            item = normalize_dynamodb_item(response['Item'])
+            
+            # Check if expired
+            expires_at_str = item.get('expires_at')
+            if expires_at_str:
+                expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) > expires_at:
+                    # Delete expired invite
+                    ddb.delete_item(
+                        TableName=USERS_TABLE,
+                        Key={'username': {'S': invite_key}}
+                    )
+                    return None
+            
+            return {
+                "challenger_username": item.get('challenger_username'),
+                "difficulty": item.get('difficulty'),
+                "is_wager": item.get('is_wager') == 'Yes',
+                "wager_amount": int(item.get('wager_amount', 0)),
+                "created_at": item.get('created_at'),
+                "expires_at": item.get('expires_at')
+            }
+            
+        except Exception as error:
+            if DEBUG_MODE:
+                print(f"[ERROR] Failed to get duel link info: {error}")
+            return None

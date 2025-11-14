@@ -325,6 +325,57 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('get-duel', duelId);
   },
 
+  // User search and invite methods
+  searchUser: username => {
+    const validatedUsername = validateInput.username(username);
+    return ipcRenderer.invoke('search-user', validatedUsername);
+  },
+
+  sendInvite: (challenger, challengee, email) => {
+    const validatedChallenger = validateInput.username(challenger);
+    const validatedChallengee = validateInput.username(challengee);
+    const validatedEmail = validateInput.email(email);
+    return ipcRenderer.invoke(
+      'send-invite',
+      validatedChallenger,
+      validatedChallengee,
+      validatedEmail
+    );
+  },
+
+  generateDuelLink: (challenger, difficulty, isWager, wagerAmount) => {
+    const validatedChallenger = validateInput.username(challenger);
+    const validatedDifficulty = validateInput.difficulty(difficulty);
+
+    // Validate wager if provided
+    if (isWager) {
+      if (
+        typeof wagerAmount !== 'number' ||
+        wagerAmount < 25 ||
+        wagerAmount > 1000000
+      ) {
+        throw new Error(
+          'Invalid wager amount (must be between 25 and 1,000,000 XP)'
+        );
+      }
+    }
+
+    return ipcRenderer.invoke(
+      'generate-duel-link',
+      validatedChallenger,
+      validatedDifficulty,
+      isWager || false,
+      wagerAmount || null
+    );
+  },
+
+  getDuelLinkInfo: token => {
+    if (typeof token !== 'string' || token.length > 200) {
+      throw new Error('Invalid invite token');
+    }
+    return ipcRenderer.invoke('get-duel-link-info', token);
+  },
+
   // Cleanup methods (for testing)
   cleanupExpiredVerificationCodes: () => {
     return ipcRenderer.invoke('cleanup-expired-verification-codes');

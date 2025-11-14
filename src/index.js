@@ -1670,6 +1670,145 @@ ipcMain.handle('test-discord-notification', async () => {
   };
 });
 
+// Search for a user on YeetCode and LeetCode
+ipcMain.handle('search-user', async (event, username) => {
+  try {
+    const axios = require('axios');
+    const fastApiUrl = config.fastApiUrl;
+    const apiKey = config.apiKey;
+
+    const response = await axios.post(
+      `${fastApiUrl}/search-user`,
+      {
+        username: username,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      }
+    );
+
+    if (response.data.success) {
+      return {
+        exists_on_yeetcode: response.data.exists_on_yeetcode,
+        exists_on_leetcode: response.data.exists_on_leetcode,
+      };
+    } else {
+      throw new Error(response.data.error || 'Failed to search user');
+    }
+  } catch (error) {
+    console.error('[ERROR][search-user]', error);
+    throw error;
+  }
+});
+
+// Generate duel invite link
+ipcMain.handle(
+  'generate-duel-link',
+  async (event, challengerUsername, difficulty, isWager, wagerAmount) => {
+    try {
+      const axios = require('axios');
+      const fastApiUrl = config.fastApiUrl;
+      const apiKey = config.apiKey;
+
+      const response = await axios.post(
+        `${fastApiUrl}/generate-duel-link`,
+        {
+          challenger_username: challengerUsername,
+          difficulty: difficulty,
+          is_wager: isWager || false,
+          wager_amount: wagerAmount || null,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        }
+      );
+
+      if (response.data.success) {
+        return response.data;
+      } else {
+        throw new Error(response.data.error || 'Failed to generate duel link');
+      }
+    } catch (error) {
+      console.error('[ERROR][generate-duel-link]', error);
+      if (error.response?.status === 404) {
+        throw new Error(
+          'Endpoint not found. Please restart the FastAPI server to register the new route.'
+        );
+      }
+      throw error;
+    }
+  }
+);
+
+// Get duel link info by token (public endpoint - no auth required)
+ipcMain.handle('get-duel-link-info', async (event, token) => {
+  try {
+    const axios = require('axios');
+    const fastApiUrl = config.fastApiUrl;
+
+    const response = await axios.get(`${fastApiUrl}/duel-link/${token}`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
+
+    if (response.data.success) {
+      return response.data.data;
+    } else {
+      throw new Error(response.data.error || 'Failed to get duel link info');
+    }
+  } catch (error) {
+    console.error('[ERROR][get-duel-link-info]', error);
+    throw error;
+  }
+});
+
+// Send YeetCode invite email
+ipcMain.handle(
+  'send-invite',
+  async (event, challengerUsername, challengeeUsername, email) => {
+    try {
+      const axios = require('axios');
+      const fastApiUrl = config.fastApiUrl;
+      const apiKey = config.apiKey;
+
+      const response = await axios.post(
+        `${fastApiUrl}/send-invite`,
+        {
+          challenger_username: challengerUsername,
+          challengee_username: challengeeUsername,
+          challengee_email: email,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        }
+      );
+
+      if (response.data.success) {
+        return response.data;
+      } else {
+        throw new Error(response.data.error || 'Failed to send invite');
+      }
+    } catch (error) {
+      console.error('[ERROR][send-invite]', error);
+      throw error;
+    }
+  }
+);
+
 // System notification for duel events
 ipcMain.handle(
   'notify-duel-event',

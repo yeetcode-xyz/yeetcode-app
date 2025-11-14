@@ -2,11 +2,14 @@
 Duel routes
 """
 
+import random
+import httpx
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from models import DuelRequest
 from auth import verify_api_key
-from aws import DuelOperations
+from aws import DuelOperations, DuelInviteLinkOperations, UserOperations
 from cache_manager import cache_manager, CacheType
 
 router = APIRouter(tags=["Duels"])
@@ -197,4 +200,188 @@ async def get_duel_endpoint(
         result = DuelOperations.get_duel_by_id(duel_id)
         return result
     except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+class GenerateDuelLinkRequest(BaseModel):
+    challenger_username: str
+    difficulty: str
+    is_wager: bool = False
+    wager_amount: int = None
+
+
+@router.post("/generate-duel-link")
+async def generate_duel_link_endpoint(
+    request: GenerateDuelLinkRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """Generate a shareable duel invite link"""
+    try:
+        result = DuelInviteLinkOperations.generate_duel_link(
+            challenger_username=request.challenger_username,
+            difficulty=request.difficulty,
+            is_wager=request.is_wager,
+            wager_amount=request.wager_amount
+        )
+        return result
+    except Exception as error:
+        if DEBUG_MODE:
+            print(f"[ERROR] Failed to generate duel link: {error}")
+        return {"success": False, "error": str(error)}
+
+
+@router.get("/duel-link/{token}")
+async def get_duel_link_endpoint(
+    token: str
+):
+    """Get duel invite link information by token (public endpoint - no auth required)"""
+    try:
+        link_info = DuelInviteLinkOperations.get_duel_link_info(token)
+        if link_info:
+            return {"success": True, "data": link_info}
+        else:
+            return {"success": False, "error": "Invite link not found or expired"}
+    except Exception as error:
+        if DEBUG_MODE:
+            print(f"[ERROR] Failed to get duel link: {error}")
+        return {"success": False, "error": str(error)}
+
+
+class AcceptDuelLinkRequest(BaseModel):
+    token: str
+    accepting_username: str
+    opponent_wager: int = None  # For wager duels
+
+
+@router.post("/accept-duel-link")
+async def accept_duel_link_endpoint(
+    request: AcceptDuelLinkRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """Accept a duel invite link - creates a duel between challenger and accepting user"""
+    try:
+        # Get link info
+        link_info = DuelInviteLinkOperations.get_duel_link_info(request.token)
+        if not link_info:
+            return {"success": False, "error": "Invite link not found or expired"}
+        
+        challenger_username = link_info.get("challenger_username")
+        difficulty = link_info.get("difficulty")
+        is_wager = link_info.get("is_wager", False)
+        challenger_wager = link_info.get("wager_amount", 0)
+        accepting_username = request.accepting_username.lower()
+        
+        # Don't allow self-challenge
+        if challenger_username == accepting_username:
+            return {"success": False, "error": "You cannot challenge yourself"}
+        
+        # Fetch random problem for the difficulty
+        difficulty_map = {
+            "Easy": "EASY",
+            "Medium": "MEDIUM", 
+            "Hard": "HARD",
+            "Random": ["EASY", "MEDIUM", "HARD"][random.randint(0, 2)]
+        }
+        leetcode_difficulty = difficulty_map.get(difficulty, difficulty.upper())
+        
+        # Fetch problems from LeetCode
+        PROBLEM_LIST_QUERY = """
+            query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
+                problemsetQuestionList: questionList(
+                    categorySlug: $categorySlug
+                    limit: $limit
+                    skip: $skip
+                    filters: $filters
+                ) {
+                    questions: data {
+                        title
+                        titleSlug
+                        difficulty
+                        frontendQuestionId: questionFrontendId
+                        paidOnly: isPaidOnly
+                    }
+                }
+            }
+        """
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                "https://leetcode.com/graphql",
+                json={
+                    "query": PROBLEM_LIST_QUERY,
+                    "variables": {
+                        "categorySlug": "",
+                        "limit": 1000,
+                        "skip": 0,
+                        "filters": {"difficulty": leetcode_difficulty}
+                    }
+                },
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": "YeetCode/1.0"
+                }
+            )
+            
+            if response.status_code != 200:
+                return {"success": False, "error": "Failed to fetch problem from LeetCode"}
+            
+            data = response.json()
+            problems = data.get("data", {}).get("problemsetQuestionList", {}).get("questions", [])
+            free_problems = [p for p in problems if not p.get("paidOnly")]
+            
+            if not free_problems:
+                return {"success": False, "error": f"No free problems found for difficulty: {difficulty}"}
+            
+            random_problem = random.choice(free_problems)
+        
+        # Validate wager duel if applicable
+        opponent_wager = request.opponent_wager
+        if is_wager:
+            if not opponent_wager:
+                return {"success": False, "error": "Opponent must specify their wager amount for wager duels"}
+            
+            min_wager = max(25, int(challenger_wager * 0.75))
+            if opponent_wager < min_wager:
+                return {"success": False, "error": f"Opponent wager must be at least {min_wager} XP (75% of challenger's {challenger_wager} XP)"}
+            
+            # Check opponent has enough XP
+            opponent_data = UserOperations.get_user_data(accepting_username)
+            if not opponent_data:
+                return {"success": False, "error": f"User not found: {accepting_username}"}
+            opponent_xp = int(opponent_data.get('xp', 0))
+            if opponent_xp < opponent_wager:
+                return {"success": False, "error": f"Insufficient XP (has {opponent_xp}, needs {opponent_wager})"}
+        
+        # Create the duel
+        result = DuelOperations.create_duel(
+            username=challenger_username,
+            opponent=accepting_username,
+            problem_slug=random_problem.get("titleSlug"),
+            problem_title=random_problem.get("title"),
+            problem_number=str(random_problem.get("frontendQuestionId", "")),
+            difficulty=difficulty,
+            is_wager=is_wager,
+            wager_amount=challenger_wager if is_wager else None
+        )
+        
+        # If wager duel, accept it immediately with opponent's wager
+        if is_wager and result.get("success"):
+            duel_id = result.get("data", {}).get("duel_id")
+            if duel_id:
+                accept_result = DuelOperations.accept_duel(
+                    username=accepting_username,
+                    duel_id=duel_id,
+                    opponent_wager=opponent_wager
+                )
+                if not accept_result.get("success"):
+                    return {"success": False, "error": "Failed to accept wager duel"}
+        
+        # Invalidate cache
+        cache_manager.invalidate_all(CacheType.DUELS)
+        
+        return result
+        
+    except Exception as error:
+        if DEBUG_MODE:
+            print(f"[ERROR] Failed to accept duel link: {error}")
         return {"success": False, "error": str(error)}

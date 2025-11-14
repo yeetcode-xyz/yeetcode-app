@@ -154,3 +154,83 @@ export const autoRejectExpiredDuels = async username => {
 
   return rejectedIds;
 };
+
+/**
+ * Search for a user on YeetCode and LeetCode
+ * @param {string} username - Username to search for
+ * @returns {Promise<Object>} Object with exists_on_yeetcode and exists_on_leetcode booleans
+ */
+export const searchUser = async username => {
+  if (!window.electronAPI) {
+    throw new Error('Electron API not available. Please restart the app.');
+  }
+  if (!window.electronAPI.searchUser) {
+    console.error(
+      'Available electronAPI methods:',
+      Object.keys(window.electronAPI || {})
+    );
+    throw new Error(
+      'searchUser API not available. Please restart the app to load the latest changes.'
+    );
+  }
+  return await window.electronAPI.searchUser(username);
+};
+
+/**
+ * Send a YeetCode invite email
+ * @param {string} challengerUsername - Username of challenger
+ * @param {string} challengeeUsername - Username of challengee
+ * @param {string} email - Email address of challengee
+ * @returns {Promise<Object>} Success response
+ */
+export const sendInvite = async (
+  challengerUsername,
+  challengeeUsername,
+  email
+) => {
+  if (!window.electronAPI?.sendInvite) {
+    throw new Error('sendInvite API not available');
+  }
+  return await window.electronAPI.sendInvite(
+    challengerUsername,
+    challengeeUsername,
+    email
+  );
+};
+
+/**
+ * Generate a shareable duel invite link
+ * @param {string} challengerUsername - Username of challenger
+ * @param {string} difficulty - Problem difficulty (Easy/Medium/Hard/Random)
+ * @param {boolean} isWager - Whether this is a wager duel (default: false)
+ * @param {number} wagerAmount - Wager amount in XP (required if isWager is true)
+ * @returns {Promise<Object>} Object with invite_url and token
+ */
+export const generateDuelLink = async (
+  challengerUsername,
+  difficulty,
+  isWager = false,
+  wagerAmount = null
+) => {
+  if (!window.electronAPI?.generateDuelLink) {
+    throw new Error('generateDuelLink API not available');
+  }
+  return await window.electronAPI.generateDuelLink(
+    challengerUsername,
+    difficulty,
+    isWager,
+    wagerAmount
+  );
+};
+
+/**
+ * Get duel invite link information by token
+ * @param {string} token - Invite token
+ * @returns {Promise<Object>} Invite link information
+ */
+export const getDuelLinkInfo = async token => {
+  if (!window.electronAPI?.getDuelLinkInfo) {
+    throw new Error('getDuelLinkInfo API not available');
+  }
+  return await window.electronAPI.getDuelLinkInfo(token);
+};

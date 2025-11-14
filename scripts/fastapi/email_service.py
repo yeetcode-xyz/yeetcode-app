@@ -71,3 +71,63 @@ def send_email_otp(email: str, code: str) -> Dict:
         if DEBUG_MODE:
             print(f"[ERROR] Failed to send email: {error}")
         raise Exception(f"Failed to send email: {str(error)}")
+
+
+def send_yeetcode_invite(
+    recipient_email: str,
+    challenger_username: str,
+    challengee_username: str
+) -> Dict:
+    """Send simple YeetCode invite email"""
+    try:
+        if not resend.api_key:
+            if DEBUG_MODE:
+                print(f"[DEBUG] No Resend API key, using mock email for development")
+            return {"success": True, "messageId": f"mock-invite-{int(time.time())}"}
+
+        if DEBUG_MODE:
+            print(f"[DEBUG] Sending YeetCode invite email to {recipient_email}")
+
+        response = resend.Emails.send({
+            "from": "YeetCode <auth@yeetcode.xyz>",
+            "to": [recipient_email],
+            "subject": f"Join YeetCode to duel {challenger_username}",
+            "html": f"""
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #1a1a1a; font-size: 28px; margin: 0;">🚀 YeetCode</h1>
+                        <p style="color: #666; font-size: 16px; margin: 10px 0 0 0;">Competitive LeetCode Platform</p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; border: 2px solid #000; border-radius: 12px; padding: 30px; text-align: center;">
+                        <h2 style="color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0;">You've been invited!</h2>
+                        
+                        <p style="color: #374151; font-size: 16px; margin: 20px 0 10px 0;">
+                            Hi {challengee_username},
+                        </p>
+                        
+                        <p style="color: #374151; font-size: 16px; margin: 20px 0 10px 0;">
+                            <strong>{challenger_username}</strong> wants to duel you on YeetCode!
+                        </p>
+                        
+                        <p style="color: #374151; font-size: 16px; margin: 20px 0 10px 0;">
+                            Sign up at <a href="https://yeetcode.xyz" style="color: #2563eb; text-decoration: none; font-weight: bold;">yeetcode.xyz</a> to accept the challenge.
+                        </p>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
+                        <p>If you didn't expect this invite, you can safely ignore this email.</p>
+                        <p>© 2025 YeetCode. Ready to compete?</p>
+                    </div>
+                </div>
+            """
+        })
+        
+        if DEBUG_MODE:
+            print(f"[DEBUG] YeetCode invite email sent successfully: {response.get('id')}")
+        return {"success": True, "messageId": response.get("id")}
+        
+    except Exception as error:
+        if DEBUG_MODE:
+            print(f"[ERROR] Failed to send YeetCode invite email: {str(error)}")
+        raise Exception(f"Failed to send YeetCode invite email: {str(error)}")

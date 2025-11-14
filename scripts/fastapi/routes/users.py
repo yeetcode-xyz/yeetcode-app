@@ -5,6 +5,7 @@ User routes
 from fastapi import APIRouter, Depends
 from typing import Dict
 from pydantic import BaseModel
+import httpx
 
 from models import UserData
 from auth import verify_api_key
@@ -255,4 +256,69 @@ async def get_group_users_endpoint(
         result = UserOperations.get_group_users(group_id)
         return result
     except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+class SearchUserRequest(BaseModel):
+    username: str
+
+
+@router.post("/search-user")
+async def search_user_endpoint(
+    request: SearchUserRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """Search for a user on YeetCode and LeetCode"""
+    try:
+        username = request.username.lower()
+        
+        # First check YeetCode DB
+        exists_on_yeetcode = False
+        user_data = UserOperations.get_user_data(username)
+        if user_data:
+            exists_on_yeetcode = True
+        
+        # If not found on YeetCode, check LeetCode API
+        exists_on_leetcode = False
+        if not exists_on_yeetcode:
+            try:
+                USER_PROFILE_QUERY = """
+                    query getUserProfile($username: String!) {
+                        matchedUser(username: $username) {
+                            username
+                        }
+                    }
+                """
+                
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.post(
+                        "https://leetcode.com/graphql",
+                        json={
+                            "query": USER_PROFILE_QUERY,
+                            "variables": {"username": username}
+                        },
+                        headers={
+                            "Content-Type": "application/json",
+                            "User-Agent": "YeetCode/1.0"
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        matched_user = data.get("data", {}).get("matchedUser")
+                        exists_on_leetcode = matched_user is not None and matched_user.get("username") is not None
+            except Exception as leetcode_error:
+                if DEBUG_MODE:
+                    print(f"[DEBUG] LeetCode API error: {leetcode_error}")
+                # If LeetCode API fails, we can't determine if user exists
+                exists_on_leetcode = False
+        
+        return {
+            "success": True,
+            "exists_on_yeetcode": exists_on_yeetcode,
+            "exists_on_leetcode": exists_on_leetcode
+        }
+    except Exception as error:
+        if DEBUG_MODE:
+            print(f"[ERROR] Failed to search user: {error}")
         return {"success": False, "error": str(error)}
