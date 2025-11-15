@@ -74,12 +74,23 @@ async def lifespan(app: FastAPI):
     else:
         error(f"❌ Failed to load cache: {load_result.get('error')}")
 
-    # 4. Start the APScheduler for background jobs
-    start_scheduler()
+    # 4. Start the APScheduler for background jobs (ONLY on production)
+    if args.env == 'prod':
+        info("🚀 Starting scheduler (production mode)")
+        start_scheduler()
+    else:
+        info("⚠️ Scheduler disabled (development mode)")
 
-    # 5. Start existing background tasks
-    duel_task = asyncio.create_task(monitor_active_duels())
-    cleanup_task = asyncio.create_task(cleanup_expired_codes_task())
+    # 5. Start existing background tasks (ONLY on production)
+    if args.env == 'prod':
+        duel_task = asyncio.create_task(monitor_active_duels())
+        cleanup_task = asyncio.create_task(cleanup_expired_codes_task())
+        info("✅ Background tasks started (production mode)")
+    else:
+        info("⚠️ Background tasks disabled (development mode)")
+        # Create dummy tasks so shutdown doesn't fail
+        duel_task = asyncio.create_task(asyncio.sleep(0))
+        cleanup_task = asyncio.create_task(asyncio.sleep(0))
 
     info("✅ FastAPI server started successfully")
 
@@ -96,8 +107,9 @@ async def lifespan(app: FastAPI):
     else:
         error(f"⚠️ Final dump failed: {dump_result.get('error')}")
 
-    # 2. Stop the scheduler
-    stop_scheduler()
+    # 2. Stop the scheduler (only if it was started)
+    if args.env == 'prod':
+        stop_scheduler()
 
     # 3. Cancel background tasks
     duel_task.cancel()
