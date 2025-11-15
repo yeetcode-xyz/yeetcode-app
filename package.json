@@ -114,6 +114,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "axios": "^1.10.0",
     "dotenv": "^16.3.1",
     "electron-squirrel-startup": "^1.0.1",

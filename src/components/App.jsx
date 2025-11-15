@@ -8,6 +8,7 @@ import VerificationStep from './VerificationStep';
 import OnboardingStep from './OnboardingStep';
 import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
+import LearnStep from './LearnStep';
 
 const APP_VERSION = '1.1.1';
 function App() {
@@ -879,6 +880,7 @@ function App() {
           quickActionsProps={{ handleLogout }}
         />
       )}
+      {step === 'learn' && <LearnStep {...stepProps} />}
 
       <style>{`
         .fade-in {

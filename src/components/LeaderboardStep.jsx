@@ -23,6 +23,7 @@ const LeaderboardStep = forwardRef(
       notifications,
       handleLeaveGroup,
       handleDailyComplete,
+      navigateToStep,
       quickActionsProps = {},
     },
     ref
@@ -53,6 +54,7 @@ const LeaderboardStep = forwardRef(
           setShowCopySuccess={setShowCopySuccess}
           notifications={notifications}
           handleLeaveGroup={handleLeaveGroup}
+          navigateToStep={navigateToStep}
         />
 
         {/* 3-Column Dashboard Layout */}

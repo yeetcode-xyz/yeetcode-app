@@ -7,6 +7,7 @@ const LeaderboardHeader = ({
   showCopySuccess,
   setShowCopySuccess,
   handleLeaveGroup,
+  navigateToStep,
 }) => {
   const handleCopyCode = () => {
     const copyText = `${groupData.code}`;
@@ -45,6 +46,13 @@ const LeaderboardHeader = ({
         <span className="text-sm text-gray-600">
           Refreshes in: {refreshIn}s
         </span>
+        <button
+          onClick={() => navigateToStep('learn')}
+          className="px-4 py-2 bg-purple-500 hover:bg-purple-600 border-2 border-black rounded-lg font-bold text-white btn-3d flex items-center gap-2"
+        >
+          <span>🎨</span>
+          Learn UI
+        </button>
         <button
           onClick={handleLeaveGroup}
           className="px-4 py-2 bg-red-500 hover:bg-red-600 border-2 border-black rounded-lg font-bold text-white btn-3d"
