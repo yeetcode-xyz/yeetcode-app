@@ -94,6 +94,25 @@ async def lifespan(app: FastAPI):
 
     info("✅ FastAPI server started successfully")
 
+    # Print environment info banner
+    env_banner = f"""
+╔═══════════════════════════════════════════════════════════╗
+║         YeetCode API - {args.env.upper()} Environment                ║
+╠═══════════════════════════════════════════════════════════╣
+║  Port: {PORT}
+║  Environment: {args.env}
+║  Scheduler: {'Enabled' if args.env == 'prod' else 'Disabled'}
+║  Background Tasks: {'Enabled' if args.env == 'prod' else 'Disabled'}
+║  API Docs: http://0.0.0.0:{PORT}/docs
+║  Health Check: http://0.0.0.0:{PORT}/
+║  Dev Info: http://0.0.0.0:{PORT}/dev/info
+╚═══════════════════════════════════════════════════════════╝
+"""
+    print(env_banner)
+    info(f"🌐 Server running on http://0.0.0.0:{PORT}")
+    info(f"📚 API Documentation: http://0.0.0.0:{PORT}/docs")
+    info(f"🔧 Environment: {args.env.upper()}")
+
     yield
 
     # Shutdown
@@ -165,7 +184,50 @@ if DEBUG_MODE:
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    return {"message": "YeetCode API is running", "timestamp": datetime.now().isoformat()}
+    return {
+        "message": "YeetCode API is running",
+        "environment": args.env,
+        "port": PORT,
+        "timestamp": datetime.now().isoformat(),
+        "docs": f"http://0.0.0.0:{PORT}/docs",
+        "version": "1.0.0"
+    }
+
+
+@app.get("/dev/info")
+async def dev_info():
+    """Developer information endpoint - shows environment and configuration details"""
+    return {
+        "environment": {
+            "type": args.env,
+            "port": PORT,
+            "host": HOST,
+            "debug_mode": DEBUG_MODE
+        },
+        "features": {
+            "scheduler_enabled": args.env == 'prod',
+            "background_tasks_enabled": args.env == 'prod',
+            "duel_monitoring": args.env == 'prod',
+            "cleanup_tasks": args.env == 'prod'
+        },
+        "endpoints": {
+            "health": f"http://0.0.0.0:{PORT}/",
+            "docs": f"http://0.0.0.0:{PORT}/docs",
+            "redoc": f"http://0.0.0.0:{PORT}/redoc",
+            "dev_info": f"http://0.0.0.0:{PORT}/dev/info",
+            "cache_stats": f"http://0.0.0.0:{PORT}/cache/stats"
+        },
+        "database": {
+            "users_table": os.getenv("USERS_TABLE"),
+            "daily_table": os.getenv("DAILY_TABLE"),
+            "duels_table": os.getenv("DUELS_TABLE"),
+            "bounties_table": os.getenv("BOUNTIES_TABLE")
+        },
+        "message": "YeetCode Developer API Info",
+        "production_url": "http://209.182.234.33:6969",
+        "development_url": "http://209.182.234.33:42069",
+        "timestamp": datetime.now().isoformat()
+    }
 
 
 
