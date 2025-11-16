@@ -1,46 +1,195 @@
-// Frontend Learn UI Problems Database
+// Frontend Learn UI Problems Database - Progressive Learning Path
+
 export const frontendProblems = [
+  // ========== LEVEL 1: HTML BASICS ==========
   {
     id: 1,
-    title: 'Center a Div',
-    difficulty: 'Easy',
+    title: 'Make a Blue Box',
+    difficulty: 'Beginner',
+    category: 'HTML',
+    level: 1,
+    description: 'Create a simple blue square on the page using HTML.',
+    instructions: [
+      'Create a div element',
+      'Give it a width and height of 100px',
+      'Make the background color blue',
+    ],
+    starterCode: {
+      html: `<!-- Create your blue box here -->`,
+      css: `/* Add CSS to make it blue */`,
+      js: ``,
+    },
+    solution: {
+      html: `<div class="blue-box"></div>`,
+      css: `.blue-box {
+  width: 100px;
+  height: 100px;
+  background-color: blue;
+}`,
+      js: ``,
+    },
+    hints: [
+      'Use a <div> tag to create a box',
+      'Set width and height to 100px in CSS',
+      'Use background-color: blue;',
+    ],
+  },
+  {
+    id: 2,
+    title: 'Hello World Text',
+    difficulty: 'Beginner',
+    category: 'HTML',
+    level: 1,
+    description: 'Display "Hello World!" on the page with big, red text.',
+    instructions: [
+      'Use an h1 heading tag',
+      'Write "Hello World!" inside it',
+      'Make the text red and large (32px)',
+    ],
+    starterCode: {
+      html: `<!-- Add your heading here -->`,
+      css: `/* Style your heading */`,
+      js: ``,
+    },
+    solution: {
+      html: `<h1>Hello World!</h1>`,
+      css: `h1 {
+  color: red;
+  font-size: 32px;
+}`,
+      js: ``,
+    },
+    hints: [
+      'Use the <h1> tag for headings',
+      'Use color: red; for text color',
+      'Use font-size: 32px; for size',
+    ],
+  },
+  {
+    id: 3,
+    title: 'Two Colored Boxes',
+    difficulty: 'Beginner',
+    category: 'HTML',
+    level: 1,
+    description: 'Create two boxes side by side - one red and one blue.',
+    instructions: [
+      'Create two div elements',
+      'Give them both 100px width and height',
+      'Make one red and one blue',
+      'Put them next to each other',
+    ],
+    starterCode: {
+      html: `<!-- Create two boxes -->`,
+      css: `/* Style your boxes */`,
+      js: ``,
+    },
+    solution: {
+      html: `<div class="container">
+  <div class="red-box"></div>
+  <div class="blue-box"></div>
+</div>`,
+      css: `.container {
+  display: flex;
+  gap: 10px;
+}
+
+.red-box {
+  width: 100px;
+  height: 100px;
+  background-color: red;
+}
+
+.blue-box {
+  width: 100px;
+  height: 100px;
+  background-color: blue;
+}`,
+      js: ``,
+    },
+    hints: [
+      'Use display: flex to put boxes side by side',
+      'Create two divs with different class names',
+      'Style each box with different background colors',
+    ],
+  },
+
+  // ========== LEVEL 2: STYLING BASICS ==========
+  {
+    id: 4,
+    title: 'Style a Button',
+    difficulty: 'Beginner',
     category: 'CSS',
-    description: `
-# Center a Div
+    level: 2,
+    description:
+      'Create a nice looking button with padding and rounded corners.',
+    instructions: [
+      'Create a button element',
+      'Add padding of 12px 24px',
+      'Make it have rounded corners (8px)',
+      'Give it a blue background and white text',
+    ],
+    starterCode: {
+      html: `<button>Click Me!</button>`,
+      css: `/* Style your button */
+button {
+  /* Add your styles here */
+}`,
+      js: ``,
+    },
+    solution: {
+      html: `<button>Click Me!</button>`,
+      css: `button {
+  padding: 12px 24px;
+  border-radius: 8px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+}
 
-The classic interview question! Create a perfectly centered div using CSS Flexbox.
-
-## Requirements
-- The div should be centered both horizontally and vertically
-- The div should have a width of 200px and height of 200px
-- Use a blue background color (#3b82f6)
-- Add rounded corners (border-radius: 12px)
-- Add text inside that says "Centered!" in white color
-
-## Expected Output
-A blue rounded box centered in the middle of the screen with white text.
-    `,
+button:hover {
+  background-color: #2563eb;
+}`,
+      js: ``,
+    },
+    hints: [
+      'Use padding: 12px 24px; for spacing',
+      'border-radius makes corners round',
+      'Add a :hover effect for interactivity',
+    ],
+  },
+  {
+    id: 5,
+    title: 'Center a Box',
+    difficulty: 'Beginner',
+    category: 'CSS',
+    level: 2,
+    description: 'Center a colored box in the middle of the screen.',
+    instructions: [
+      'Create a container that fills the screen',
+      'Put a 200px red square inside',
+      'Center it using flexbox',
+    ],
     starterCode: {
       html: `<div class="container">
-  <div class="box">
-    Centered!
-  </div>
+  <div class="box"></div>
 </div>`,
-      css: `/* Add your CSS here */
+      css: `/* Center the box */
 .container {
-  /* Your code here */
+  /* Add your styles */
 }
 
 .box {
-  /* Your code here */
+  width: 200px;
+  height: 200px;
+  background-color: red;
 }`,
       js: ``,
     },
     solution: {
       html: `<div class="container">
-  <div class="box">
-    Centered!
-  </div>
+  <div class="box"></div>
 </div>`,
       css: `.container {
   display: flex;
@@ -52,628 +201,463 @@ A blue rounded box centered in the middle of the screen with white text.
 .box {
   width: 200px;
   height: 200px;
-  background-color: #3b82f6;
-  border-radius: 12px;
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: bold;
+  background-color: red;
 }`,
       js: ``,
     },
     hints: [
       'Use display: flex on the container',
-      'justify-content and align-items can help center items',
-      'Make sure the container has a height (100vh is perfect)',
+      'justify-content: center centers horizontally',
+      'align-items: center centers vertically',
     ],
   },
+
+  // ========== LEVEL 3: JAVASCRIPT BASICS ==========
   {
-    id: 2,
-    title: 'Interactive Counter',
-    difficulty: 'Easy',
+    id: 6,
+    title: 'Click Counter',
+    difficulty: 'Beginner',
     category: 'JavaScript',
-    description: `
-# Interactive Counter
-
-Build a simple counter with increment and decrement buttons.
-
-## Requirements
-- Display a counter starting at 0
-- Add a "+" button that increments the counter
-- Add a "-" button that decrements the counter
-- Style the buttons with the YeetCode theme (black borders, 3D effect)
-- The counter should not go below 0
-
-## Expected Output
-A centered counter display with two styled buttons that update the number.
-    `,
+    level: 3,
+    description: 'Make a button that counts how many times it was clicked.',
+    instructions: [
+      'Create a button and a number display',
+      'Start the count at 0',
+      'Increase the count each time the button is clicked',
+    ],
     starterCode: {
-      html: `<div class="counter-container">
-  <button id="decrement">-</button>
-  <span id="count">0</span>
-  <button id="increment">+</button>
+      html: `<div>
+  <p id="count">0</p>
+  <button id="btn">Click Me!</button>
 </div>`,
-      css: `.counter-container {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  font-size: 2rem;
+      css: `p {
+  font-size: 48px;
+  font-weight: bold;
 }
 
 button {
-  padding: 0.5rem 1.5rem;
-  font-size: 2rem;
-  font-weight: bold;
-  /* Add your styles here */
+  padding: 12px 24px;
+  font-size: 16px;
 }`,
       js: `// Add your JavaScript here
+const btn = document.getElementById('btn');
 const count = document.getElementById('count');
-const increment = document.getElementById('increment');
-const decrement = document.getElementById('decrement');
 
 // Your code here`,
     },
     solution: {
-      html: `<div class="counter-container">
-  <button id="decrement">-</button>
-  <span id="count">0</span>
-  <button id="increment">+</button>
+      html: `<div>
+  <p id="count">0</p>
+  <button id="btn">Click Me!</button>
 </div>`,
-      css: `.counter-container {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  font-size: 2rem;
-  font-family: system-ui;
+      css: `p {
+  font-size: 48px;
+  font-weight: bold;
+  text-align: center;
 }
 
 button {
-  padding: 0.5rem 1.5rem;
-  font-size: 2rem;
-  font-weight: bold;
-  background: white;
-  border: 3px solid black;
-  border-radius: 0.5rem;
+  padding: 12px 24px;
+  font-size: 16px;
   cursor: pointer;
-  box-shadow: 4px 4px 0 black;
-  transition: all 0.1s;
-}
-
-button:active {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 black;
-}
-
-#count {
-  min-width: 60px;
-  text-align: center;
-  font-weight: bold;
 }`,
-      js: `const count = document.getElementById('count');
-const increment = document.getElementById('increment');
-const decrement = document.getElementById('decrement');
+      js: `const btn = document.getElementById('btn');
+const count = document.getElementById('count');
 
-let currentCount = 0;
+let clicks = 0;
 
-increment.addEventListener('click', () => {
-  currentCount++;
-  count.textContent = currentCount;
-});
-
-decrement.addEventListener('click', () => {
-  if (currentCount > 0) {
-    currentCount--;
-    count.textContent = currentCount;
-  }
+btn.addEventListener('click', () => {
+  clicks++;
+  count.textContent = clicks;
 });`,
     },
     hints: [
-      'Use addEventListener to handle button clicks',
-      'Store the current count in a variable',
-      'Update the textContent of the count element',
+      'Use addEventListener to detect clicks',
+      'Store the count in a variable',
+      'Update textContent to show the new count',
     ],
   },
   {
-    id: 3,
-    title: 'Gradient Card',
-    difficulty: 'Easy',
-    category: 'CSS',
-    description: `
-# Gradient Card
-
-Create a modern card with a gradient background and hover effects.
-
-## Requirements
-- Create a card with padding and rounded corners
-- Use a linear gradient from purple (#8b5cf6) to pink (#ec4899)
-- Add a smooth box-shadow
-- On hover, the card should slightly scale up (transform: scale(1.05))
-- Add smooth transitions for the hover effect
-- Include a title and description text in white
-
-## Expected Output
-A beautiful gradient card that smoothly scales on hover.
-    `,
+    id: 7,
+    title: 'Change Background Color',
+    difficulty: 'Beginner',
+    category: 'JavaScript',
+    level: 3,
+    description:
+      'Create a button that changes the background color when clicked.',
+    instructions: [
+      'Create a button',
+      'When clicked, change the page background to a different color',
+    ],
     starterCode: {
-      html: `<div class="card">
-  <h2>Gradient Card</h2>
-  <p>Hover over me to see the magic!</p>
-</div>`,
+      html: `<button id="colorBtn">Change Color</button>`,
       css: `body {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: #f3f4f6;
 }
 
-.card {
-  /* Add your styles here */
-}
-
-.card h2 {
-  /* Style the heading */
-}
-
-.card p {
-  /* Style the paragraph */
+button {
+  padding: 16px 32px;
+  font-size: 18px;
 }`,
-      js: ``,
+      js: `// Add your code here`,
     },
     solution: {
-      html: `<div class="card">
-  <h2>Gradient Card</h2>
-  <p>Hover over me to see the magic!</p>
-</div>`,
+      html: `<button id="colorBtn">Change Color</button>`,
       css: `body {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: #f3f4f6;
-  font-family: system-ui;
+  transition: background-color 0.3s;
 }
 
-.card {
-  padding: 2rem;
-  border-radius: 1rem;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+button {
+  padding: 16px 32px;
+  font-size: 18px;
   cursor: pointer;
-  max-width: 300px;
-}
-
-.card:hover {
-  transform: scale(1.05);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
-}
-
-.card h2 {
-  margin: 0 0 0.5rem 0;
-  color: white;
-  font-size: 1.5rem;
-}
-
-.card p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.9);
-  line-height: 1.6;
 }`,
-      js: ``,
+      js: `const btn = document.getElementById('colorBtn');
+
+const colors = ['#ffcccc', '#ccffcc', '#ccccff', '#ffffcc', '#ffccff'];
+let currentIndex = 0;
+
+btn.addEventListener('click', () => {
+  document.body.style.backgroundColor = colors[currentIndex];
+  currentIndex = (currentIndex + 1) % colors.length;
+});`,
     },
     hints: [
-      'Use linear-gradient() for the background',
-      'Add transition property for smooth animations',
-      'Use transform: scale() on hover',
+      'Use document.body.style.backgroundColor',
+      'Create an array of colors',
+      'Use addEventListener on the button',
     ],
   },
+
+  // ========== LEVEL 4: INTERMEDIATE ==========
   {
-    id: 4,
-    title: 'Todo List',
-    difficulty: 'Medium',
+    id: 8,
+    title: 'Simple Calculator',
+    difficulty: 'Intermediate',
     category: 'JavaScript',
-    description: `
-# Todo List
-
-Build a functional todo list with add and delete capabilities.
-
-## Requirements
-- Input field to add new todos
-- "Add" button to submit
-- Display list of todos below
-- Each todo should have a delete button (×)
-- Pressing Enter in the input should also add the todo
-- Clear the input after adding
-- If input is empty, don't add a todo
-
-## Expected Output
-A functional todo list where you can add and remove items.
-    `,
+    level: 4,
+    description: 'Create a calculator that can add two numbers.',
+    instructions: [
+      'Create two input fields for numbers',
+      'Add a button to calculate the sum',
+      'Display the result',
+    ],
     starterCode: {
-      html: `<div class="todo-app">
-  <h1>📝 Todo List</h1>
-  <div class="input-container">
-    <input type="text" id="todoInput" placeholder="What needs to be done?">
-    <button id="addBtn">Add</button>
-  </div>
-  <ul id="todoList"></ul>
+      html: `<div class="calculator">
+  <input type="number" id="num1" placeholder="First number">
+  <input type="number" id="num2" placeholder="Second number">
+  <button id="addBtn">Add</button>
+  <p id="result"></p>
 </div>`,
-      css: `body {
-  font-family: system-ui;
-  background: #fef3c7;
-  padding: 2rem;
-}
-
-.todo-app {
-  max-width: 500px;
-  margin: 0 auto;
-  background: white;
-  padding: 2rem;
-  border: 4px solid black;
-  border-radius: 1rem;
-}
-
-h1 {
-  margin-top: 0;
-}
-
-.input-container {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+      css: `.calculator {
+  padding: 20px;
 }
 
 input {
-  flex: 1;
-  padding: 0.75rem;
-  border: 2px solid black;
-  border-radius: 0.5rem;
-  font-size: 1rem;
+  padding: 8px;
+  margin: 5px;
 }
 
 button {
-  padding: 0.75rem 1.5rem;
-  background: #3b82f6;
-  color: white;
-  border: 2px solid black;
-  border-radius: 0.5rem;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-#todoList {
-  list-style: none;
-  padding: 0;
-}
-
-/* Add styles for todo items */`,
-      js: `// Add your JavaScript here
-const todoInput = document.getElementById('todoInput');
-const addBtn = document.getElementById('addBtn');
-const todoList = document.getElementById('todoList');
-
-// Your code here`,
+  padding: 8px 16px;
+}`,
+      js: `// Add your calculator logic`,
     },
     solution: {
-      html: `<div class="todo-app">
-  <h1>📝 Todo List</h1>
-  <div class="input-container">
-    <input type="text" id="todoInput" placeholder="What needs to be done?">
-    <button id="addBtn">Add</button>
-  </div>
-  <ul id="todoList"></ul>
+      html: `<div class="calculator">
+  <input type="number" id="num1" placeholder="First number">
+  <input type="number" id="num2" placeholder="Second number">
+  <button id="addBtn">Add</button>
+  <p id="result"></p>
 </div>`,
-      css: `body {
-  font-family: system-ui;
-  background: #fef3c7;
-  padding: 2rem;
-}
-
-.todo-app {
-  max-width: 500px;
-  margin: 0 auto;
-  background: white;
-  padding: 2rem;
-  border: 4px solid black;
-  border-radius: 1rem;
-}
-
-h1 {
-  margin-top: 0;
-}
-
-.input-container {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+      css: `.calculator {
+  padding: 20px;
+  text-align: center;
 }
 
 input {
-  flex: 1;
-  padding: 0.75rem;
-  border: 2px solid black;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-}
-
-input:focus {
-  outline: none;
-  border-color: #3b82f6;
+  padding: 8px;
+  margin: 5px;
+  border: 2px solid #333;
+  border-radius: 4px;
 }
 
 button {
-  padding: 0.75rem 1.5rem;
+  padding: 8px 16px;
   background: #3b82f6;
-  color: white;
-  border: 2px solid black;
-  border-radius: 0.5rem;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #2563eb;
-}
-
-#todoList {
-  list-style: none;
-  padding: 0;
-}
-
-.todo-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  background: #f3f4f6;
-  border: 2px solid black;
-  border-radius: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.delete-btn {
-  background: #ef4444;
   color: white;
   border: none;
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   cursor: pointer;
+}
+
+#result {
+  font-size: 24px;
   font-weight: bold;
-}
-
-.delete-btn:hover {
-  background: #dc2626;
+  margin-top: 10px;
 }`,
-      js: `const todoInput = document.getElementById('todoInput');
+      js: `const num1 = document.getElementById('num1');
+const num2 = document.getElementById('num2');
 const addBtn = document.getElementById('addBtn');
-const todoList = document.getElementById('todoList');
+const result = document.getElementById('result');
 
-function addTodo() {
-  const todoText = todoInput.value.trim();
-
-  if (todoText === '') return;
-
-  const li = document.createElement('li');
-  li.className = 'todo-item';
-  li.innerHTML = \`
-    <span>\${todoText}</span>
-    <button class="delete-btn">×</button>
-  \`;
-
-  li.querySelector('.delete-btn').addEventListener('click', () => {
-    li.remove();
-  });
-
-  todoList.appendChild(li);
-  todoInput.value = '';
-  todoInput.focus();
-}
-
-addBtn.addEventListener('click', addTodo);
-
-todoInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    addTodo();
-  }
+addBtn.addEventListener('click', () => {
+  const sum = Number(num1.value) + Number(num2.value);
+  result.textContent = 'Result: ' + sum;
 });`,
     },
     hints: [
-      'Use createElement to create new list items',
-      'Add event listeners for both button click and Enter key',
-      'Use remove() to delete elements',
+      'Get values using .value from inputs',
+      'Convert to numbers using Number()',
+      'Display result in the paragraph',
     ],
   },
   {
-    id: 5,
-    title: 'Responsive Navbar',
-    difficulty: 'Medium',
-    category: 'CSS',
-    description: `
-# Responsive Navbar
-
-Create a responsive navigation bar that works on mobile and desktop.
-
-## Requirements
-- Navigation bar with logo and menu items
-- On desktop: horizontal layout
-- On mobile (< 768px): hamburger menu
-- Use Flexbox for layout
-- Add smooth transitions
-- Black borders and YeetCode styling
-
-## Expected Output
-A professional navbar that adapts to screen size.
-    `,
+    id: 9,
+    title: 'Todo List',
+    difficulty: 'Intermediate',
+    category: 'JavaScript',
+    level: 4,
+    description: 'Build a simple todo list where you can add and remove items.',
+    instructions: [
+      'Create an input and add button',
+      'Add items to a list when button is clicked',
+      'Allow removing items by clicking them',
+    ],
     starterCode: {
-      html: `<nav class="navbar">
-  <div class="logo">YeetCode</div>
-  <ul class="nav-menu">
-    <li><a href="#home">Home</a></li>
-    <li><a href="#learn">Learn</a></li>
-    <li><a href="#leaderboard">Leaderboard</a></li>
-    <li><a href="#profile">Profile</a></li>
-  </ul>
-  <button class="hamburger">☰</button>
-</nav>`,
+      html: `<div class="todo-app">
+  <input type="text" id="todoInput" placeholder="Enter a task">
+  <button id="addBtn">Add</button>
+  <ul id="todoList"></ul>
+</div>`,
       css: `* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  font-family: Arial, sans-serif;
 }
 
-body {
-  font-family: system-ui;
+.todo-app {
+  max-width: 400px;
+  margin: 20px;
 }
 
-.navbar {
-  /* Add your styles here */
+input {
+  padding: 8px;
+  width: 70%;
 }
 
-.logo {
-  /* Style the logo */
+button {
+  padding: 8px 16px;
 }
 
-.nav-menu {
-  /* Style the menu */
-}
-
-.nav-menu li {
+ul {
   list-style: none;
+  padding: 0;
+}`,
+      js: `// Build your todo list`,
+    },
+    solution: {
+      html: `<div class="todo-app">
+  <input type="text" id="todoInput" placeholder="Enter a task">
+  <button id="addBtn">Add</button>
+  <ul id="todoList"></ul>
+</div>`,
+      css: `* {
+  font-family: Arial, sans-serif;
 }
 
-.nav-menu a {
-  text-decoration: none;
-  color: black;
+.todo-app {
+  max-width: 400px;
+  margin: 20px;
 }
 
-.hamburger {
-  /* Style the hamburger button */
-  display: none; /* Hide on desktop */
+input {
+  padding: 8px;
+  width: 70%;
+  border: 2px solid #ddd;
+  border-radius: 4px;
 }
 
-/* Mobile styles */
-@media (max-width: 768px) {
-  /* Add mobile styles here */
+button {
+  padding: 8px 16px;
+  background: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  padding: 10px;
+  margin: 5px 0;
+  background: #f3f4f6;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+li:hover {
+  background: #fecaca;
+  text-decoration: line-through;
+}`,
+      js: `const input = document.getElementById('todoInput');
+const addBtn = document.getElementById('addBtn');
+const list = document.getElementById('todoList');
+
+addBtn.addEventListener('click', addTodo);
+input.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') addTodo();
+});
+
+function addTodo() {
+  if (input.value.trim() === '') return;
+
+  const li = document.createElement('li');
+  li.textContent = input.value;
+  li.addEventListener('click', () => li.remove());
+
+  list.appendChild(li);
+  input.value = '';
+}`,
+    },
+    hints: [
+      'Use createElement to make new list items',
+      'Add click listener to remove items',
+      'Clear input after adding',
+    ],
+  },
+  {
+    id: 10,
+    title: 'Responsive Card',
+    difficulty: 'Intermediate',
+    category: 'CSS',
+    level: 4,
+    description: 'Create a card that looks good on both mobile and desktop.',
+    instructions: [
+      'Create a card with an image, title, and description',
+      'Make it stack vertically on mobile',
+      'Make it horizontal on desktop',
+    ],
+    starterCode: {
+      html: `<div class="card">
+  <div class="image">📸</div>
+  <div class="content">
+    <h2>Card Title</h2>
+    <p>This is a responsive card that changes layout based on screen size.</p>
+  </div>
+</div>`,
+      css: `/* Make this responsive! */
+.card {
+  /* Add your styles */
 }`,
       js: ``,
     },
     solution: {
-      html: `<nav class="navbar">
-  <div class="logo">YeetCode</div>
-  <ul class="nav-menu">
-    <li><a href="#home">Home</a></li>
-    <li><a href="#learn">Learn</a></li>
-    <li><a href="#leaderboard">Leaderboard</a></li>
-    <li><a href="#profile">Profile</a></li>
-  </ul>
-  <button class="hamburger">☰</button>
-</nav>`,
-      css: `* {
+      html: `<div class="card">
+  <div class="image">📸</div>
+  <div class="content">
+    <h2>Card Title</h2>
+    <p>This is a responsive card that changes layout based on screen size.</p>
+  </div>
+</div>`,
+      css: `.card {
+  max-width: 600px;
+  margin: 20px;
+  padding: 20px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.image {
+  font-size: 64px;
+  text-align: center;
+  padding: 20px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.content h2 {
+  margin: 0 0 10px 0;
+}
+
+.content p {
   margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  color: #666;
 }
 
-body {
-  font-family: system-ui;
-}
-
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background: #fef3c7;
-  border-bottom: 4px solid black;
-}
-
-.logo {
-  font-weight: bold;
-  font-size: 1.5rem;
-}
-
-.nav-menu {
-  display: flex;
-  gap: 2rem;
-  list-style: none;
-}
-
-.nav-menu a {
-  text-decoration: none;
-  color: black;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  transition: background 0.2s;
-}
-
-.nav-menu a:hover {
-  background: white;
-}
-
-.hamburger {
-  display: none;
-  font-size: 1.5rem;
-  background: none;
-  border: 2px solid black;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  cursor: pointer;
-}
-
-@media (max-width: 768px) {
-  .hamburger {
-    display: block;
+@media (min-width: 768px) {
+  .card {
+    flex-direction: row;
   }
 
-  .nav-menu {
-    position: absolute;
-    top: 70px;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    background: #fef3c7;
-    border-bottom: 4px solid black;
-    padding: 1rem;
-    display: none;
-  }
-
-  .nav-menu.active {
-    display: flex;
+  .image {
+    min-width: 150px;
   }
 }`,
-      js: `const hamburger = document.querySelector('.hamburger');
-const navMenu = document.querySelector('.nav-menu');
-
-hamburger.addEventListener('click', () => {
-  navMenu.classList.toggle('active');
-});`,
+      js: ``,
     },
     hints: [
+      'Use flexbox for layout',
       'Use @media queries for responsive design',
-      'Toggle a class with JavaScript for the mobile menu',
-      'Use position: absolute for the mobile menu',
+      'Change flex-direction at breakpoint',
     ],
   },
 ];
 
-// Helper function to get problem by ID
+// Helper functions
 export const getProblemById = id => {
   return frontendProblems.find(p => p.id === id);
 };
 
-// Get problems by difficulty
+export const getProblemsByLevel = level => {
+  return frontendProblems.filter(p => p.level === level);
+};
+
+export const getProblemsByCategory = category => {
+  return frontendProblems.filter(p => p.category === category);
+};
+
 export const getProblemsByDifficulty = difficulty => {
   return frontendProblems.filter(p => p.difficulty === difficulty);
 };
 
-// Get problems by category
-export const getProblemsByCategory = category => {
-  return frontendProblems.filter(p => p.category === category);
+export const getLevelInfo = () => {
+  return [
+    {
+      level: 1,
+      name: 'HTML Basics',
+      emoji: '📝',
+      description: 'Learn basic HTML structure',
+    },
+    {
+      level: 2,
+      name: 'Styling Basics',
+      emoji: '🎨',
+      description: 'Style with CSS',
+    },
+    {
+      level: 3,
+      name: 'JavaScript Basics',
+      emoji: '⚡',
+      description: 'Add interactivity',
+    },
+    {
+      level: 4,
+      name: 'Build Projects',
+      emoji: '🏗️',
+      description: 'Put it all together',
+    },
+  ];
 };

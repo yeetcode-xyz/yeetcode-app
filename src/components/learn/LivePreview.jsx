@@ -48,17 +48,14 @@ const LivePreview = ({ html, css, js }) => {
   }, [html, css, js]);
 
   return (
-    <div className="h-full w-full relative">
+    <div className="h-full w-full relative bg-white">
       <iframe
         ref={iframeRef}
         title="preview"
-        sandbox="allow-scripts"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
         className="w-full h-full border-none bg-white"
         style={{ width: '100%', height: '100%' }}
       />
-      <div className="absolute bottom-0 left-0 right-0 bg-gray-800 text-white text-xs px-3 py-1 border-t-2 border-black">
-        💻 Preview updates automatically as you type
-      </div>
     </div>
   );
 };

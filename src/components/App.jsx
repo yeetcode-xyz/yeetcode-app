@@ -835,38 +835,40 @@ function App() {
   // UI
   return (
     <div
-      className={`w-full ${step === 'leaderboard' || step === 'welcome' ? 'max-w-7xl' : 'max-w-md'} mx-auto my-8 p-6 rounded-2xl shadow-2xl bg-white border-4 border-black ${step === 'leaderboard' ? 'min-h-[700px]' : 'min-h-[400px]'} flex flex-col gap-6`}
+      className={`w-full ${step === 'learn' ? '' : step === 'leaderboard' || step === 'welcome' ? 'max-w-7xl' : 'max-w-md'} ${step === 'learn' ? '' : 'mx-auto my-8 p-6 rounded-2xl shadow-2xl bg-white border-4 border-black'} ${step === 'leaderboard' ? 'min-h-[700px]' : step === 'learn' ? 'h-screen' : 'min-h-[400px]'} flex flex-col ${step === 'learn' ? '' : 'gap-6'}`}
       style={{ fontFamily: 'Space Grotesk, sans-serif' }}
     >
-      <div className="flex justify-between items-center border-b-4 border-black pb-2">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            YeetCode
-          </h1>
-          <span className="text-xs font-medium text-gray-400 self-end mb-1">
-            v{APP_VERSION}
-          </span>
-        </div>
-        {step === 'leaderboard' && (
+      {step !== 'learn' && (
+        <div className="flex justify-between items-center border-b-4 border-black pb-2">
           <div className="flex items-center gap-2">
-            <span
-              className={`text-2xl cursor-pointer transition-all duration-200 hover:scale-110 ${getFlameStyle()}`}
-              title={
-                dailyData.dailyComplete
-                  ? `${dailyData.streak} day streak - Completed today!`
-                  : dailyData.streak > 0
-                    ? `${dailyData.streak} day streak - Complete today's challenge!`
-                    : 'Start your streak!'
-              }
-            >
-              {getFlameIcon()}
-            </span>
-            <span className="text-sm font-bold text-gray-600">
-              {dailyData.streak}
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              YeetCode
+            </h1>
+            <span className="text-xs font-medium text-gray-400 self-end mb-1">
+              v{APP_VERSION}
             </span>
           </div>
-        )}
-      </div>
+          {step === 'leaderboard' && (
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-2xl cursor-pointer transition-all duration-200 hover:scale-110 ${getFlameStyle()}`}
+                title={
+                  dailyData.dailyComplete
+                    ? `${dailyData.streak} day streak - Completed today!`
+                    : dailyData.streak > 0
+                      ? `${dailyData.streak} day streak - Complete today's challenge!`
+                      : 'Start your streak!'
+                }
+              >
+                {getFlameIcon()}
+              </span>
+              <span className="text-sm font-bold text-gray-600">
+                {dailyData.streak}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {step === 'welcome' && <WelcomeStep {...stepProps} />}
       {step === 'email' && <EmailStep {...stepProps} />}
