@@ -52,8 +52,21 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
         user = next((u for u in users if u.get('username') == username), None)
 
         if not user:
-            error(f"User {username} not found in cache")
-            return False
+            # User not in cache - try fetching directly from database
+            # This handles new users who were just created but cache hasn't refreshed yet
+            from aws import UserOperations
+            from logger import info
+
+            user = UserOperations.get_user_data(username)
+            if user:
+                info(f"User {username} fetched from DB and added to cache")
+                # Add user to cache
+                users.append(user)
+                cached_users['data'] = users
+                cache_manager.set(CacheType.USERS, cached_users)
+            else:
+                error(f"User {username} not found in cache or database")
+                return False
 
         # Apply updates to user
         for key, value in updates.items():
