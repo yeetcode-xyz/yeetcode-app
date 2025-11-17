@@ -817,65 +817,41 @@ class DailyProblemOperations:
     def get_user_daily_data(username: str) -> Dict:
         """Get just the user's streak data (lightweight operation)"""
         try:
-            if not DAILY_TABLE:
-                raise Exception("DAILY_TABLE not configured")
-            
-            from datetime import datetime, timezone, timedelta
-            
-            # Get recent problems for streak calculation (last 90 days to catch longer streaks)
-            ninety_days_ago = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
-            scan_params = {
-                'TableName': DAILY_TABLE,
-                'FilterExpression': '#date >= :ninetyDaysAgo',
-                'ExpressionAttributeNames': {'#date': 'date'},
-                'ExpressionAttributeValues': {':ninetyDaysAgo': {'S': ninety_days_ago}}
-            }
-            
-            raw_recent_problems = ddb.scan(**scan_params).get('Items', [])
-            # Normalize the DynamoDB items for consistent access
-            recent_problems = [normalize_dynamodb_item(item) for item in raw_recent_problems]
-            
-            # Calculate streak - count consecutive completed problems from database entries  
-            # Skip today if not completed to get active streak from previous days
-            streak = 0
+            if not USERS_TABLE:
+                raise Exception("USERS_TABLE not configured")
+
+            from datetime import datetime
+
             normalized_username = username.lower()
-            
-            # Sort problems by date (newest first)
-            sorted_problems = sorted(recent_problems, key=lambda x: x.get('date', ''), reverse=True)
-            
-            # Check if today's problem is completed
-            today_date = datetime.now().date().strftime('%Y-%m-%d')
-            
-            for problem in sorted_problems:
-                problem_date = problem.get('date')
-                if problem_date and 'users' in problem:
-                    # Check if user completed this problem
-                    user_completed = normalized_username in problem.get('users', {})
-                    
-                    # Special handling for today's problem
-                    if problem_date == today_date:
-                        if user_completed:
-                            streak += 1
-                        # Continue to check previous days regardless
-                        continue
-                    
-                    # For previous days, count consecutive completions
-                    if user_completed:
-                        streak += 1
-                    else:
-                        # User didn't complete this problem, streak ends
-                        break
-                else:
-                    # No users data for this problem, only break if it's not today
-                    if problem_date != today_date:
-                        break
-            
-            return {'streak': streak}
-            
+
+            # Try to get streak from USERS table first (persisted data)
+            try:
+                user_response = ddb.get_item(
+                    TableName=USERS_TABLE,
+                    Key={'username': {'S': normalized_username}}
+                )
+
+                if 'Item' in user_response:
+                    user_item = normalize_dynamodb_item(user_response['Item'])
+                    streak = user_item.get('streak', 0)
+                    last_completed_date = user_item.get('last_completed_date')
+
+                    # Return persisted streak data
+                    return {
+                        'streak': streak,
+                        'last_completed_date': last_completed_date
+                    }
+            except Exception as db_error:
+                if DEBUG_MODE:
+                    print(f"[DEBUG] Failed to read streak from USERS table: {db_error}")
+
+            # Fallback: Return default if user not found
+            return {'streak': 0, 'last_completed_date': None}
+
         except Exception as error:
             if DEBUG_MODE:
                 print(f"[ERROR] Failed to get user daily data: {error}")
-            return {'streak': 0}
+            return {'streak': 0, 'last_completed_date': None}
     
     @staticmethod
     def complete_daily_problem(username: str) -> Dict:
