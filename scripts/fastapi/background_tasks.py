@@ -144,6 +144,7 @@ async def process_single_user(username: str) -> bool:
         current_easy = user_data.get("easy", 0)
         current_medium = user_data.get("medium", 0)
         current_hard = user_data.get("hard", 0)
+        current_xp = user_data.get("xp", 0)  # Preserve existing bonus XP
 
         # Only update if changed
         if (stats["easy"] != current_easy or
@@ -151,10 +152,12 @@ async def process_single_user(username: str) -> bool:
             stats["hard"] != current_hard):
 
             # CACHE-FIRST: Write to cache instead of DB
+            # Include XP to preserve bonus XP from daily challenges, duels, etc.
             success = update_user_in_cache(username.lower(), {
                 "easy": stats["easy"],
                 "medium": stats["medium"],
-                "hard": stats["hard"]
+                "hard": stats["hard"],
+                "xp": current_xp  # Preserve existing XP
             })
 
             if success:

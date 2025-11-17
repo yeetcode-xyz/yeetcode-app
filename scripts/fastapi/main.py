@@ -155,6 +155,16 @@ async def root():
     return {"message": "YeetCode Email API is running", "timestamp": datetime.now().isoformat()}
 
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for deployment verification"""
+    return {
+        "status": "healthy",
+        "environment": args.env,
+        "port": PORT,
+        "timestamp": datetime.now().isoformat()
+    }
+
 
 @app.get("/cache/stats")
 async def get_cache_stats():
