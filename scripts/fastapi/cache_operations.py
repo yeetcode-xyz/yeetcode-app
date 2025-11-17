@@ -154,6 +154,7 @@ def award_xp_in_cache(username: str, xp_amount: int) -> bool:
 def complete_daily_in_cache(username: str, date: str) -> bool:
     """
     Mark user as having completed daily problem in cache
+    Also updates user's streak
 
     Args:
         username: Username
@@ -163,13 +164,30 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
         True if successful
     """
     try:
-        # Update user's 'today' field
+        # Update user's 'today' field and calculate new streak
         cached_users = cache_manager.get(CacheType.USERS)
         if cached_users and cached_users.get('success'):
             users = cached_users.get('data', [])
             user = next((u for u in users if u.get('username') == username), None)
             if user:
                 user['today'] = 1
+
+                # Calculate and update streak
+                from datetime import datetime, timedelta
+                today_date = datetime.strptime(date, '%Y-%m-%d')
+                yesterday_date = (today_date - timedelta(days=1)).strftime('%Y-%m-%d')
+
+                # Get user's current streak from cache
+                cached_user_data = cache_manager.get(CacheType.USER_DAILY_DATA, username)
+                current_streak = 0
+                if cached_user_data:
+                    current_streak = cached_user_data.get('streak', 0)
+
+                # Increment streak (simplified logic - just increment)
+                new_streak = current_streak + 1
+
+                # Update user daily data cache
+                cache_manager.set(CacheType.USER_DAILY_DATA, {'streak': new_streak}, username)
 
                 cache_manager.write(
                     cache_type=CacheType.USERS,
@@ -182,7 +200,7 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
                     }
                 )
 
-        # Update daily completions cache
+        # Update BOTH daily problem cache AND daily completions cache
         cached_daily = cache_manager.get(CacheType.DAILY_PROBLEM)
         if cached_daily and cached_daily.get('success'):
             daily_data = cached_daily.get('data', {})
@@ -200,6 +218,21 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
                         "key": {"date": date},
                         "data": {"users": {username: True}}
                     }
+                )
+
+        # Also update DAILY_COMPLETIONS cache (used by GET endpoint)
+        cached_completions = cache_manager.get(CacheType.DAILY_COMPLETIONS)
+        if cached_completions:
+            comp_data = cached_completions.get('data', {})
+            if comp_data.get('problem_date') == date:
+                if 'users' not in comp_data:
+                    comp_data['users'] = {}
+                comp_data['users'][username] = True
+
+                cache_manager.write(
+                    cache_type=CacheType.DAILY_COMPLETIONS,
+                    data=cached_completions,
+                    wal_operation=None  # This is ephemeral cache, no DB write needed
                 )
 
         return True
