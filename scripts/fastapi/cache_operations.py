@@ -48,41 +48,42 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
 
             info(f"Reloaded {len(normalized_users)} users into cache")
 
-        # Hold lock for entire operation to prevent lost updates from concurrent threads
+        # Pre-check cache and fetch from DB if needed (OUTSIDE lock to avoid blocking)
+        users = cached_users.get('data', [])
+        user = next((u for u in users if u.get('username') == username), None)
+
+        user_from_db = None
+        if not user:
+            # User not in cache - fetch from DB before acquiring lock
+            from aws import UserOperations
+            from logger import info
+
+            user_from_db = UserOperations.get_user_data(username)
+            if not user_from_db:
+                error(f"User {username} not found in cache or database")
+                return False
+
+        # Hold lock for entire update operation to prevent lost updates
         with cache_manager._lock:
+            # Re-fetch cache inside lock (might have been updated by another thread)
+            cached_users = cache_manager.get(CacheType.USERS)
+            if not cached_users or not cached_users.get('success'):
+                error(f"Cache unavailable for user {username}")
+                return False
+
             users = cached_users.get('data', [])
             user = next((u for u in users if u.get('username') == username), None)
 
+            # If user still not in cache but we fetched from DB, add them
+            if not user and user_from_db:
+                info(f"User {username} fetched from DB and added to cache")
+                users.append(user_from_db)
+                cached_users['data'] = users
+                user = user_from_db
+
             if not user:
-                # User not in cache - try fetching from DB
-                # Re-check if user was added by concurrent request
-                re_fetched = cache_manager.get(CacheType.USERS)
-                if re_fetched and re_fetched.get('success'):
-                    # Cache was refreshed, use the new data
-                    cached_users = re_fetched
-                    users = cached_users.get('data', [])
-                    user = next((u for u in users if u.get('username') == username), None)
-
-                if not user:
-                    # Still not found after re-check - fetch from database
-                    from aws import UserOperations
-                    from logger import info
-
-                    user = UserOperations.get_user_data(username)
-                    if user:
-                        info(f"User {username} fetched from DB and added to cache")
-                        # Ensure cached_users is a valid dict before assignment
-                        if not cached_users or not isinstance(cached_users, dict):
-                            cached_users = {"success": True, "data": []}
-                        if 'data' not in cached_users:
-                            cached_users['data'] = []
-                        # Add user to in-memory list (write() below handles cache update + WAL)
-                        users = cached_users['data']
-                        users.append(user)
-                        cached_users['data'] = users
-                    else:
-                        error(f"User {username} not found in cache or database")
-                        return False
+                error(f"User {username} not found in cache")
+                return False
 
             # Apply updates to user
             for key, value in updates.items():
