@@ -90,6 +90,7 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
                 user[key] = value
 
             # Write back to cache (still inside lock to prevent lost updates)
+            # Only send updated fields in WAL to prevent overwriting other fields (e.g., XP)
             return cache_manager.write(
                 cache_type=CacheType.USERS,
                 data=cached_users,
@@ -97,7 +98,7 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
                     "operation": "UPDATE",
                     "table": USERS_TABLE,
                     "key": {"username": username},
-                    "data": user
+                    "data": {k: user[k] for k in updates.keys()}
                 }
             )
 
