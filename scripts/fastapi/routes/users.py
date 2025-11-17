@@ -38,11 +38,17 @@ async def get_user_endpoint(
         if cached_users:
             user_data = cached_users.get('data', {}).get(username)
             if user_data:
+                # Ensure xp field always exists with default 0
+                if 'xp' not in user_data:
+                    user_data['xp'] = 0
                 return {"success": True, "data": user_data}
-        
+
         # Fallback to database
         user_data = UserOperations.get_user_data(username)
         if user_data:
+            # Ensure xp field always exists with default 0
+            if 'xp' not in user_data:
+                user_data['xp'] = 0
             return {"success": True, "data": user_data}
         else:
             return {"success": False, "error": "User not found"}
@@ -90,11 +96,17 @@ async def get_user_data_endpoint(
             # Search through list of users to find matching username
             user_data = next((u for u in users if u.get('username') == username), None)
             if user_data:
+                # Ensure xp field always exists with default 0 to prevent frontend calculation errors
+                if 'xp' not in user_data:
+                    user_data['xp'] = 0
                 return {"success": True, "data": user_data}
 
         # Fallback to database
         user_data = UserOperations.get_user_data(username)
         if user_data:
+            # Ensure xp field always exists with default 0
+            if 'xp' not in user_data:
+                user_data['xp'] = 0
             return {"success": True, "data": user_data}
         else:
             return {"success": False, "error": "User not found"}
