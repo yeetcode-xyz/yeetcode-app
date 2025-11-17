@@ -116,7 +116,30 @@ jobs:
             source .venv/bin/activate
             nohup python3 main.py --env $ENV > $LOG_FILE 2>&1 &
 
-            echo "✅ Deployed $ENV environment to ~/$DEPLOY_DIR (port $PORT)"
+            # Health check loop (30s timeout, 6 attempts with 5s sleep)
+            echo "🔍 Running health check on http://localhost:$PORT/health..."
+            MAX_ATTEMPTS=6
+            ATTEMPT=0
+            HEALTH_OK=false
+
+            while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+              ATTEMPT=$((ATTEMPT + 1))
+              if curl -sf http://localhost:$PORT/health > /dev/null 2>&1; then
+                HEALTH_OK=true
+                break
+              fi
+              echo "  Attempt $ATTEMPT/$MAX_ATTEMPTS failed, waiting 5s..."
+              sleep 5
+            done
+
+            if [ "$HEALTH_OK" = true ]; then
+              echo "✅ Deployed $ENV environment to ~/$DEPLOY_DIR (port $PORT)"
+            else
+              echo "❌ Health check failed after $MAX_ATTEMPTS attempts"
+              echo "📋 Recent logs from $LOG_FILE:"
+              tail -n 50 $LOG_FILE
+              exit 1
+            fi
           EOF
 
       # 7️⃣ Notify Discord on success
