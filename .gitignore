@@ -62,6 +62,11 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+.env.prod
+.env.dev
+scripts/fastapi/.env
+scripts/fastapi/.env.prod
+scripts/fastapi/.env.dev
 
 # Dev config (personal settings, not committed)
 src/dev.config.js

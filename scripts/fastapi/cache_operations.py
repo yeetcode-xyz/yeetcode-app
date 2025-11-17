@@ -48,28 +48,58 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
 
             info(f"Reloaded {len(normalized_users)} users into cache")
 
+        # Pre-check cache and fetch from DB if needed (OUTSIDE lock to avoid blocking)
         users = cached_users.get('data', [])
         user = next((u for u in users if u.get('username') == username), None)
 
+        user_from_db = None
         if not user:
-            error(f"User {username} not found in cache")
-            return False
+            # User not in cache - fetch from DB before acquiring lock
+            from aws import UserOperations
+            from logger import info
 
-        # Apply updates to user
-        for key, value in updates.items():
-            user[key] = value
+            user_from_db = UserOperations.get_user_data(username)
+            if not user_from_db:
+                error(f"User {username} not found in cache or database")
+                return False
 
-        # Write back to cache
-        return cache_manager.write(
-            cache_type=CacheType.USERS,
-            data=cached_users,
-            wal_operation={
-                "operation": "UPDATE",
-                "table": USERS_TABLE,
-                "key": {"username": username},
-                "data": user
-            }
-        )
+        # Hold lock for entire update operation to prevent lost updates
+        with cache_manager._lock:
+            # Re-fetch cache inside lock (might have been updated by another thread)
+            cached_users = cache_manager.get(CacheType.USERS)
+            if not cached_users or not cached_users.get('success'):
+                error(f"Cache unavailable for user {username}")
+                return False
+
+            users = cached_users.get('data', [])
+            user = next((u for u in users if u.get('username') == username), None)
+
+            # If user still not in cache but we fetched from DB, add them
+            if not user and user_from_db:
+                info(f"User {username} fetched from DB and added to cache")
+                users.append(user_from_db)
+                cached_users['data'] = users
+                user = user_from_db
+
+            if not user:
+                error(f"User {username} not found in cache")
+                return False
+
+            # Apply updates to user
+            for key, value in updates.items():
+                user[key] = value
+
+            # Write back to cache (still inside lock to prevent lost updates)
+            return cache_manager.write(
+                cache_type=CacheType.USERS,
+                data=cached_users,
+                wal_operation={
+                    "operation": "UPDATE",
+                    "table": USERS_TABLE,
+                    "key": {"username": username},
+                    "data": user
+                }
+            )
 
     except Exception as e:
         error(f"Failed to update user in cache: {e}")
