@@ -48,16 +48,18 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
 
             info(f"Reloaded {len(normalized_users)} users into cache")
 
-        users = cached_users.get('data', [])
-        user = next((u for u in users if u.get('username') == username), None)
+        # Hold lock for entire operation to prevent lost updates from concurrent threads
+        with cache_manager._lock:
+            users = cached_users.get('data', [])
+            user = next((u for u in users if u.get('username') == username), None)
 
-        if not user:
-            # User not in cache - try fetching from DB with lock to prevent race condition
-            # Use check-after-lock pattern to avoid duplicate fetches
-            with cache_manager._lock:
+            if not user:
+                # User not in cache - try fetching from DB
                 # Re-check if user was added by concurrent request
-                cached_users = cache_manager.get(CacheType.USERS)
-                if cached_users and cached_users.get('success'):
+                re_fetched = cache_manager.get(CacheType.USERS)
+                if re_fetched and re_fetched.get('success'):
+                    # Cache was refreshed, use the new data
+                    cached_users = re_fetched
                     users = cached_users.get('data', [])
                     user = next((u for u in users if u.get('username') == username), None)
 
@@ -69,28 +71,34 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
                     user = UserOperations.get_user_data(username)
                     if user:
                         info(f"User {username} fetched from DB and added to cache")
+                        # Ensure cached_users is a valid dict before assignment
+                        if not cached_users or not isinstance(cached_users, dict):
+                            cached_users = {"success": True, "data": []}
+                        if 'data' not in cached_users:
+                            cached_users['data'] = []
                         # Add user to in-memory list (write() below handles cache update + WAL)
+                        users = cached_users['data']
                         users.append(user)
                         cached_users['data'] = users
                     else:
                         error(f"User {username} not found in cache or database")
                         return False
 
-        # Apply updates to user
-        for key, value in updates.items():
-            user[key] = value
+            # Apply updates to user
+            for key, value in updates.items():
+                user[key] = value
 
-        # Write back to cache
-        return cache_manager.write(
-            cache_type=CacheType.USERS,
-            data=cached_users,
-            wal_operation={
-                "operation": "UPDATE",
-                "table": USERS_TABLE,
-                "key": {"username": username},
-                "data": user
-            }
-        )
+            # Write back to cache (still inside lock to prevent lost updates)
+            return cache_manager.write(
+                cache_type=CacheType.USERS,
+                data=cached_users,
+                wal_operation={
+                    "operation": "UPDATE",
+                    "table": USERS_TABLE,
+                    "key": {"username": username},
+                    "data": user
+                }
+            )
 
     except Exception as e:
         error(f"Failed to update user in cache: {e}")
