@@ -145,7 +145,8 @@ async def process_single_user(username: str) -> bool:
         current_easy = user_data.get("easy", 0)
         current_medium = user_data.get("medium", 0)
         current_hard = user_data.get("hard", 0)
-        current_xp = user_data.get("xp", 0)  # Preserve existing bonus XP
+        # Preserve existing bonus XP (convert to int in case stored as string)
+        current_xp = int(user_data.get("xp", 0)) if user_data.get("xp") else 0
 
         # Only update if changed
         if (stats["easy"] != current_easy or
