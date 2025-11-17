@@ -177,17 +177,32 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
                 today_date = datetime.strptime(date, '%Y-%m-%d')
                 yesterday_date = (today_date - timedelta(days=1)).strftime('%Y-%m-%d')
 
-                # Get user's current streak from cache
+                # Get user's current streak and last completed date from cache
                 cached_user_data = cache_manager.get(CacheType.USER_DAILY_DATA, username)
                 current_streak = 0
+                last_completed_date = None
+
                 if cached_user_data:
                     current_streak = cached_user_data.get('streak', 0)
+                    last_completed_date = cached_user_data.get('last_completed_date')
 
-                # Increment streak (simplified logic - just increment)
-                new_streak = current_streak + 1
+                # Check if user completed yesterday to determine streak continuation
+                if last_completed_date == yesterday_date:
+                    # User completed yesterday - continue streak
+                    new_streak = current_streak + 1
+                elif last_completed_date == date:
+                    # Already completed today - don't change streak
+                    new_streak = current_streak
+                else:
+                    # Streak broken or starting new - reset to 1
+                    new_streak = 1
 
-                # Update user daily data cache
-                cache_manager.set(CacheType.USER_DAILY_DATA, {'streak': new_streak}, username)
+                # Update user daily data cache with new streak and last completed date
+                cache_manager.set(
+                    CacheType.USER_DAILY_DATA,
+                    {'streak': new_streak, 'last_completed_date': date},
+                    username
+                )
 
                 cache_manager.write(
                     cache_type=CacheType.USERS,
