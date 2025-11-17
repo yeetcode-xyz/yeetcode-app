@@ -93,6 +93,9 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
           '[DAILY POLLING] Found accepted submission for daily challenge, marking as complete'
         );
 
+        // Stop polling immediately to prevent duplicate completions
+        stopDailyPolling();
+
         // Automatically complete the daily challenge
         const result = await window.electronAPI.completeDailyProblem(
           userData.leetUsername
