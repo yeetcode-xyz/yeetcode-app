@@ -437,7 +437,21 @@ function App() {
   };
 
   const handleDailyComplete = async result => {
-    // Refresh both daily data and leaderboard
+    // Optimistically update UI immediately
+    setDailyData(prev => ({
+      ...prev,
+      dailyComplete: true,
+    }));
+
+    // Also update user XP optimistically
+    if (result?.xp_awarded) {
+      setUserData(prev => ({
+        ...prev,
+        current_xp: (prev.current_xp || 0) + result.xp_awarded,
+      }));
+    }
+
+    // Refresh both daily data and leaderboard to get accurate server state
     await Promise.all([
       fetchDailyProblem(),
       fetchLeaderboard(),
