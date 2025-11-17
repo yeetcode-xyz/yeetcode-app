@@ -346,6 +346,10 @@
                 <div class="control-group">
                     <button id="refreshBtn" style="margin-top: 23px;">🔄 Refresh Logs</button>
                 </div>
+
+                <div class="control-group">
+                    <button id="reverseSortBtn" style="margin-top: 23px;">⬆️ Oldest First</button>
+                </div>
             </div>
 
             <div class="checkbox-group">
@@ -457,6 +461,7 @@
         let currentOffset = 0;
         const BATCH_SIZE = 100; // Load 100 logs at a time
         let isLoading = false;
+        let isReversed = false; // Latest first by default
 
         const searchInput = document.getElementById('searchInput');
         const usernameFilter = document.getElementById('usernameFilter');
@@ -586,6 +591,9 @@
                     await new Promise(resolve => setTimeout(resolve, 0));
                 }
             }
+
+            // Reverse logs to show latest first by default
+            allLogs.reverse();
 
             statsDiv.style.display = 'grid';
             filterInfo.style.display = 'flex';
@@ -915,6 +923,15 @@
                     console.log(`Loaded ${remaining.toLocaleString()} logs in ${loadTime.toFixed(2)}s`);
                 }
             }
+        });
+
+        // Reverse sort button
+        const reverseSortBtn = document.getElementById('reverseSortBtn');
+        reverseSortBtn.addEventListener('click', () => {
+            isReversed = !isReversed;
+            allLogs.reverse();
+            reverseSortBtn.textContent = isReversed ? '⬇️ Latest First' : '⬆️ Oldest First';
+            filterLogs();
         });
     </script>
 </body>
