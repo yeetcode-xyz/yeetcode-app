@@ -183,7 +183,7 @@ if DEBUG_MODE:
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
+    """Root endpoint - API information"""
     return {
         "message": "YeetCode API is running",
         "environment": args.env,
@@ -191,6 +191,17 @@ async def root():
         "timestamp": datetime.now().isoformat(),
         "docs": f"http://0.0.0.0:{PORT}/docs",
         "version": "1.0.0"
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for deployment verification"""
+    return {
+        "status": "healthy",
+        "environment": args.env,
+        "port": PORT,
+        "timestamp": datetime.now().isoformat()
     }
 
 
