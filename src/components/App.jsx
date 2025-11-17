@@ -437,28 +437,51 @@ function App() {
   };
 
   const handleDailyComplete = async result => {
-    // Optimistically update UI immediately
-    setDailyData(prev => ({
-      ...prev,
-      dailyComplete: true,
-    }));
+    // Store previous state for potential rollback
+    const previousDailyData = dailyData;
+    const previousUserXP = userData?.current_xp || 0;
 
-    // Also update user XP optimistically
-    if (result?.xp_awarded) {
+    try {
+      // Optimistically update UI immediately
+      setDailyData(prev => ({
+        ...prev,
+        dailyComplete: true,
+      }));
+
+      // Also update user XP optimistically
+      if (result?.xp_awarded) {
+        setUserData(prev => ({
+          ...prev,
+          current_xp: (prev.current_xp || 0) + result.xp_awarded,
+        }));
+      }
+
+      // Refresh leaderboards to get accurate server state
+      // Don't refetch daily problem - the optimistic update is already correct
+      // and refetching would get stale cached data before invalidation propagates
+      await Promise.all([
+        fetchLeaderboard(),
+        fetchUniversityLeaderboard(),
+        fetchMyUniversityLeaderboard(),
+      ]);
+    } catch (error) {
+      console.error('[DAILY COMPLETE] Error refreshing leaderboards:', error);
+
+      // Revert optimistic updates on error
+      setDailyData(previousDailyData);
       setUserData(prev => ({
         ...prev,
-        current_xp: (prev.current_xp || 0) + result.xp_awarded,
+        current_xp: previousUserXP,
       }));
-    }
 
-    // Refresh leaderboards to get accurate server state
-    // Don't refetch daily problem - the optimistic update is already correct
-    // and refetching would get stale cached data before invalidation propagates
-    await Promise.all([
-      fetchLeaderboard(),
-      fetchUniversityLeaderboard(),
-      fetchMyUniversityLeaderboard(),
-    ]);
+      // Show user-facing notification
+      if (window.electronAPI?.showNotification) {
+        window.electronAPI.showNotification({
+          title: 'Daily Challenge',
+          body: 'Completed, but leaderboard refresh failed. Please reload.',
+        });
+      }
+    }
   };
 
   const handleStartOnboarding = () => {
