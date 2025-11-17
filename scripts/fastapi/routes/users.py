@@ -38,9 +38,11 @@ async def get_user_endpoint(
         if cached_users:
             user_data = cached_users.get('data', {}).get(username)
             if user_data:
-                # Ensure xp field always exists with default 0
+                # Ensure xp field always exists with default 0 and is an integer
                 if 'xp' not in user_data:
                     user_data['xp'] = 0
+                else:
+                    user_data['xp'] = int(user_data['xp']) if user_data['xp'] else 0
                 return {"success": True, "data": user_data}
 
         # Fallback to database

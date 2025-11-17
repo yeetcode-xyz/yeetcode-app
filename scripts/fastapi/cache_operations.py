@@ -131,8 +131,8 @@ def award_xp_in_cache(username: str, xp_amount: int) -> bool:
         if not user:
             return False
 
-        # Increment XP
-        current_xp = user.get('xp', 0)
+        # Increment XP (ensure int conversion in case DB stored as string)
+        current_xp = int(user.get('xp', 0)) if user.get('xp') else 0
         user['xp'] = current_xp + xp_amount
 
         # Write back to cache
