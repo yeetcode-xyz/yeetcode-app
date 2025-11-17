@@ -244,12 +244,6 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
                     comp_data['users'] = {}
                 comp_data['users'][username] = True
 
-                cache_manager.write(
-                    cache_type=CacheType.DAILY_COMPLETIONS,
-                    data=cached_completions,
-                    wal_operation=None  # This is ephemeral cache, no DB write needed
-                )
-
         return True
 
     except Exception as e:
