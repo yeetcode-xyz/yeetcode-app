@@ -52,21 +52,29 @@ def update_user_in_cache(username: str, updates: Dict) -> bool:
         user = next((u for u in users if u.get('username') == username), None)
 
         if not user:
-            # User not in cache - try fetching directly from database
-            # This handles new users who were just created but cache hasn't refreshed yet
-            from aws import UserOperations
-            from logger import info
+            # User not in cache - try fetching from DB with lock to prevent race condition
+            # Use check-after-lock pattern to avoid duplicate fetches
+            with cache_manager._lock:
+                # Re-check if user was added by concurrent request
+                cached_users = cache_manager.get(CacheType.USERS)
+                if cached_users and cached_users.get('success'):
+                    users = cached_users.get('data', [])
+                    user = next((u for u in users if u.get('username') == username), None)
 
-            user = UserOperations.get_user_data(username)
-            if user:
-                info(f"User {username} fetched from DB and added to cache")
-                # Add user to cache
-                users.append(user)
-                cached_users['data'] = users
-                cache_manager.set(CacheType.USERS, cached_users)
-            else:
-                error(f"User {username} not found in cache or database")
-                return False
+                if not user:
+                    # Still not found after re-check - fetch from database
+                    from aws import UserOperations
+                    from logger import info
+
+                    user = UserOperations.get_user_data(username)
+                    if user:
+                        info(f"User {username} fetched from DB and added to cache")
+                        # Add user to in-memory list (write() below handles cache update + WAL)
+                        users.append(user)
+                        cached_users['data'] = users
+                    else:
+                        error(f"User {username} not found in cache or database")
+                        return False
 
         # Apply updates to user
         for key, value in updates.items():
