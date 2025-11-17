@@ -423,6 +423,12 @@ function App() {
       const result = await window.electronAPI.getDailyProblem(
         userData.leetUsername
       );
+
+      // IPC handler returns flat object: { dailyComplete, streak, todaysProblem, error }
+      if (result.error) {
+        console.error('[DAILY PROBLEM] Error from backend:', result.error);
+      }
+
       setDailyData({ ...result, loading: false });
     } catch (error) {
       console.error('Error fetching daily problem:', error);

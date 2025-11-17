@@ -154,6 +154,7 @@ def award_xp_in_cache(username: str, xp_amount: int) -> bool:
 def complete_daily_in_cache(username: str, date: str) -> bool:
     """
     Mark user as having completed daily problem in cache
+    Also updates user's streak
 
     Args:
         username: Username
@@ -163,7 +164,7 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
         True if successful
     """
     try:
-        # Update user's 'today' field
+        # Update user's 'today' field and calculate new streak
         cached_users = cache_manager.get(CacheType.USERS)
         if cached_users and cached_users.get('success'):
             users = cached_users.get('data', [])
@@ -171,6 +172,39 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
             if user:
                 user['today'] = 1
 
+                # Calculate and update streak
+                from datetime import datetime, timedelta
+                today_date = datetime.strptime(date, '%Y-%m-%d')
+                yesterday_date = (today_date - timedelta(days=1)).strftime('%Y-%m-%d')
+
+                # Get user's current streak and last completed date
+                # Check user object first (already have it), then USER_DAILY_DATA cache
+                current_streak = user.get('streak', 0)
+                last_completed_date = user.get('last_completed_date')
+
+                # If not in user object, check USER_DAILY_DATA cache
+                if not last_completed_date:
+                    cached_user_data = cache_manager.get(CacheType.USER_DAILY_DATA, username)
+                    if cached_user_data:
+                        current_streak = cached_user_data.get('streak', 0)
+                        last_completed_date = cached_user_data.get('last_completed_date')
+
+                # Check if user completed yesterday to determine streak continuation
+                if last_completed_date == yesterday_date:
+                    # User completed yesterday - continue streak
+                    new_streak = current_streak + 1
+                elif last_completed_date == date:
+                    # Already completed today - don't change streak
+                    new_streak = current_streak
+                else:
+                    # Streak broken or starting new - reset to 1
+                    new_streak = 1
+
+                # Update user data with streak and last_completed_date
+                user['streak'] = new_streak
+                user['last_completed_date'] = date
+
+                # Write to cache with WAL to persist streak data to database
                 cache_manager.write(
                     cache_type=CacheType.USERS,
                     data=cached_users,
@@ -178,11 +212,22 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
                         "operation": "UPDATE",
                         "table": USERS_TABLE,
                         "key": {"username": username},
-                        "data": {"today": 1}
+                        "data": {
+                            "today": 1,
+                            "streak": new_streak,
+                            "last_completed_date": date
+                        }
                     }
                 )
 
-        # Update daily completions cache
+                # Also update USER_DAILY_DATA cache for faster reads
+                cache_manager.set(
+                    CacheType.USER_DAILY_DATA,
+                    {'streak': new_streak, 'last_completed_date': date},
+                    username
+                )
+
+        # Update BOTH daily problem cache AND daily completions cache
         cached_daily = cache_manager.get(CacheType.DAILY_PROBLEM)
         if cached_daily and cached_daily.get('success'):
             daily_data = cached_daily.get('data', {})
@@ -201,6 +246,15 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
                         "data": {"users": {username: True}}
                     }
                 )
+
+        # Also update DAILY_COMPLETIONS cache (used by GET endpoint)
+        cached_completions = cache_manager.get(CacheType.DAILY_COMPLETIONS)
+        if cached_completions:
+            comp_data = cached_completions.get('data', {})
+            if comp_data.get('problem_date') == date:
+                if 'users' not in comp_data:
+                    comp_data['users'] = {}
+                comp_data['users'][username] = True
 
         return True
 
