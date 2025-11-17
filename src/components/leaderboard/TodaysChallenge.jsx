@@ -93,21 +93,68 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
           '[DAILY POLLING] Found accepted submission for daily challenge, marking as complete'
         );
 
-        // Stop polling immediately to prevent duplicate completions
+        // Stop polling IMMEDIATELY to prevent duplicate completions
         stopDailyPolling();
 
         // Automatically complete the daily challenge
-        const result = await window.electronAPI.completeDailyProblem(
-          userData.leetUsername
-        );
-        if (result.success) {
-          // Clear frontend cache to ensure fresh data
-          try {
-            await window.electronAPI.clearDailyProblemCache();
-          } catch (error) {
-            console.warn('[DAILY POLLING] Failed to clear cache:', error);
+        try {
+          const result = await window.electronAPI.completeDailyProblem(
+            userData.leetUsername
+          );
+
+          if (result.success) {
+            // Clear frontend cache to ensure fresh data
+            try {
+              await window.electronAPI.clearDailyProblemCache();
+            } catch (cacheError) {
+              console.warn(
+                '[DAILY POLLING] Failed to clear cache:',
+                cacheError
+              );
+            }
+
+            // Await onDailyComplete and handle any errors
+            try {
+              await onDailyComplete(result);
+            } catch (completionError) {
+              console.error(
+                '[DAILY POLLING] Error in onDailyComplete:',
+                completionError
+              );
+
+              // Show user notification on failure
+              if (window.electronAPI?.showNotification) {
+                window.electronAPI.showNotification({
+                  title: 'Daily Challenge Error',
+                  body: 'Completion registered, but UI update failed. Please refresh.',
+                });
+              }
+            }
+          } else {
+            console.error(
+              '[DAILY POLLING] Failed to complete daily problem:',
+              result
+            );
+
+            // Restart polling if completion failed
+            startDailyPolling();
           }
-          onDailyComplete(result);
+        } catch (apiError) {
+          console.error(
+            '[DAILY POLLING] API error completing daily:',
+            apiError
+          );
+
+          // Restart polling on API failure
+          startDailyPolling();
+
+          // Notify user of failure
+          if (window.electronAPI?.showNotification) {
+            window.electronAPI.showNotification({
+              title: 'Daily Challenge Error',
+              body: 'Failed to register completion. Will retry automatically.',
+            });
+          }
         }
       }
     } catch (error) {
