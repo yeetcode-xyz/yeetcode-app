@@ -451,9 +451,10 @@ function App() {
       }));
     }
 
-    // Refresh both daily data and leaderboard to get accurate server state
+    // Refresh leaderboards to get accurate server state
+    // Don't refetch daily problem - the optimistic update is already correct
+    // and refetching would get stale cached data before invalidation propagates
     await Promise.all([
-      fetchDailyProblem(),
       fetchLeaderboard(),
       fetchUniversityLeaderboard(),
       fetchMyUniversityLeaderboard(),
