@@ -160,14 +160,22 @@ async def dump_cache_to_db() -> Dict:
             # Convert to DynamoDB format
             dynamodb_item = convert_to_dynamodb_format(data)
 
+            # CRITICAL FIX: Convert string cache_type to CacheType enum for comparison
+            # cache_type is a string (e.g., "users") from cache key, not a CacheType enum
+            try:
+                cache_type_enum = CacheType(cache_type)
+            except ValueError:
+                error(f"Unknown cache type: {cache_type}, skipping entry")
+                continue
+
             # Route to appropriate table
-            if cache_type == CacheType.USERS:
+            if cache_type_enum == CacheType.USERS:
                 users_items.append(dynamodb_item)
-            elif cache_type == CacheType.DAILY_PROBLEM or cache_type == CacheType.DAILY_COMPLETIONS:
+            elif cache_type_enum == CacheType.DAILY_PROBLEM or cache_type_enum == CacheType.DAILY_COMPLETIONS:
                 daily_items.append(dynamodb_item)
-            elif cache_type == CacheType.DUELS:
+            elif cache_type_enum == CacheType.DUELS:
                 duels_items.append(dynamodb_item)
-            elif cache_type == CacheType.BOUNTIES or cache_type == CacheType.BOUNTY_COMPETITIONS:
+            elif cache_type_enum == CacheType.BOUNTIES or cache_type_enum == CacheType.BOUNTY_COMPETITIONS:
                 bounties_items.append(dynamodb_item)
 
         # Batch write to each table
