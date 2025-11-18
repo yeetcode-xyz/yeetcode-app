@@ -142,7 +142,14 @@ class CacheManager:
                 del self._cache[key]
             if DEBUG_MODE:
                 print(f"[CACHE] Invalidated all {cache_type.value} entries ({len(keys_to_remove)} total, {dirty_count} were dirty)")
-    
+
+    def clear_all(self) -> None:
+        """Clear entire cache - thread-safe with lock"""
+        with self._lock:
+            self._cache.clear()
+            if DEBUG_MODE:
+                print("[CACHE] Cleared entire cache")
+
     def _should_refresh_daily_cache(self) -> bool:
         """Check if daily cache should be refreshed (12:02 AM UTC)"""
         now = datetime.now(timezone.utc)

@@ -178,6 +178,7 @@ async def clear_cache():
     # CRITICAL: Dump dirty entries to DB BEFORE clearing cache
     # This prevents data loss from uncommitted changes
     dump_result = await dump_cache_to_db()
+    dumped_entries = dump_result.get('entries', 0)
 
     if not dump_result.get('success'):
         error(f"Failed to dump cache before clearing: {dump_result.get('error')}")
@@ -187,13 +188,14 @@ async def clear_cache():
         }
 
     # Now safe to clear cache after dirty data is saved
-    cache_manager._cache.clear()
-    info(f"✅ Cache cleared after dumping {dump_result.get('dirty_count', 0)} dirty entries")
+    # Use thread-safe clear_all() method instead of direct _cache access
+    cache_manager.clear_all()
+    info(f"✅ Cache cleared after dumping {dumped_entries} entries")
 
     return {
         "success": True,
         "message": "Cache cleared",
-        "dirty_entries_dumped": dump_result.get('dirty_count', 0)
+        "dirty_entries_dumped": dumped_entries
     }
 
 
