@@ -390,13 +390,23 @@ def update_duel_in_cache(duel_id: str, updates: Dict) -> bool:
     """
     try:
         cached_duels = cache_manager.get(CacheType.DUELS)
+
+        # If cache is empty, load duels from DB first
         if not cached_duels or not cached_duels.get('success'):
-            return False
+            from aws import DuelOperations
+            duels_result = DuelOperations.get_all_duels()
+            if not duels_result.get('success'):
+                error("Failed to load duels from DB, cannot update in cache")
+                return False
+            cached_duels = duels_result
+            # Set in cache for future use
+            cache_manager.set(CacheType.DUELS, cached_duels)
 
         duels = cached_duels.get('data', [])
         duel = next((d for d in duels if d.get('duelId') == duel_id), None)
 
         if not duel:
+            error(f"Duel {duel_id} not found in cache after loading from DB")
             return False
 
         # Apply updates
