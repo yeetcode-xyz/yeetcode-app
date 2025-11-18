@@ -400,6 +400,7 @@ def update_duel_in_cache(duel_id: str, updates: Dict) -> bool:
             duel[key] = value
 
         # Write back to cache
+        # Only send updated fields in WAL to prevent type mismatch errors
         return cache_manager.write(
             cache_type=CacheType.DUELS,
             data=cached_duels,
@@ -407,7 +408,7 @@ def update_duel_in_cache(duel_id: str, updates: Dict) -> bool:
                 "operation": "UPDATE",
                 "table": DUELS_TABLE,
                 "key": {"duelId": duel_id},
-                "data": duel
+                "data": updates  # Only write the fields that were actually updated
             }
         )
 
