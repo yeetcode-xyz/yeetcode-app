@@ -174,10 +174,29 @@ async def get_cache_stats():
 
 @app.post("/cache/clear")
 async def clear_cache():
-    """Clear all cache (admin only)"""
-    # In a real app, you'd add authentication here
-    cache_manager._cache.clear()
-    return {"success": True, "message": "Cache cleared"}
+    """Clear all cache (admin only) - dumps dirty data to DB first to prevent data loss"""
+    # CRITICAL: Dump dirty entries to DB BEFORE clearing cache
+    # This prevents data loss from uncommitted changes
+    dump_result = await dump_cache_to_db()
+    dumped_entries = dump_result.get('entries', 0)
+
+    if not dump_result.get('success'):
+        error(f"Failed to dump cache before clearing: {dump_result.get('error')}")
+        return {
+            "success": False,
+            "error": f"Failed to dump dirty data before clearing: {dump_result.get('error')}"
+        }
+
+    # Now safe to clear cache after dirty data is saved
+    # Use thread-safe clear_all() method instead of direct _cache access
+    cache_manager.clear_all()
+    info(f"✅ Cache cleared after dumping {dumped_entries} entries")
+
+    return {
+        "success": True,
+        "message": "Cache cleared",
+        "dirty_entries_dumped": dumped_entries
+    }
 
 
 # Background task for monitoring active duels

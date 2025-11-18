@@ -103,15 +103,9 @@ const TodaysChallenge = ({ userData, dailyData, onDailyComplete }) => {
           );
 
           if (result.success) {
-            // Clear frontend cache to ensure fresh data
-            try {
-              await window.electronAPI.clearDailyProblemCache();
-            } catch (cacheError) {
-              console.warn(
-                '[DAILY POLLING] Failed to clear cache:',
-                cacheError
-              );
-            }
+            // NOTE: Removed cache clear call - let cache TTL expire naturally
+            // This prevents race conditions where dirty data could be lost
+            // The backend now dumps dirty data before clearing cache anyway
 
             // Await onDailyComplete and handle any errors
             try {

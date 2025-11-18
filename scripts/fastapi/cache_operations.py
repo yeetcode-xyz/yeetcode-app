@@ -227,6 +227,10 @@ def complete_daily_in_cache(username: str, date: str) -> bool:
                     username
                 )
 
+                # Award XP for daily completion (200 XP)
+                # CRITICAL: This was missing after cache-first migration, causing users to get 0 XP
+                award_xp_in_cache(username, 200)
+
         # Update BOTH daily problem cache AND daily completions cache
         cached_daily = cache_manager.get(CacheType.DAILY_PROBLEM)
         if cached_daily and cached_daily.get('success'):

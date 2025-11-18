@@ -106,24 +106,50 @@ class CacheManager:
             cache_operation("Set", key, ttl=ttl)
     
     def invalidate(self, cache_type: CacheType, identifier: str = "") -> None:
-        """Invalidate specific cache entry"""
+        """Invalidate specific cache entry - WARNING: may lose dirty data if not dumped"""
         with self._lock:
             key = self._get_cache_key(cache_type, identifier)
             if key in self._cache:
+                entry = self._cache[key]
+                # CRITICAL: Check if entry has unsaved changes before deletion
+                if entry.dirty:
+                    from logger import warning
+                    warning(f"⚠️ Invalidating dirty cache entry: {key} - data may be lost if not dumped!")
+                    # TODO: Consider triggering immediate dump for this entry
                 del self._cache[key]
                 if DEBUG_MODE:
                     print(f"[CACHE] Invalidated {key}")
     
     def invalidate_all(self, cache_type: CacheType) -> None:
-        """Invalidate all entries of a specific cache type"""
+        """Invalidate all entries of a specific cache type - WARNING: may lose dirty data if not dumped"""
         with self._lock:
             prefix = f"{cache_type.value}:"
             keys_to_remove = [key for key in self._cache.keys() if key.startswith(prefix)]
+
+            # CRITICAL: Check for dirty entries before deletion
+            dirty_count = 0
+            for key in keys_to_remove:
+                entry = self._cache[key]
+                if entry.dirty:
+                    dirty_count += 1
+
+            if dirty_count > 0:
+                from logger import warning
+                warning(f"⚠️ Invalidating {dirty_count} dirty cache entries in {cache_type.value} - data may be lost if not dumped!")
+                # TODO: Consider triggering immediate dump for dirty entries
+
             for key in keys_to_remove:
                 del self._cache[key]
             if DEBUG_MODE:
-                print(f"[CACHE] Invalidated all {cache_type.value} entries")
-    
+                print(f"[CACHE] Invalidated all {cache_type.value} entries ({len(keys_to_remove)} total, {dirty_count} were dirty)")
+
+    def clear_all(self) -> None:
+        """Clear entire cache - thread-safe with lock"""
+        with self._lock:
+            self._cache.clear()
+            if DEBUG_MODE:
+                print("[CACHE] Cleared entire cache")
+
     def _should_refresh_daily_cache(self) -> bool:
         """Check if daily cache should be refreshed (12:02 AM UTC)"""
         now = datetime.now(timezone.utc)
