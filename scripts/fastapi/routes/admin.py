@@ -132,13 +132,17 @@ async def serve_log_viewer(
 async def get_log_content(
     api_key: str = Depends(verify_api_key_query)
 ):
-    """Get the raw fastapi.log file content
+    """Get the raw log file content (fastapi.log for prod, fastapi-dev.log for dev)
 
     Access via: /admin/logs/content?api_key=YOUR_API_KEY
     """
     try:
-        # Log file is in the parent directory (scripts/fastapi/../fastapi.log)
-        log_path = os.path.join(os.path.dirname(__file__), "../fastapi.log")
+        # Determine which log file to use based on environment
+        port = os.getenv("PORT", "6969")
+        log_filename = "fastapi-dev.log" if port == "42069" else "fastapi.log"
+
+        # Log file is in the parent directory (scripts/fastapi/../)
+        log_path = os.path.join(os.path.dirname(__file__), f"../{log_filename}")
 
         if not os.path.exists(log_path):
             raise HTTPException(status_code=404, detail=f"Log file not found at {log_path}")
