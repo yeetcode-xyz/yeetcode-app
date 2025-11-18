@@ -91,8 +91,8 @@ async def accept_duel_endpoint(
             request.wager_amount  # Opponent's wager for wager duels
         )
 
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.DUELS)
+        # NOTE: No need to invalidate cache - cache-first writes handle this automatically
+        # Invalidating causes cache misses for subsequent requests
 
         return result
     except Exception as error:
