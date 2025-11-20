@@ -302,15 +302,20 @@ The `dump_cache_to_db()` function in `cache_dumper.py` now:
 
 **Critical WAL Checkpoint and Race Condition Fixes (Commit 6):**
 
-6. **Checkpoint Skip Bug** (`cache_dumper.py`):
-   - Problem: Failed WAL entries could be skipped forever if later entries succeeded
-     - Example: seq 1 succeeds → checkpoint = 1, seq 2 fails, seq 3 succeeds → checkpoint = 3
+6. **Checkpoint Skip and Double-Apply Bug** (`cache_dumper.py`):
+   - Problem 1: Failed WAL entries could be skipped forever if later entries succeeded
+     - Example: seq 1 ✅ → checkpoint = 1, seq 2 ❌, seq 3 ✅ → checkpoint = 3
      - Next run starts from seq 4, so seq 2 is never retried (silent data loss)
-   - Impact: Permanent data loss for any operation that fails but is followed by successes
-   - Fix: Track `first_failed_sequence` throughout processing
-     - Only update checkpoint if NO failures have occurred (`first_failed_sequence is None`)
-     - This ensures checkpoint never advances past a failed entry
-     - Failed entries are retried on next dump cycle
+   - Problem 2: Later successful entries (especially INCREMENTs) could be double-applied
+     - Example: seq 1 ✅ → checkpoint = 1, seq 2 ❌, seq 3 INCREMENT ✅ (but checkpoint still 1)
+     - Next run: seq 2 fails again, seq 3 replayed → INCREMENT applied twice!
+   - Impact: Both permanent data loss AND data corruption (double XP/streak)
+   - Fix: STOP processing on first failure (break loop)
+     - Process entries in order until first failure
+     - Update checkpoint after each successful operation
+     - On failure: break loop, leave failed entry and all later entries for next run
+     - Next run starts from failed sequence, retries in order
+     - Guarantees: No skips, no double-applies, contiguous checkpoint
 
 7. **WAL Race Condition** (`cache_dumper.py`, `wal_manager.py`):
    - Problem: Concurrent writes during dump could be marked synced but never applied to DynamoDB

@@ -168,9 +168,11 @@ async def dump_cache_to_db() -> Dict:
         total_synced = 0
         total_failed = 0
         errors = []
-        first_failed_sequence = None  # Track first failure to stop checkpoint advancement
 
-        # Process each WAL operation
+        # Process each WAL operation until first failure
+        # CRITICAL: We must stop on first failure to prevent double-applying later INCREMENTs
+        # Example: seq 1 ✅, seq 2 ❌, seq 3 INCREMENT ✅ (checkpoint=1)
+        # Next run: seq 2 fails again, seq 3 replayed → INCREMENT applied twice!
         for entry in wal_entries:
             operation = entry.get('operation')
             table = entry.get('table')
@@ -185,23 +187,19 @@ async def dump_cache_to_db() -> Dict:
             if operation == "DELETE":
                 if not all([operation, table, key]):
                     total_failed += 1
-                    error_msg = f"Skipping incomplete DELETE entry (missing operation/table/key): {entry}"
+                    error_msg = f"Incomplete DELETE entry at sequence {entry_sequence}: {entry}"
                     warning(error_msg)
                     errors.append(error_msg)
-                    # Track first failed sequence to prevent checkpoint skip
-                    if first_failed_sequence is None:
-                        first_failed_sequence = entry_sequence
-                    continue
+                    # STOP processing to prevent replaying later entries (especially INCREMENTs)
+                    break
             else:
                 if not all([operation, table, key, data]):
                     total_failed += 1
-                    error_msg = f"Skipping incomplete {operation} entry (missing required fields): {entry}"
+                    error_msg = f"Incomplete {operation} entry at sequence {entry_sequence}: {entry}"
                     warning(error_msg)
                     errors.append(error_msg)
-                    # Track first failed sequence to prevent checkpoint skip
-                    if first_failed_sequence is None:
-                        first_failed_sequence = entry_sequence
-                    continue
+                    # STOP processing to prevent replaying later entries (especially INCREMENTs)
+                    break
 
             try:
                 if operation == "UPDATE":
@@ -283,31 +281,26 @@ async def dump_cache_to_db() -> Dict:
                 else:
                     # Unknown operation type - fail explicitly
                     total_failed += 1
-                    error_msg = f"Unknown WAL operation type '{operation}' for table {table}, key {key}"
+                    error_msg = f"Unknown WAL operation type '{operation}' at sequence {entry_sequence}"
                     warning(error_msg)
                     errors.append(error_msg)
-                    # Track first failed sequence to prevent checkpoint skip
-                    if first_failed_sequence is None:
-                        first_failed_sequence = entry_sequence
-                    continue
+                    # STOP processing to prevent replaying later entries (especially INCREMENTs)
+                    break
 
                 total_synced += 1
 
-                # Update checkpoint after successful operation ONLY if no prior failures
-                # This prevents checkpoint from skipping failed entries
-                if entry_sequence >= 0 and first_failed_sequence is None:
+                # Update checkpoint after each successful operation
+                # This is safe because we STOP on first failure (break above)
+                if entry_sequence >= 0:
                     wal_manager.set_last_applied_sequence(entry_sequence)
 
             except Exception as e:
                 total_failed += 1
-                error_msg = f"Failed to sync WAL entry to {table}: {e}"
+                error_msg = f"Failed to sync WAL entry at sequence {entry_sequence} to {table}: {e}"
                 error(error_msg)
                 errors.append(error_msg)
-                # Track first failed sequence to prevent checkpoint skip
-                if first_failed_sequence is None:
-                    first_failed_sequence = entry_sequence
-                # Don't update checkpoint on failure - will retry this entry next time
-                continue
+                # STOP processing to prevent replaying later entries (especially INCREMENTs)
+                break
 
         # Mark success if all synced
         if total_failed == 0:
