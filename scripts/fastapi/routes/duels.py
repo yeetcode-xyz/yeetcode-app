@@ -190,7 +190,8 @@ async def get_duel_endpoint(
         cached_duels = cache_manager.get(CacheType.DUELS)
         if cached_duels:
             for duel in cached_duels.get('data', []):
-                if duel.get('id') == duel_id:
+                # FIXED: Use 'duelId' not 'id' to match DynamoDB schema
+                if duel.get('duelId') == duel_id:
                     return {"success": True, "data": duel}
         
         # Fallback to database
