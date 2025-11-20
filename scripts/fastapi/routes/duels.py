@@ -70,8 +70,8 @@ async def create_duel_endpoint(
             request.wager_amount
         )
 
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.DUELS)
+        # NOTE: No cache invalidation - create_duel uses cache-first writes
+        # Cache is updated in-place, invalidation would destroy uncommitted data
 
         return result
     except Exception as error:
@@ -107,10 +107,10 @@ async def start_duel_endpoint(
     """Mark that a user has started working on a duel"""
     try:
         result = DuelOperations.start_duel(request.username, request.duel_id)
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.DUELS)
-        
+
+        # NOTE: No cache invalidation - start_duel uses cache-first writes
+        # Cache is updated in-place via update_duel_in_cache()
+
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -125,10 +125,10 @@ async def complete_duel_endpoint(
     try:
         # Legacy endpoint - redirects to record submission
         result = DuelOperations.record_duel_submission(request.username, request.duel_id, 0)
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.DUELS)
-        
+
+        # NOTE: No cache invalidation - record_duel_submission uses cache-first writes
+        # Cache is updated in-place via update_duel_in_cache()
+
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -146,10 +146,10 @@ async def reject_duel_endpoint(
             return {"success": False, "error": "Duel ID required"}
         
         result = DuelOperations.reject_duel(duel_id)
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.DUELS)
-        
+
+        # NOTE: No cache invalidation - reject_duel uses cache-first writes
+        # Cache is updated in-place via delete_duel_from_cache()
+
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}
@@ -170,10 +170,10 @@ async def record_duel_submission_endpoint(
             return {"success": False, "error": "Duel ID and username required"}
         
         result = DuelOperations.record_duel_submission(username, duel_id, elapsed_ms)
-        
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.DUELS)
-        
+
+        # NOTE: No cache invalidation - record_duel_submission uses cache-first writes
+        # Cache is updated in-place via update_duel_in_cache()
+
         return result
     except Exception as error:
         return {"success": False, "error": str(error)}

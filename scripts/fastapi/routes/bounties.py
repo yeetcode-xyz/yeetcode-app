@@ -120,10 +120,15 @@ async def refresh_bounty_cache_endpoint(
 ):
     """Force refresh bounty and bounty competition caches"""
     try:
-        # Invalidate both bounty caches
+        # NOTE: This is an explicit admin refresh endpoint, so invalidation is intentional
+        # However, we should dump dirty data first to prevent data loss
+        from cache_dumper import dump_cache_to_db
+        await dump_cache_to_db()
+
+        # Now safe to invalidate both bounty caches
         cache_manager.invalidate_all(CacheType.BOUNTIES)
         cache_manager.invalidate_all(CacheType.BOUNTY_COMPETITIONS)
-        
+
         return {"success": True, "message": "Bounty caches refreshed"}
     except Exception as error:
         return {"success": False, "error": str(error)}
