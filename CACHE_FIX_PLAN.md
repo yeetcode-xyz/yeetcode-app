@@ -300,3 +300,31 @@ The `dump_cache_to_db()` function in `cache_dumper.py` now:
    - Removed double-wrapping of dump response
    - Added explicit handling for unknown WAL operation types (prevents silent failures)
 
+**Critical WAL Checkpoint and Race Condition Fixes (Commit 6):**
+
+6. **Checkpoint Skip Bug** (`cache_dumper.py`):
+   - Problem: Failed WAL entries could be skipped forever if later entries succeeded
+     - Example: seq 1 succeeds → checkpoint = 1, seq 2 fails, seq 3 succeeds → checkpoint = 3
+     - Next run starts from seq 4, so seq 2 is never retried (silent data loss)
+   - Impact: Permanent data loss for any operation that fails but is followed by successes
+   - Fix: Track `first_failed_sequence` throughout processing
+     - Only update checkpoint if NO failures have occurred (`first_failed_sequence is None`)
+     - This ensures checkpoint never advances past a failed entry
+     - Failed entries are retried on next dump cycle
+
+7. **WAL Race Condition** (`cache_dumper.py`, `wal_manager.py`):
+   - Problem: Concurrent writes during dump could be marked synced but never applied to DynamoDB
+     - Dump snapshots WAL entries at start
+     - New writes append to WAL after snapshot
+     - Old code called `wal_manager.clear()` at end, clearing ALL entries including new ones
+     - Old code also called `mark_synced()` on ALL dirty cache entries
+     - New writes lost permanently
+   - Impact: Data loss under concurrent load (production scenario)
+   - Fix: Added `wal_manager.clear_up_to(max_sequence)` method
+     - Only clears WAL entries up to last successfully applied sequence
+     - Keeps entries with sequence > max_sequence (concurrent writes)
+     - Next dump picks them up via `get_entries_since(last_applied + 1)`
+   - Fix: Removed `mark_synced()` calls from dump logic
+     - Cache dirty flags now purely advisory (for monitoring)
+     - WAL checkpoint is source of truth for persistence
+

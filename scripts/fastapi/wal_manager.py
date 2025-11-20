@@ -176,6 +176,9 @@ class WALManager:
         """
         Clear the WAL file after successful cache dump
 
+        WARNING: This resets sequence to 0, breaking checkpoint-based replay!
+        Use clear_up_to(sequence) instead for production code.
+
         Returns:
             True if successful, False otherwise
         """
@@ -191,6 +194,50 @@ class WALManager:
 
             except Exception as e:
                 error(f"Failed to clear WAL: {e}")
+                return False
+
+    def clear_up_to(self, max_sequence: int) -> bool:
+        """
+        Clear WAL entries up to and including max_sequence, keeping later entries
+
+        This is the correct way to clear WAL after partial sync without breaking
+        the checkpoint system or losing concurrent writes.
+
+        Args:
+            max_sequence: Clear all entries with sequence <= this value
+
+        Returns:
+            True if successful, False otherwise
+        """
+        with self._lock:
+            try:
+                # Read all entries
+                entries_to_keep = []
+                with open(self._wal_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                            # Keep entries with sequence > max_sequence
+                            if entry.get('sequence', 0) > max_sequence:
+                                entries_to_keep.append(entry)
+                        except json.JSONDecodeError:
+                            continue
+
+                # Rewrite WAL file with only entries to keep
+                with open(self._wal_file, 'w') as f:
+                    for entry in entries_to_keep:
+                        f.write(json.dumps(entry) + '\n')
+                    f.flush()
+                    os.fsync(f.fileno())
+
+                info(f"🧹 WAL file cleared up to sequence {max_sequence}, kept {len(entries_to_keep)} entries")
+                return True
+
+            except Exception as e:
+                error(f"Failed to clear WAL up to sequence {max_sequence}: {e}")
                 return False
 
     def get_entries_since(self, sequence: int) -> List[Dict]:

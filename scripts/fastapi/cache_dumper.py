@@ -168,6 +168,7 @@ async def dump_cache_to_db() -> Dict:
         total_synced = 0
         total_failed = 0
         errors = []
+        first_failed_sequence = None  # Track first failure to stop checkpoint advancement
 
         # Process each WAL operation
         for entry in wal_entries:
@@ -175,6 +176,9 @@ async def dump_cache_to_db() -> Dict:
             table = entry.get('table')
             key = entry.get('key')
             data = entry.get('data')
+
+            # Track sequence for checkpoint management
+            entry_sequence = entry.get('sequence', -1)
 
             # Validate based on operation type
             # DELETE operations don't require data, all others do
@@ -184,6 +188,9 @@ async def dump_cache_to_db() -> Dict:
                     error_msg = f"Skipping incomplete DELETE entry (missing operation/table/key): {entry}"
                     warning(error_msg)
                     errors.append(error_msg)
+                    # Track first failed sequence to prevent checkpoint skip
+                    if first_failed_sequence is None:
+                        first_failed_sequence = entry_sequence
                     continue
             else:
                 if not all([operation, table, key, data]):
@@ -191,6 +198,9 @@ async def dump_cache_to_db() -> Dict:
                     error_msg = f"Skipping incomplete {operation} entry (missing required fields): {entry}"
                     warning(error_msg)
                     errors.append(error_msg)
+                    # Track first failed sequence to prevent checkpoint skip
+                    if first_failed_sequence is None:
+                        first_failed_sequence = entry_sequence
                     continue
 
             try:
@@ -276,13 +286,16 @@ async def dump_cache_to_db() -> Dict:
                     error_msg = f"Unknown WAL operation type '{operation}' for table {table}, key {key}"
                     warning(error_msg)
                     errors.append(error_msg)
+                    # Track first failed sequence to prevent checkpoint skip
+                    if first_failed_sequence is None:
+                        first_failed_sequence = entry_sequence
                     continue
 
                 total_synced += 1
 
-                # Update checkpoint after successful operation to avoid replay
-                entry_sequence = entry.get('sequence', -1)
-                if entry_sequence >= 0:
+                # Update checkpoint after successful operation ONLY if no prior failures
+                # This prevents checkpoint from skipping failed entries
+                if entry_sequence >= 0 and first_failed_sequence is None:
                     wal_manager.set_last_applied_sequence(entry_sequence)
 
             except Exception as e:
@@ -290,25 +303,37 @@ async def dump_cache_to_db() -> Dict:
                 error_msg = f"Failed to sync WAL entry to {table}: {e}"
                 error(error_msg)
                 errors.append(error_msg)
+                # Track first failed sequence to prevent checkpoint skip
+                if first_failed_sequence is None:
+                    first_failed_sequence = entry_sequence
                 # Don't update checkpoint on failure - will retry this entry next time
                 continue
 
         # Mark success if all synced
         if total_failed == 0:
-            # Mark all cache entries as synced
-            dirty_entries = cache_manager.get_dirty_entries()
-            for entry in dirty_entries:
-                cache_manager.mark_synced(entry['cache_type'], entry.get('identifier', ''))
+            # CRITICAL FIX: Clear WAL entries ONLY up to the last successfully applied sequence
+            # This prevents race condition where new writes after our snapshot are lost
 
-            # Clear WAL file after successful sync
-            wal_manager.clear()
+            # Get the highest sequence we successfully applied
+            last_synced_sequence = wal_manager.get_last_applied_sequence()
 
-            info(f"✅ Cache dump complete: {total_synced} WAL operations synced to DynamoDB")
+            # Clear WAL entries up to last_synced_sequence, keeping any concurrent writes
+            # that occurred after our snapshot (sequence > last_synced_sequence)
+            wal_manager.clear_up_to(last_synced_sequence)
+
+            # Note: We intentionally DON'T call cache_manager.mark_synced() here because:
+            # - Cache entries don't track their WAL sequence number
+            # - We can't safely determine which cache entries map to synced WAL entries
+            # - Dirty flags in cache are eventually consistent (background task marks them synced)
+            # - The WAL checkpoint is our source of truth for what's been persisted
+
+            info(f"✅ Cache dump complete: {total_synced} WAL operations synced to DynamoDB (checkpoint: {last_synced_sequence})")
 
             return {
                 "success": True,
                 "entries": total_synced,
-                "failed": 0
+                "failed": 0,
+                "checkpoint": last_synced_sequence
             }
         else:
             warning(f"⚠️ Cache dump partially failed: {total_failed}/{len(wal_entries)} operations failed")
