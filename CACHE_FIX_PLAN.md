@@ -267,3 +267,18 @@ The `dump_cache_to_db()` function in `cache_dumper.py` now:
 - Checkpoint file: `/tmp/yeetcode/wal.checkpoint`
 - Survives crashes and restarts
 
+**Additional Type Conversion Fix (Commit 3):**
+
+3. **List Type Corruption Bug**:
+   - Problem: List conversion used `[{'S': str(item)} for item in value]` which coerced all items to strings
+   - Impact:
+     - Numeric lists corrupted: `[1, 2, 3]` → `[{'S': '1'}, {'S': '2'}, {'S': '3'}]`
+     - Boolean lists corrupted: `[true, false]` → `[{'S': 'True'}, {'S': 'False'}]`
+     - Nested structures lost entirely
+     - Bool checked after int (bool is subclass of int in Python), causing bools treated as ints
+   - Fix: Created `convert_value_to_dynamodb(value)` recursive helper
+     - Checks bool BEFORE int (critical for correct type detection)
+     - Recursively handles nested lists and dicts with proper type preservation
+     - Reused by both `convert_to_dynamodb_format()` and UPDATE operations
+   - Impact: Proper type preservation for all DynamoDB updates
+
