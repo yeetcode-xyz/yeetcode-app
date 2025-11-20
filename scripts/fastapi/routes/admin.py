@@ -187,10 +187,12 @@ async def get_cache_status(
                 "cache_type": entry.get('cache_type'),
                 "identifier": entry.get('identifier', '(no identifier)'),
                 "timestamp": entry.get('timestamp'),
-                "dirty": entry.get('dirty')
+                "last_synced": entry.get('last_synced')
             })
 
         # Get cache keys by type (for debugging)
+        # Note: Accessing _cache directly for admin debugging only
+        # TODO: Add public method to CacheManager for proper encapsulation
         cache_keys_by_type = {}
         for cache_type in ["users", "duels", "bounties", "daily_problem", "daily_completions", "user_daily_data"]:
             keys = [k for k in cache_manager._cache.keys() if k.startswith(f"{cache_type}:")]
@@ -216,17 +218,18 @@ async def get_cache_status(
         return {"success": False, "error": str(error)}
 
 
-@router.get("/cache/dump")
+@router.post("/cache/dump")
 async def trigger_cache_dump(
     api_key: str = Depends(verify_api_key_query)
 ):
     """Manually trigger cache dump to DynamoDB
 
-    Access via: /admin/cache/dump?api_key=YOUR_API_KEY
+    Access via: POST /admin/cache/dump?api_key=YOUR_API_KEY
     """
     try:
         from cache_dumper import dump_cache_to_db
         result = await dump_cache_to_db()
-        return {"success": True, "data": result}
+        # dump_cache_to_db already returns {"success": ..., ...}, don't double-wrap
+        return result
     except Exception as error:
         return {"success": False, "error": str(error)}

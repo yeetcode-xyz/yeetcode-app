@@ -282,3 +282,21 @@ The `dump_cache_to_db()` function in `cache_dumper.py` now:
      - Reused by both `convert_to_dynamodb_format()` and UPDATE operations
    - Impact: Proper type preservation for all DynamoDB updates
 
+**Admin Endpoints and CodeRabbit Fixes (Commit 4-5):**
+
+4. **Cache Debug Endpoints** (`routes/admin.py`):
+   - Added GET `/admin/cache/status?api_key=...` endpoint returning:
+     - Cache stats (size, entries per type, hit rate)
+     - WAL stats (entries, checkpoint, file size)
+     - Dirty entries count and summary (without sensitive data)
+     - Cache keys by type for debugging
+   - Added POST `/admin/cache/dump?api_key=...` endpoint for manual cache sync
+   - Fixed duel ID mismatch in `routes/duels.py`: `duel.get('id')` → `duel.get('duelId')`
+
+5. **CodeRabbit Review Fixes** (`routes/admin.py`, `cache_dumper.py`):
+   - Fixed dirty entry field: `entry.get('dirty')` → `entry.get('last_synced')`
+   - Added TODO comment for `_cache` encapsulation issue
+   - Changed `/cache/dump` from GET to POST (write operations should use POST)
+   - Removed double-wrapping of dump response
+   - Added explicit handling for unknown WAL operation types (prevents silent failures)
+

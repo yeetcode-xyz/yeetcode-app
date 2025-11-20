@@ -270,6 +270,14 @@ async def dump_cache_to_db() -> Dict:
                         ExpressionAttributeValues=expr_attr_values
                     )
 
+                else:
+                    # Unknown operation type - fail explicitly
+                    total_failed += 1
+                    error_msg = f"Unknown WAL operation type '{operation}' for table {table}, key {key}"
+                    warning(error_msg)
+                    errors.append(error_msg)
+                    continue
+
                 total_synced += 1
 
                 # Update checkpoint after successful operation to avoid replay
