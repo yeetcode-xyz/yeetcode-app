@@ -127,104 +127,166 @@ def batch_write_to_dynamodb(table_name: str, items: List[Dict]) -> Dict:
 
 async def dump_cache_to_db() -> Dict:
     """
-    Dump all dirty cache entries to DynamoDB
+    Dump all dirty cache entries to DynamoDB by replaying WAL operations.
+
+    CRITICAL FIX: Instead of dumping raw cache entries (which have wrapped structures
+    like {"success": True, "data": [...]}), we now read from the WAL operation log
+    which has correctly structured operations for DynamoDB updates.
 
     Returns:
         Dictionary with dump statistics
     """
-    info("🗄️ Starting cache dump to DynamoDB...")
+    info("🗄️ Starting cache dump to DynamoDB via WAL operations...")
 
     try:
-        # Get all dirty entries from cache
-        dirty_entries = cache_manager.get_dirty_entries()
+        # Get all WAL entries (these have correct structure for DB writes)
+        wal_entries = wal_manager.get_entries_since(0)
 
-        if not dirty_entries:
-            info("✅ No dirty entries to dump")
-            return {"success": True, "entries": 0, "message": "No dirty entries"}
+        if not wal_entries:
+            info("✅ No WAL entries to sync")
+            return {"success": True, "entries": 0, "message": "No WAL entries"}
 
-        info(f"📦 Found {len(dirty_entries)} dirty entries to dump")
+        info(f"📦 Found {len(wal_entries)} WAL entries to sync to DynamoDB")
 
-        # Group entries by table
-        users_items = []
-        daily_items = []
-        duels_items = []
-        bounties_items = []
+        # Track stats
+        total_synced = 0
+        total_failed = 0
+        errors = []
 
-        for entry in dirty_entries:
-            cache_type = entry.get('cache_type')
+        # Process each WAL operation
+        for entry in wal_entries:
+            operation = entry.get('operation')
+            table = entry.get('table')
+            key = entry.get('key')
             data = entry.get('data')
 
-            if not data:
+            if not all([operation, table, key, data]):
+                warning(f"Skipping incomplete WAL entry: {entry}")
                 continue
 
-            # Convert to DynamoDB format
-            dynamodb_item = convert_to_dynamodb_format(data)
-
-            # CRITICAL FIX: Convert string cache_type to CacheType enum for comparison
-            # cache_type is a string (e.g., "users") from cache key, not a CacheType enum
             try:
-                cache_type_enum = CacheType(cache_type)
-            except ValueError:
-                error(f"Unknown cache type: {cache_type}, skipping entry")
+                if operation == "UPDATE":
+                    # Build UpdateExpression from data
+                    update_expr_parts = []
+                    expr_attr_values = {}
+
+                    for field, value in data.items():
+                        update_expr_parts.append(f"{field} = :{field}")
+                        # Convert to DynamoDB format
+                        if isinstance(value, str):
+                            expr_attr_values[f":{field}"] = {'S': value}
+                        elif isinstance(value, int):
+                            expr_attr_values[f":{field}"] = {'N': str(value)}
+                        elif isinstance(value, float):
+                            expr_attr_values[f":{field}"] = {'N': str(value)}
+                        elif isinstance(value, bool):
+                            expr_attr_values[f":{field}"] = {'BOOL': value}
+                        elif isinstance(value, dict):
+                            expr_attr_values[f":{field}"] = {'M': convert_to_dynamodb_format(value)}
+                        elif isinstance(value, list):
+                            expr_attr_values[f":{field}"] = {'L': [{'S': str(item)} for item in value]}
+
+                    # Convert key to DynamoDB format
+                    dynamodb_key = {}
+                    for k, v in key.items():
+                        if isinstance(v, str):
+                            dynamodb_key[k] = {'S': v}
+                        elif isinstance(v, (int, float)):
+                            dynamodb_key[k] = {'N': str(v)}
+
+                    # Perform update
+                    ddb.update_item(
+                        TableName=table,
+                        Key=dynamodb_key,
+                        UpdateExpression=f"SET {', '.join(update_expr_parts)}",
+                        ExpressionAttributeValues=expr_attr_values
+                    )
+
+                elif operation == "PUT":
+                    # Full item put - merge key and data
+                    item = {**key, **data}
+                    dynamodb_item = convert_to_dynamodb_format(item)
+
+                    ddb.put_item(
+                        TableName=table,
+                        Item=dynamodb_item
+                    )
+
+                elif operation == "DELETE":
+                    # Convert key to DynamoDB format
+                    dynamodb_key = {}
+                    for k, v in key.items():
+                        if isinstance(v, str):
+                            dynamodb_key[k] = {'S': v}
+                        elif isinstance(v, (int, float)):
+                            dynamodb_key[k] = {'N': str(v)}
+
+                    ddb.delete_item(
+                        TableName=table,
+                        Key=dynamodb_key
+                    )
+
+                elif operation == "INCREMENT":
+                    # Build increment expression
+                    update_expr_parts = []
+                    expr_attr_values = {}
+
+                    for field, value in data.items():
+                        update_expr_parts.append(f"{field} = if_not_exists({field}, :zero) + :{field}")
+                        expr_attr_values[f":{field}"] = {'N': str(value)}
+
+                    expr_attr_values[":zero"] = {'N': '0'}
+
+                    # Convert key to DynamoDB format
+                    dynamodb_key = {}
+                    for k, v in key.items():
+                        if isinstance(v, str):
+                            dynamodb_key[k] = {'S': v}
+                        elif isinstance(v, (int, float)):
+                            dynamodb_key[k] = {'N': str(v)}
+
+                    ddb.update_item(
+                        TableName=table,
+                        Key=dynamodb_key,
+                        UpdateExpression=f"SET {', '.join(update_expr_parts)}",
+                        ExpressionAttributeValues=expr_attr_values
+                    )
+
+                total_synced += 1
+
+            except Exception as e:
+                total_failed += 1
+                error_msg = f"Failed to sync WAL entry to {table}: {e}"
+                error(error_msg)
+                errors.append(error_msg)
                 continue
 
-            # Route to appropriate table
-            if cache_type_enum == CacheType.USERS:
-                users_items.append(dynamodb_item)
-            elif cache_type_enum == CacheType.DAILY_PROBLEM or cache_type_enum == CacheType.DAILY_COMPLETIONS:
-                daily_items.append(dynamodb_item)
-            elif cache_type_enum == CacheType.DUELS:
-                duels_items.append(dynamodb_item)
-            elif cache_type_enum == CacheType.BOUNTIES or cache_type_enum == CacheType.BOUNTY_COMPETITIONS:
-                bounties_items.append(dynamodb_item)
-
-        # Batch write to each table
-        results = {}
-
-        if users_items:
-            info(f"💾 Writing {len(users_items)} users to DynamoDB...")
-            results['users'] = batch_write_to_dynamodb(USERS_TABLE, users_items)
-
-        if daily_items:
-            info(f"💾 Writing {len(daily_items)} daily items to DynamoDB...")
-            results['daily'] = batch_write_to_dynamodb(DAILY_TABLE, daily_items)
-
-        if duels_items:
-            info(f"💾 Writing {len(duels_items)} duels to DynamoDB...")
-            results['duels'] = batch_write_to_dynamodb(DUELS_TABLE, duels_items)
-
-        if bounties_items:
-            info(f"💾 Writing {len(bounties_items)} bounties to DynamoDB...")
-            results['bounties'] = batch_write_to_dynamodb(BOUNTIES_TABLE, bounties_items)
-
-        # Check overall success
-        all_successful = all(r.get('success', False) for r in results.values())
-
-        if all_successful:
-            # Mark all entries as synced
+        # Mark success if all synced
+        if total_failed == 0:
+            # Mark all cache entries as synced
+            dirty_entries = cache_manager.get_dirty_entries()
             for entry in dirty_entries:
                 cache_manager.mark_synced(entry['cache_type'], entry.get('identifier', ''))
 
-            # Clear WAL file
+            # Clear WAL file after successful sync
             wal_manager.clear()
 
-            total_written = sum(r.get('written', 0) for r in results.values())
-            info(f"✅ Cache dump complete: {total_written} entries written to DynamoDB")
+            info(f"✅ Cache dump complete: {total_synced} WAL operations synced to DynamoDB")
 
             return {
                 "success": True,
-                "entries": total_written,
-                "results": results
+                "entries": total_synced,
+                "failed": 0
             }
         else:
-            total_failed = sum(r.get('failed', 0) for r in results.values())
-            error(f"⚠️ Cache dump partially failed: {total_failed} entries failed")
+            warning(f"⚠️ Cache dump partially failed: {total_failed}/{len(wal_entries)} operations failed")
 
             return {
                 "success": False,
-                "entries": len(dirty_entries),
+                "entries": len(wal_entries),
+                "synced": total_synced,
                 "failed": total_failed,
-                "results": results
+                "errors": errors
             }
 
     except Exception as e:
