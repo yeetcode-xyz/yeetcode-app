@@ -103,12 +103,10 @@ async def complete_daily_problem_endpoint(
         # Complete the problem in database
         result = DailyProblemOperations.complete_daily_problem(request.username)
 
-        # Invalidate cache to force refresh
-        cache_manager.invalidate_all(CacheType.DAILY_COMPLETIONS)
-        cache_manager.invalidate_all(CacheType.DAILY_PROBLEM)
-        # NOTE: Don't invalidate USER_DAILY_DATA - it was just updated by complete_daily_in_cache()
-        # with the new streak value. Invalidating it would cause the next GET to fetch stale data
-        # from the database before WAL has synced.
+        # NOTE: No cache invalidation - complete_daily_in_cache() uses cache-first writes
+        # DAILY_PROBLEM, DAILY_COMPLETIONS, and USER_DAILY_DATA caches are all updated in-place
+        # Invalidating would destroy uncommitted streak/XP data before WAL can sync to DB
+        # Let cache TTL handle expiration naturally
 
         return result
     except Exception as error:
