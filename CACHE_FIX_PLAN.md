@@ -236,11 +236,34 @@ By removing cache invalidations, we:
 **Risk**: HIGH if not done carefully
 
 ### What Was Fixed:
+
+**Initial Fix (Commit 1):**
 The `dump_cache_to_db()` function in `cache_dumper.py` now:
-- Reads from WAL operation log (`wal_manager.get_entries_since(0)`) instead of raw cache entries
+- Reads from WAL operation log (`wal_manager.get_entries_since()`) instead of raw cache entries
 - Processes each WAL operation type correctly: UPDATE, PUT, DELETE, INCREMENT
 - Converts data to proper DynamoDB format based on operation type
 - Uses `update_item()` for UPDATEs (partial updates) instead of `put_item()` (full overwrites)
 - Tracks errors per operation instead of failing entire batch
 - Only clears WAL and marks entries synced if ALL operations succeed
+
+**Critical Follow-up Fixes (Commit 2):**
+
+1. **DELETE Validation Bug**:
+   - Problem: Validation used `if not all([operation, table, key, data])` which rejected DELETEs (no data field)
+   - Impact: DELETE operations silently skipped, WAL cleared anyway, deletes lost permanently
+   - Fix: Per-operation validation (DELETE only needs operation/table/key)
+   - Fix: Increment `total_failed` for invalid entries to prevent silent WAL clearing
+
+2. **INCREMENT Replay Bug**:
+   - Problem: Non-idempotent INCREMENT operations replayed from sequence 0 on every retry
+   - Impact: Users got 2x-3x XP/streak increments after partial sync failures
+   - Fix: Added checkpoint file tracking `last_applied_sequence`
+   - Fix: Resume from checkpoint + 1, update checkpoint after each successful write
+   - Implementation: Atomic checkpoint writes (temp file + `os.replace`) for crash safety
+
+**New WAL Manager Features:**
+- `get_last_applied_sequence()` - Returns checkpoint value
+- `set_last_applied_sequence(seq)` - Atomically updates checkpoint
+- Checkpoint file: `/tmp/yeetcode/wal.checkpoint`
+- Survives crashes and restarts
 
