@@ -28,6 +28,40 @@ def chunks(lst: List, n: int):
         yield lst[i:i + n]
 
 
+def convert_value_to_dynamodb(value):
+    """
+    Convert a single Python value to DynamoDB format (recursive helper)
+
+    Args:
+        value: Python value of any type
+
+    Returns:
+        DynamoDB formatted value with type key
+    """
+    if isinstance(value, bool):
+        # IMPORTANT: Check bool before int (bool is subclass of int in Python)
+        return {'BOOL': value}
+    elif isinstance(value, str):
+        return {'S': value}
+    elif isinstance(value, int):
+        return {'N': str(value)}
+    elif isinstance(value, float):
+        return {'N': str(value)}
+    elif isinstance(value, dict):
+        return {'M': convert_to_dynamodb_format(value)}
+    elif isinstance(value, list):
+        # Recursively convert each item in the list
+        dynamodb_list = []
+        for item in value:
+            dynamodb_list.append(convert_value_to_dynamodb(item))
+        return {'L': dynamodb_list}
+    elif value is None:
+        return {'NULL': True}
+    else:
+        # Fallback: convert to string
+        return {'S': str(value)}
+
+
 def convert_to_dynamodb_format(data: Dict) -> Dict:
     """
     Convert Python dict to DynamoDB format
@@ -41,29 +75,7 @@ def convert_to_dynamodb_format(data: Dict) -> Dict:
     dynamodb_item = {}
 
     for key, value in data.items():
-        if isinstance(value, str):
-            dynamodb_item[key] = {'S': value}
-        elif isinstance(value, int):
-            dynamodb_item[key] = {'N': str(value)}
-        elif isinstance(value, float):
-            dynamodb_item[key] = {'N': str(value)}
-        elif isinstance(value, bool):
-            dynamodb_item[key] = {'BOOL': value}
-        elif isinstance(value, dict):
-            dynamodb_item[key] = {'M': convert_to_dynamodb_format(value)}
-        elif isinstance(value, list):
-            # Convert list to DynamoDB List
-            dynamodb_list = []
-            for item in value:
-                if isinstance(item, str):
-                    dynamodb_list.append({'S': item})
-                elif isinstance(item, (int, float)):
-                    dynamodb_list.append({'N': str(item)})
-                elif isinstance(item, dict):
-                    dynamodb_list.append({'M': convert_to_dynamodb_format(item)})
-            dynamodb_item[key] = {'L': dynamodb_list}
-        elif value is None:
-            dynamodb_item[key] = {'NULL': True}
+        dynamodb_item[key] = convert_value_to_dynamodb(value)
 
     return dynamodb_item
 
@@ -189,19 +201,8 @@ async def dump_cache_to_db() -> Dict:
 
                     for field, value in data.items():
                         update_expr_parts.append(f"{field} = :{field}")
-                        # Convert to DynamoDB format
-                        if isinstance(value, str):
-                            expr_attr_values[f":{field}"] = {'S': value}
-                        elif isinstance(value, int):
-                            expr_attr_values[f":{field}"] = {'N': str(value)}
-                        elif isinstance(value, float):
-                            expr_attr_values[f":{field}"] = {'N': str(value)}
-                        elif isinstance(value, bool):
-                            expr_attr_values[f":{field}"] = {'BOOL': value}
-                        elif isinstance(value, dict):
-                            expr_attr_values[f":{field}"] = {'M': convert_to_dynamodb_format(value)}
-                        elif isinstance(value, list):
-                            expr_attr_values[f":{field}"] = {'L': [{'S': str(item)} for item in value]}
+                        # Convert to DynamoDB format using helper to preserve types
+                        expr_attr_values[f":{field}"] = convert_value_to_dynamodb(value)
 
                     # Convert key to DynamoDB format
                     dynamodb_key = {}
