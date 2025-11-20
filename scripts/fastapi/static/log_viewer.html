@@ -320,6 +320,130 @@
         .filter-info strong {
             color: #4ec9b0;
         }
+
+        .tab-button {
+            background: #3e3e42;
+            color: #d4d4d4;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .tab-button:hover {
+            background: #4e4e52;
+        }
+
+        .tab-button.active {
+            background: #0e639c;
+            color: white;
+        }
+
+        #cacheViewer {
+            display: none;
+        }
+
+        #cacheViewer.active {
+            display: block;
+        }
+
+        #logViewer.active {
+            display: block;
+        }
+
+        #logViewer {
+            display: none;
+        }
+
+        .cache-section {
+            background: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #3e3e42;
+        }
+
+        .cache-section h2 {
+            color: #4ec9b0;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cache-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .cache-item {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #3e3e42;
+        }
+
+        .cache-item-label {
+            color: #858585;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .cache-item-value {
+            color: #d4d4d4;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .cache-item-value.highlight {
+            color: #4ec9b0;
+            font-size: 24px;
+        }
+
+        .cache-keys-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #3e3e42;
+        }
+
+        .cache-key {
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            background: #2d2d30;
+            border-radius: 3px;
+            font-size: 12px;
+            font-family: 'SF Mono', monospace;
+            color: #9cdcfe;
+        }
+
+        .dirty-entry {
+            background: #3e2723;
+            border-left: 3px solid #f48771;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+
+        .dirty-entry-header {
+            color: #f48771;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .dirty-entry-info {
+            color: #858585;
+            font-size: 11px;
+        }
     </style>
 </head>
 <body>
@@ -327,7 +451,12 @@
         <header>
             <h1>📊 YeetCode FastAPI Log Viewer</h1>
 
-            <div class="controls">
+            <div class="tab-buttons" style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <button id="logsTab" class="tab-button active" style="flex: 1;">📜 Logs</button>
+                <button id="cacheTab" class="tab-button" style="flex: 1;">💾 Cache Status</button>
+            </div>
+
+            <div class="controls" id="logControls">
                 <div class="control-group">
                     <label>Search / Filter</label>
                     <input type="text" id="searchInput" placeholder="Search logs...">
@@ -410,6 +539,8 @@
             </div>
         </header>
 
+        <!-- Log Viewer Section -->
+        <div id="logViewer" class="active">
         <div class="stats" id="stats" style="display: none;">
             <div class="stat-item">
                 <span class="stat-label">Total Lines</span>
@@ -452,6 +583,51 @@
                 ⏳ Loading logs from server...
             </div>
         </div>
+        </div>
+        <!-- End Log Viewer -->
+
+        <!-- Cache Viewer Section -->
+        <div id="cacheViewer">
+            <div class="cache-section">
+                <h2>📊 Cache Statistics</h2>
+                <div class="cache-grid" id="cacheStatsGrid">
+                    <div class="cache-item">
+                        <div class="cache-item-label">Loading...</div>
+                        <div class="cache-item-value">⏳</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cache-section">
+                <h2>🗄️ WAL Status</h2>
+                <div class="cache-grid" id="walStatsGrid">
+                    <div class="cache-item">
+                        <div class="cache-item-label">Loading...</div>
+                        <div class="cache-item-value">⏳</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cache-section">
+                <h2>⚠️ Dirty Entries</h2>
+                <div id="dirtyEntriesContainer">
+                    <p style="color: #858585;">Loading...</p>
+                </div>
+            </div>
+
+            <div class="cache-section">
+                <h2>🔑 Cache Keys by Type</h2>
+                <div id="cacheKeysContainer">
+                    <p style="color: #858585;">Loading...</p>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="refreshCacheBtn">🔄 Refresh Cache Status</button>
+                <button id="dumpCacheBtn" class="secondary">💾 Trigger Cache Dump</button>
+            </div>
+        </div>
+        <!-- End Cache Viewer -->
     </div>
 
     <script>
@@ -932,6 +1108,176 @@
             allLogs.reverse();
             reverseSortBtn.textContent = isReversed ? '⬇️ Latest First' : '⬆️ Oldest First';
             filterLogs();
+        });
+
+        // ===== Cache Viewer Functionality =====
+
+        // Tab switching
+        const logsTab = document.getElementById('logsTab');
+        const cacheTab = document.getElementById('cacheTab');
+        const logViewer = document.getElementById('logViewer');
+        const cacheViewer = document.getElementById('cacheViewer');
+        const logControls = document.getElementById('logControls');
+
+        logsTab.addEventListener('click', () => {
+            logsTab.classList.add('active');
+            cacheTab.classList.remove('active');
+            logViewer.classList.add('active');
+            cacheViewer.classList.remove('active');
+            logControls.style.display = 'grid';
+        });
+
+        cacheTab.addEventListener('click', () => {
+            cacheTab.classList.add('active');
+            logsTab.classList.remove('active');
+            cacheViewer.classList.add('active');
+            logViewer.classList.remove('active');
+            logControls.style.display = 'none';
+            loadCacheStatus();
+        });
+
+        // Load cache status from API
+        async function loadCacheStatus() {
+            try {
+                const response = await fetch(`/admin/cache/status?api_key=${apiKey}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load cache status');
+                }
+
+                renderCacheStats(data.data);
+            } catch (error) {
+                console.error('Failed to load cache status:', error);
+                document.getElementById('cacheStatsGrid').innerHTML =
+                    `<div class="cache-item"><div class="cache-item-label">Error</div><div class="cache-item-value" style="color: #f48771;">${error.message}</div></div>`;
+            }
+        }
+
+        // Render cache statistics
+        function renderCacheStats(data) {
+            const cache = data.cache;
+            const wal = data.wal;
+            const dirtyEntries = data.dirty_entries;
+            const cacheKeys = data.cache_keys_by_type;
+
+            // Cache Stats
+            const cacheStatsHTML = `
+                <div class="cache-item">
+                    <div class="cache-item-label">Total Entries</div>
+                    <div class="cache-item-value highlight">${cache.total_entries || 0}</div>
+                </div>
+                <div class="cache-item">
+                    <div class="cache-item-label">Hit Rate</div>
+                    <div class="cache-item-value">${cache.hit_rate ? (cache.hit_rate * 100).toFixed(1) + '%' : 'N/A'}</div>
+                </div>
+                <div class="cache-item">
+                    <div class="cache-item-label">Users</div>
+                    <div class="cache-item-value">${cache.users || 0}</div>
+                </div>
+                <div class="cache-item">
+                    <div class="cache-item-label">Duels</div>
+                    <div class="cache-item-value">${cache.duels || 0}</div>
+                </div>
+                <div class="cache-item">
+                    <div class="cache-item-label">Bounties</div>
+                    <div class="cache-item-value">${cache.bounties || 0}</div>
+                </div>
+                <div class="cache-item">
+                    <div class="cache-item-label">Daily Problems</div>
+                    <div class="cache-item-value">${cache.daily_problem || 0}</div>
+                </div>
+            `;
+            document.getElementById('cacheStatsGrid').innerHTML = cacheStatsHTML;
+
+            // WAL Stats
+            const walStatsHTML = `
+                <div class="cache-item">
+                    <div class="cache-item-label">WAL Entries</div>
+                    <div class="cache-item-value highlight">${wal.entries || 0}</div>
+                </div>
+                <div class="cache-item">
+                    <div class="cache-item-label">File Size</div>
+                    <div class="cache-item-value">${wal.size_kb ? wal.size_kb.toFixed(2) + ' KB' : 'N/A'}</div>
+                </div>
+                <div class="cache-item">
+                    <div class="cache-item-label">Last Applied Sequence</div>
+                    <div class="cache-item-value">${wal.last_applied_sequence ?? 'N/A'}</div>
+                </div>
+                <div class="cache-item">
+                    <div class="cache-item-label">WAL Path</div>
+                    <div class="cache-item-value" style="font-size: 11px; word-break: break-all;">${wal.path || 'N/A'}</div>
+                </div>
+            `;
+            document.getElementById('walStatsGrid').innerHTML = walStatsHTML;
+
+            // Dirty Entries
+            if (dirtyEntries.count === 0) {
+                document.getElementById('dirtyEntriesContainer').innerHTML =
+                    '<p style="color: #4ec9b0;">✅ No dirty entries - all changes synced to DynamoDB</p>';
+            } else {
+                const dirtyHTML = dirtyEntries.entries.map(entry => `
+                    <div class="dirty-entry">
+                        <div class="dirty-entry-header">${entry.cache_type}: ${entry.identifier || '(no identifier)'}</div>
+                        <div class="dirty-entry-info">
+                            Timestamp: ${new Date(entry.timestamp * 1000).toLocaleString()} |
+                            Last Synced: ${entry.last_synced ? new Date(entry.last_synced * 1000).toLocaleString() : 'Never'}
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('dirtyEntriesContainer').innerHTML =
+                    `<p style="color: #dcdcaa; margin-bottom: 10px;">⚠️ ${dirtyEntries.count} dirty entries (showing first 10)</p>` + dirtyHTML;
+            }
+
+            // Cache Keys by Type
+            let keysHTML = '';
+            for (const [type, info] of Object.entries(cacheKeys)) {
+                keysHTML += `
+                    <div class="cache-section" style="margin-top: 10px;">
+                        <h3 style="color: #9cdcfe; font-size: 14px; margin-bottom: 10px;">${type} (${info.count} entries)</h3>
+                        <div class="cache-keys-list">
+                            ${info.sample_keys.length > 0
+                                ? info.sample_keys.map(key => `<div class="cache-key">${key}</div>`).join('')
+                                : '<p style="color: #858585;">No keys</p>'}
+                            ${info.count > 5 ? `<p style="color: #858585; margin-top: 10px; font-size: 11px;">... and ${info.count - 5} more</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('cacheKeysContainer').innerHTML = keysHTML;
+        }
+
+        // Refresh cache button
+        document.getElementById('refreshCacheBtn').addEventListener('click', loadCacheStatus);
+
+        // Dump cache button
+        document.getElementById('dumpCacheBtn').addEventListener('click', async () => {
+            if (!confirm('Trigger manual cache dump to DynamoDB? This will sync all dirty entries.')) {
+                return;
+            }
+
+            const btn = document.getElementById('dumpCacheBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Dumping...';
+
+            try {
+                const response = await fetch(`/admin/cache/dump?api_key=${apiKey}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`✅ Cache dump successful!\n\nSynced: ${data.entries} entries\nCheckpoint: ${data.checkpoint ?? 'N/A'}`);
+                    loadCacheStatus(); // Refresh after dump
+                } else {
+                    alert(`❌ Cache dump failed:\n\n${data.error || 'Unknown error'}\n\nSynced: ${data.synced || 0}/${data.entries || 0}`);
+                }
+            } catch (error) {
+                alert(`❌ Cache dump failed: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💾 Trigger Cache Dump';
+            }
         });
     </script>
 </body>
