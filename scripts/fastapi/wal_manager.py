@@ -43,14 +43,17 @@ class WALManager:
             wal_file_path = str(wal_dir / "wal.log")
 
         self._wal_file = wal_file_path
+        self._checkpoint_file = wal_file_path.replace('.log', '.checkpoint')
         self._lock = threading.RLock()
         self._sequence = 0
+        self._last_applied_sequence = -1
         self._file_handle = None
 
-        # Initialize WAL file
+        # Initialize WAL file and checkpoint
         self._init_wal_file()
+        self._load_checkpoint()
 
-        info(f"📝 WAL Manager initialized: {self._wal_file}")
+        info(f"📝 WAL Manager initialized: {self._wal_file} (checkpoint: {self._last_applied_sequence})")
 
     def _init_wal_file(self):
         """Initialize WAL file if it doesn't exist"""
@@ -222,6 +225,53 @@ class WALManager:
                 error(f"Failed to get WAL entries: {e}")
                 return []
 
+    def _load_checkpoint(self) -> None:
+        """Load last applied sequence from checkpoint file"""
+        try:
+            if os.path.exists(self._checkpoint_file):
+                with open(self._checkpoint_file, 'r') as f:
+                    data = json.load(f)
+                    self._last_applied_sequence = data.get('last_applied_sequence', -1)
+                    info(f"📍 Loaded checkpoint: last_applied_sequence = {self._last_applied_sequence}")
+            else:
+                info("📍 No checkpoint file found, starting from sequence -1")
+        except Exception as e:
+            error(f"Failed to load checkpoint: {e}, starting from -1")
+            self._last_applied_sequence = -1
+
+    def get_last_applied_sequence(self) -> int:
+        """Get the sequence number of the last successfully applied WAL entry"""
+        with self._lock:
+            return self._last_applied_sequence
+
+    def set_last_applied_sequence(self, sequence: int) -> bool:
+        """
+        Update the last applied sequence checkpoint (atomic write)
+
+        Args:
+            sequence: Sequence number of last successfully applied entry
+
+        Returns:
+            True if successful, False otherwise
+        """
+        with self._lock:
+            try:
+                # Write to temp file first, then atomic rename
+                temp_file = self._checkpoint_file + '.tmp'
+                with open(temp_file, 'w') as f:
+                    json.dump({'last_applied_sequence': sequence}, f)
+                    f.flush()
+                    os.fsync(f.fileno())
+
+                # Atomic rename (overwrites existing checkpoint)
+                os.replace(temp_file, self._checkpoint_file)
+
+                self._last_applied_sequence = sequence
+                return True
+            except Exception as e:
+                error(f"Failed to save checkpoint: {e}")
+                return False
+
     def get_stats(self) -> Dict:
         """Get WAL statistics"""
         with self._lock:
@@ -230,7 +280,8 @@ class WALManager:
                     return {
                         "exists": False,
                         "entries": 0,
-                        "size_bytes": 0
+                        "size_bytes": 0,
+                        "last_applied_sequence": self._last_applied_sequence
                     }
 
                 size = os.path.getsize(self._wal_file)
@@ -240,7 +291,8 @@ class WALManager:
                     "entries": self._sequence,
                     "size_bytes": size,
                     "size_kb": round(size / 1024, 2),
-                    "path": self._wal_file
+                    "path": self._wal_file,
+                    "last_applied_sequence": self._last_applied_sequence
                 }
 
             except Exception as e:

@@ -139,14 +139,18 @@ async def dump_cache_to_db() -> Dict:
     info("🗄️ Starting cache dump to DynamoDB via WAL operations...")
 
     try:
-        # Get all WAL entries (these have correct structure for DB writes)
-        wal_entries = wal_manager.get_entries_since(0)
+        # Get checkpoint to avoid replaying already-applied entries
+        last_applied = wal_manager.get_last_applied_sequence()
+        info(f"📍 Checkpoint: last_applied_sequence = {last_applied}")
+
+        # Get WAL entries since last checkpoint (+ 1 to get next unapplied entry)
+        wal_entries = wal_manager.get_entries_since(last_applied + 1)
 
         if not wal_entries:
-            info("✅ No WAL entries to sync")
-            return {"success": True, "entries": 0, "message": "No WAL entries"}
+            info("✅ No new WAL entries to sync")
+            return {"success": True, "entries": 0, "message": "No new WAL entries"}
 
-        info(f"📦 Found {len(wal_entries)} WAL entries to sync to DynamoDB")
+        info(f"📦 Found {len(wal_entries)} new WAL entries to sync to DynamoDB")
 
         # Track stats
         total_synced = 0
@@ -160,9 +164,22 @@ async def dump_cache_to_db() -> Dict:
             key = entry.get('key')
             data = entry.get('data')
 
-            if not all([operation, table, key, data]):
-                warning(f"Skipping incomplete WAL entry: {entry}")
-                continue
+            # Validate based on operation type
+            # DELETE operations don't require data, all others do
+            if operation == "DELETE":
+                if not all([operation, table, key]):
+                    total_failed += 1
+                    error_msg = f"Skipping incomplete DELETE entry (missing operation/table/key): {entry}"
+                    warning(error_msg)
+                    errors.append(error_msg)
+                    continue
+            else:
+                if not all([operation, table, key, data]):
+                    total_failed += 1
+                    error_msg = f"Skipping incomplete {operation} entry (missing required fields): {entry}"
+                    warning(error_msg)
+                    errors.append(error_msg)
+                    continue
 
             try:
                 if operation == "UPDATE":
@@ -254,11 +271,17 @@ async def dump_cache_to_db() -> Dict:
 
                 total_synced += 1
 
+                # Update checkpoint after successful operation to avoid replay
+                entry_sequence = entry.get('sequence', -1)
+                if entry_sequence >= 0:
+                    wal_manager.set_last_applied_sequence(entry_sequence)
+
             except Exception as e:
                 total_failed += 1
                 error_msg = f"Failed to sync WAL entry to {table}: {e}"
                 error(error_msg)
                 errors.append(error_msg)
+                # Don't update checkpoint on failure - will retry this entry next time
                 continue
 
         # Mark success if all synced
