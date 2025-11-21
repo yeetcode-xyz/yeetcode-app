@@ -206,9 +206,12 @@ async def dump_cache_to_db() -> Dict:
                     # Build UpdateExpression from data
                     update_expr_parts = []
                     expr_attr_values = {}
+                    expr_attr_names = {}
 
                     for field, value in data.items():
-                        update_expr_parts.append(f"{field} = :{field}")
+                        # Use ExpressionAttributeNames to escape reserved keywords
+                        update_expr_parts.append(f"#{field} = :{field}")
+                        expr_attr_names[f"#{field}"] = field
                         # Convert to DynamoDB format using helper to preserve types
                         expr_attr_values[f":{field}"] = convert_value_to_dynamodb(value)
 
@@ -220,11 +223,12 @@ async def dump_cache_to_db() -> Dict:
                         elif isinstance(v, (int, float)):
                             dynamodb_key[k] = {'N': str(v)}
 
-                    # Perform update
+                    # Perform update with ExpressionAttributeNames to handle reserved keywords
                     ddb.update_item(
                         TableName=table,
                         Key=dynamodb_key,
                         UpdateExpression=f"SET {', '.join(update_expr_parts)}",
+                        ExpressionAttributeNames=expr_attr_names,
                         ExpressionAttributeValues=expr_attr_values
                     )
 
@@ -256,9 +260,12 @@ async def dump_cache_to_db() -> Dict:
                     # Build increment expression
                     update_expr_parts = []
                     expr_attr_values = {}
+                    expr_attr_names = {}
 
                     for field, value in data.items():
-                        update_expr_parts.append(f"{field} = if_not_exists({field}, :zero) + :{field}")
+                        # Use ExpressionAttributeNames to escape reserved keywords
+                        update_expr_parts.append(f"#{field} = if_not_exists(#{field}, :zero) + :{field}")
+                        expr_attr_names[f"#{field}"] = field
                         expr_attr_values[f":{field}"] = {'N': str(value)}
 
                     expr_attr_values[":zero"] = {'N': '0'}
@@ -271,10 +278,12 @@ async def dump_cache_to_db() -> Dict:
                         elif isinstance(v, (int, float)):
                             dynamodb_key[k] = {'N': str(v)}
 
+                    # Perform update with ExpressionAttributeNames to handle reserved keywords
                     ddb.update_item(
                         TableName=table,
                         Key=dynamodb_key,
                         UpdateExpression=f"SET {', '.join(update_expr_parts)}",
+                        ExpressionAttributeNames=expr_attr_names,
                         ExpressionAttributeValues=expr_attr_values
                     )
 
