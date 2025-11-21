@@ -174,7 +174,7 @@ async def get_cache_status(
         from wal_manager import wal_manager
 
         # Get cache stats
-        cache_stats = cache_manager.get_stats()
+        cache_stats = cache_manager.get_cache_stats()
 
         # Get WAL stats
         wal_stats = wal_manager.get_stats()
