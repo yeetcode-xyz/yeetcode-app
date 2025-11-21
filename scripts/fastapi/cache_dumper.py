@@ -28,6 +28,40 @@ def chunks(lst: List, n: int):
         yield lst[i:i + n]
 
 
+def convert_value_to_dynamodb(value):
+    """
+    Convert a single Python value to DynamoDB format (recursive helper)
+
+    Args:
+        value: Python value of any type
+
+    Returns:
+        DynamoDB formatted value with type key
+    """
+    if isinstance(value, bool):
+        # IMPORTANT: Check bool before int (bool is subclass of int in Python)
+        return {'BOOL': value}
+    elif isinstance(value, str):
+        return {'S': value}
+    elif isinstance(value, int):
+        return {'N': str(value)}
+    elif isinstance(value, float):
+        return {'N': str(value)}
+    elif isinstance(value, dict):
+        return {'M': convert_to_dynamodb_format(value)}
+    elif isinstance(value, list):
+        # Recursively convert each item in the list
+        dynamodb_list = []
+        for item in value:
+            dynamodb_list.append(convert_value_to_dynamodb(item))
+        return {'L': dynamodb_list}
+    elif value is None:
+        return {'NULL': True}
+    else:
+        # Fallback: convert to string
+        return {'S': str(value)}
+
+
 def convert_to_dynamodb_format(data: Dict) -> Dict:
     """
     Convert Python dict to DynamoDB format
@@ -41,29 +75,7 @@ def convert_to_dynamodb_format(data: Dict) -> Dict:
     dynamodb_item = {}
 
     for key, value in data.items():
-        if isinstance(value, str):
-            dynamodb_item[key] = {'S': value}
-        elif isinstance(value, int):
-            dynamodb_item[key] = {'N': str(value)}
-        elif isinstance(value, float):
-            dynamodb_item[key] = {'N': str(value)}
-        elif isinstance(value, bool):
-            dynamodb_item[key] = {'BOOL': value}
-        elif isinstance(value, dict):
-            dynamodb_item[key] = {'M': convert_to_dynamodb_format(value)}
-        elif isinstance(value, list):
-            # Convert list to DynamoDB List
-            dynamodb_list = []
-            for item in value:
-                if isinstance(item, str):
-                    dynamodb_list.append({'S': item})
-                elif isinstance(item, (int, float)):
-                    dynamodb_list.append({'N': str(item)})
-                elif isinstance(item, dict):
-                    dynamodb_list.append({'M': convert_to_dynamodb_format(item)})
-            dynamodb_item[key] = {'L': dynamodb_list}
-        elif value is None:
-            dynamodb_item[key] = {'NULL': True}
+        dynamodb_item[key] = convert_value_to_dynamodb(value)
 
     return dynamodb_item
 
@@ -127,104 +139,204 @@ def batch_write_to_dynamodb(table_name: str, items: List[Dict]) -> Dict:
 
 async def dump_cache_to_db() -> Dict:
     """
-    Dump all dirty cache entries to DynamoDB
+    Dump all dirty cache entries to DynamoDB by replaying WAL operations.
+
+    CRITICAL FIX: Instead of dumping raw cache entries (which have wrapped structures
+    like {"success": True, "data": [...]}), we now read from the WAL operation log
+    which has correctly structured operations for DynamoDB updates.
 
     Returns:
         Dictionary with dump statistics
     """
-    info("🗄️ Starting cache dump to DynamoDB...")
+    info("🗄️ Starting cache dump to DynamoDB via WAL operations...")
 
     try:
-        # Get all dirty entries from cache
-        dirty_entries = cache_manager.get_dirty_entries()
+        # Get checkpoint to avoid replaying already-applied entries
+        last_applied = wal_manager.get_last_applied_sequence()
+        info(f"📍 Checkpoint: last_applied_sequence = {last_applied}")
 
-        if not dirty_entries:
-            info("✅ No dirty entries to dump")
-            return {"success": True, "entries": 0, "message": "No dirty entries"}
+        # Get WAL entries since last checkpoint (+ 1 to get next unapplied entry)
+        wal_entries = wal_manager.get_entries_since(last_applied + 1)
 
-        info(f"📦 Found {len(dirty_entries)} dirty entries to dump")
+        if not wal_entries:
+            info("✅ No new WAL entries to sync")
+            return {"success": True, "entries": 0, "message": "No new WAL entries"}
 
-        # Group entries by table
-        users_items = []
-        daily_items = []
-        duels_items = []
-        bounties_items = []
+        info(f"📦 Found {len(wal_entries)} new WAL entries to sync to DynamoDB")
 
-        for entry in dirty_entries:
-            cache_type = entry.get('cache_type')
+        # Track stats
+        total_synced = 0
+        total_failed = 0
+        errors = []
+
+        # Process each WAL operation until first failure
+        # CRITICAL: We must stop on first failure to prevent double-applying later INCREMENTs
+        # Example: seq 1 ✅, seq 2 ❌, seq 3 INCREMENT ✅ (checkpoint=1)
+        # Next run: seq 2 fails again, seq 3 replayed → INCREMENT applied twice!
+        for entry in wal_entries:
+            operation = entry.get('operation')
+            table = entry.get('table')
+            key = entry.get('key')
             data = entry.get('data')
 
-            if not data:
-                continue
+            # Track sequence for checkpoint management
+            entry_sequence = entry.get('sequence', -1)
 
-            # Convert to DynamoDB format
-            dynamodb_item = convert_to_dynamodb_format(data)
+            # Validate based on operation type
+            # DELETE operations don't require data, all others do
+            if operation == "DELETE":
+                if not all([operation, table, key]):
+                    total_failed += 1
+                    error_msg = f"Incomplete DELETE entry at sequence {entry_sequence}: {entry}"
+                    warning(error_msg)
+                    errors.append(error_msg)
+                    # STOP processing to prevent replaying later entries (especially INCREMENTs)
+                    break
+            else:
+                if not all([operation, table, key, data]):
+                    total_failed += 1
+                    error_msg = f"Incomplete {operation} entry at sequence {entry_sequence}: {entry}"
+                    warning(error_msg)
+                    errors.append(error_msg)
+                    # STOP processing to prevent replaying later entries (especially INCREMENTs)
+                    break
 
-            # CRITICAL FIX: Convert string cache_type to CacheType enum for comparison
-            # cache_type is a string (e.g., "users") from cache key, not a CacheType enum
             try:
-                cache_type_enum = CacheType(cache_type)
-            except ValueError:
-                error(f"Unknown cache type: {cache_type}, skipping entry")
-                continue
+                if operation == "UPDATE":
+                    # Build UpdateExpression from data
+                    update_expr_parts = []
+                    expr_attr_values = {}
 
-            # Route to appropriate table
-            if cache_type_enum == CacheType.USERS:
-                users_items.append(dynamodb_item)
-            elif cache_type_enum == CacheType.DAILY_PROBLEM or cache_type_enum == CacheType.DAILY_COMPLETIONS:
-                daily_items.append(dynamodb_item)
-            elif cache_type_enum == CacheType.DUELS:
-                duels_items.append(dynamodb_item)
-            elif cache_type_enum == CacheType.BOUNTIES or cache_type_enum == CacheType.BOUNTY_COMPETITIONS:
-                bounties_items.append(dynamodb_item)
+                    for field, value in data.items():
+                        update_expr_parts.append(f"{field} = :{field}")
+                        # Convert to DynamoDB format using helper to preserve types
+                        expr_attr_values[f":{field}"] = convert_value_to_dynamodb(value)
 
-        # Batch write to each table
-        results = {}
+                    # Convert key to DynamoDB format
+                    dynamodb_key = {}
+                    for k, v in key.items():
+                        if isinstance(v, str):
+                            dynamodb_key[k] = {'S': v}
+                        elif isinstance(v, (int, float)):
+                            dynamodb_key[k] = {'N': str(v)}
 
-        if users_items:
-            info(f"💾 Writing {len(users_items)} users to DynamoDB...")
-            results['users'] = batch_write_to_dynamodb(USERS_TABLE, users_items)
+                    # Perform update
+                    ddb.update_item(
+                        TableName=table,
+                        Key=dynamodb_key,
+                        UpdateExpression=f"SET {', '.join(update_expr_parts)}",
+                        ExpressionAttributeValues=expr_attr_values
+                    )
 
-        if daily_items:
-            info(f"💾 Writing {len(daily_items)} daily items to DynamoDB...")
-            results['daily'] = batch_write_to_dynamodb(DAILY_TABLE, daily_items)
+                elif operation == "PUT":
+                    # Full item put - merge key and data
+                    item = {**key, **data}
+                    dynamodb_item = convert_to_dynamodb_format(item)
 
-        if duels_items:
-            info(f"💾 Writing {len(duels_items)} duels to DynamoDB...")
-            results['duels'] = batch_write_to_dynamodb(DUELS_TABLE, duels_items)
+                    ddb.put_item(
+                        TableName=table,
+                        Item=dynamodb_item
+                    )
 
-        if bounties_items:
-            info(f"💾 Writing {len(bounties_items)} bounties to DynamoDB...")
-            results['bounties'] = batch_write_to_dynamodb(BOUNTIES_TABLE, bounties_items)
+                elif operation == "DELETE":
+                    # Convert key to DynamoDB format
+                    dynamodb_key = {}
+                    for k, v in key.items():
+                        if isinstance(v, str):
+                            dynamodb_key[k] = {'S': v}
+                        elif isinstance(v, (int, float)):
+                            dynamodb_key[k] = {'N': str(v)}
 
-        # Check overall success
-        all_successful = all(r.get('success', False) for r in results.values())
+                    ddb.delete_item(
+                        TableName=table,
+                        Key=dynamodb_key
+                    )
 
-        if all_successful:
-            # Mark all entries as synced
-            for entry in dirty_entries:
-                cache_manager.mark_synced(entry['cache_type'], entry.get('identifier', ''))
+                elif operation == "INCREMENT":
+                    # Build increment expression
+                    update_expr_parts = []
+                    expr_attr_values = {}
 
-            # Clear WAL file
-            wal_manager.clear()
+                    for field, value in data.items():
+                        update_expr_parts.append(f"{field} = if_not_exists({field}, :zero) + :{field}")
+                        expr_attr_values[f":{field}"] = {'N': str(value)}
 
-            total_written = sum(r.get('written', 0) for r in results.values())
-            info(f"✅ Cache dump complete: {total_written} entries written to DynamoDB")
+                    expr_attr_values[":zero"] = {'N': '0'}
+
+                    # Convert key to DynamoDB format
+                    dynamodb_key = {}
+                    for k, v in key.items():
+                        if isinstance(v, str):
+                            dynamodb_key[k] = {'S': v}
+                        elif isinstance(v, (int, float)):
+                            dynamodb_key[k] = {'N': str(v)}
+
+                    ddb.update_item(
+                        TableName=table,
+                        Key=dynamodb_key,
+                        UpdateExpression=f"SET {', '.join(update_expr_parts)}",
+                        ExpressionAttributeValues=expr_attr_values
+                    )
+
+                else:
+                    # Unknown operation type - fail explicitly
+                    total_failed += 1
+                    error_msg = f"Unknown WAL operation type '{operation}' at sequence {entry_sequence}"
+                    warning(error_msg)
+                    errors.append(error_msg)
+                    # STOP processing to prevent replaying later entries (especially INCREMENTs)
+                    break
+
+                total_synced += 1
+
+                # Update checkpoint after each successful operation
+                # This is safe because we STOP on first failure (break above)
+                if entry_sequence >= 0:
+                    wal_manager.set_last_applied_sequence(entry_sequence)
+
+            except Exception as e:
+                total_failed += 1
+                error_msg = f"Failed to sync WAL entry at sequence {entry_sequence} to {table}: {e}"
+                error(error_msg)
+                errors.append(error_msg)
+                # STOP processing to prevent replaying later entries (especially INCREMENTs)
+                break
+
+        # Mark success if all synced
+        if total_failed == 0:
+            # CRITICAL FIX: Clear WAL entries ONLY up to the last successfully applied sequence
+            # This prevents race condition where new writes after our snapshot are lost
+
+            # Get the highest sequence we successfully applied
+            last_synced_sequence = wal_manager.get_last_applied_sequence()
+
+            # Clear WAL entries up to last_synced_sequence, keeping any concurrent writes
+            # that occurred after our snapshot (sequence > last_synced_sequence)
+            wal_manager.clear_up_to(last_synced_sequence)
+
+            # Note: We intentionally DON'T call cache_manager.mark_synced() here because:
+            # - Cache entries don't track their WAL sequence number
+            # - We can't safely determine which cache entries map to synced WAL entries
+            # - Dirty flags in cache are eventually consistent (background task marks them synced)
+            # - The WAL checkpoint is our source of truth for what's been persisted
+
+            info(f"✅ Cache dump complete: {total_synced} WAL operations synced to DynamoDB (checkpoint: {last_synced_sequence})")
 
             return {
                 "success": True,
-                "entries": total_written,
-                "results": results
+                "entries": total_synced,
+                "failed": 0,
+                "checkpoint": last_synced_sequence
             }
         else:
-            total_failed = sum(r.get('failed', 0) for r in results.values())
-            error(f"⚠️ Cache dump partially failed: {total_failed} entries failed")
+            warning(f"⚠️ Cache dump partially failed: {total_failed}/{len(wal_entries)} operations failed")
 
             return {
                 "success": False,
-                "entries": len(dirty_entries),
+                "entries": len(wal_entries),
+                "synced": total_synced,
                 "failed": total_failed,
-                "results": results
+                "errors": errors
             }
 
     except Exception as e:

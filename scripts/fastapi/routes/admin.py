@@ -153,3 +153,83 @@ async def get_log_content(
         return {"success": True, "content": content, "path": log_path}
     except Exception as error:
         return {"success": False, "error": str(error)}
+
+
+@router.get("/cache/status")
+async def get_cache_status(
+    api_key: str = Depends(verify_api_key_query)
+):
+    """Get comprehensive cache status including all entries and WAL stats
+
+    Access via: /admin/cache/status?api_key=YOUR_API_KEY
+
+    Returns:
+        - Cache stats (size, hit rate, entries per type)
+        - WAL stats (entries, checkpoint, file size)
+        - Sample of cache entries (keys only, for privacy)
+        - Dirty entries count
+    """
+    try:
+        from cache_manager import cache_manager
+        from wal_manager import wal_manager
+
+        # Get cache stats
+        cache_stats = cache_manager.get_stats()
+
+        # Get WAL stats
+        wal_stats = wal_manager.get_stats()
+
+        # Get dirty entries info (without exposing data)
+        dirty_entries = cache_manager.get_dirty_entries()
+        dirty_summary = []
+        for entry in dirty_entries:
+            dirty_summary.append({
+                "cache_type": entry.get('cache_type'),
+                "identifier": entry.get('identifier', '(no identifier)'),
+                "timestamp": entry.get('timestamp'),
+                "last_synced": entry.get('last_synced')
+            })
+
+        # Get cache keys by type (for debugging)
+        # Note: Accessing _cache directly for admin debugging only
+        # TODO: Add public method to CacheManager for proper encapsulation
+        cache_keys_by_type = {}
+        for cache_type in ["users", "duels", "bounties", "daily_problem", "daily_completions", "user_daily_data"]:
+            keys = [k for k in cache_manager._cache.keys() if k.startswith(f"{cache_type}:")]
+            cache_keys_by_type[cache_type] = {
+                "count": len(keys),
+                "sample_keys": keys[:5]  # Only show first 5 for privacy
+            }
+
+        return {
+            "success": True,
+            "data": {
+                "cache": cache_stats,
+                "wal": wal_stats,
+                "dirty_entries": {
+                    "count": len(dirty_entries),
+                    "entries": dirty_summary[:10]  # Only show first 10
+                },
+                "cache_keys_by_type": cache_keys_by_type,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        }
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@router.post("/cache/dump")
+async def trigger_cache_dump(
+    api_key: str = Depends(verify_api_key_query)
+):
+    """Manually trigger cache dump to DynamoDB
+
+    Access via: POST /admin/cache/dump?api_key=YOUR_API_KEY
+    """
+    try:
+        from cache_dumper import dump_cache_to_db
+        result = await dump_cache_to_db()
+        # dump_cache_to_db already returns {"success": ..., ...}, don't double-wrap
+        return result
+    except Exception as error:
+        return {"success": False, "error": str(error)}
