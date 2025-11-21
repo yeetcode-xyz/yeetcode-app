@@ -8,7 +8,7 @@ const QuickActions = ({ groupData, handleLogout }) => {
   const [selectedProblem, setSelectedProblem] = useState(null);
 
   const getInviteMessage = () => {
-    return `🚀 Join my YeetCode group and let's compete on LeetCode problems!\n\nGroup ID: ${groupData?.code}\n\nDownload YeetCode: https://yeetcode-website.vercel.app/\n\nLet's see who can solve more problems! 💻⚡`;
+    return `Join my YeetCode group and let's compete on LeetCode problems!\n\nGroup ID: ${groupData?.code}\n\nDownload YeetCode: https://yeetcode.xyz/ \nLet's see who can solve more problems!`;
   };
 
   const handleCopyInvite = () => {
