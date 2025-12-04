@@ -9,7 +9,7 @@ import OnboardingStep from './OnboardingStep';
 import GroupStep from './GroupStep';
 import LeaderboardStep from './LeaderboardStep';
 
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 function App() {
   const [step, setStep] = useState('welcome');
   const [userData, setUserData] = useState({
