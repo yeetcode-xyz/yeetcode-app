@@ -1,7 +1,7 @@
 {
   "name": "yeetcode-app",
   "productName": "YeetCode",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "YeetCode - Competitive Programming Practice App",
   "main": "src/index.js",
   "config": {
@@ -82,7 +82,7 @@
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
       "gatekeeperAssess": false,
-      "notarize": false
+      "notarize": true
     },
     "dmg": {
       "contents": [
